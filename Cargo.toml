@@ -1,0 +1,23 @@
+[package]
+name = "agent-harness"
+version = "0.2.7"
+edition = "2024"
+rust-version = "1.89"
+description = "A composable Rust agent harness with durable conversations and pluggable capabilities"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/NeoPanic/harness"
+keywords = ["agent", "harness", "plugins", "llm"]
+categories = ["asynchronous"]
+include = ["src/**", "examples/**", "Cargo.toml", "README.md", "GUIDE.zh-CN.md", "LICENSE"]
+
+[dependencies]
+serde_yaml_ng = "0.10"
+sha2 = "0.10"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["time", "macros", "rt", "sync"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+uuid = { version = "1", features = ["v4"] }
