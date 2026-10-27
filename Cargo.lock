@@ -3,21 +3,6 @@
 version = 4
 
 [[package]]
-name = "agent-harness"
-version = "0.2.7"
-dependencies = [
- "async-trait",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "sha2",
- "thiserror",
- "tokio",
- "tokio-util",
- "uuid",
-]
-
-[[package]]
 name = "async-trait"
 version = "0.1.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -151,6 +136,21 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi",
+]
+
+[[package]]
+name = "harness3"
+version = "0.2.7"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "uuid",
 ]
 
 [[package]]

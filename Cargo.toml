@@ -1,15 +1,16 @@
 [package]
-name = "agent-harness"
+name = "harness3"
 version = "0.2.7"
 edition = "2024"
 rust-version = "1.89"
-description = "A composable Rust agent harness with durable conversations and pluggable capabilities"
+description = "Harness³: a composable Rust runtime for agent collectives, with durable sessions and pluggable capabilities"
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/NeoPanic/harness"
-keywords = ["agent", "harness", "plugins", "llm"]
+repository = "https://github.com/NeoPanic/harness3"
+homepage = "https://github.com/NeoPanic/harness3"
+keywords = ["agent", "harness", "multi-agent", "llm", "runtime"]
 categories = ["asynchronous"]
-include = ["src/**", "examples/**", "Cargo.toml", "README.md", "GUIDE.zh-CN.md", "LICENSE"]
+include = ["src/**", "examples/**", "Cargo.toml", "README.md", "README.zh-CN.md", "GUIDE.zh-CN.md", "docs/**", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "LICENSE"]
 
 [dependencies]
 serde_yaml_ng = "0.10"

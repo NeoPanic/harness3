@@ -1,0 +1,35 @@
+name: Bug report / 缺陷报告
+description: Report a reproducible runtime or documentation defect.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities, follow [SECURITY.md](https://github.com/NeoPanic/harness3/blob/main/SECURITY.md). Remove secrets and private trace content. English and Chinese reports are welcome."
+  - type: input
+    id: revision
+    attributes:
+      label: Revision and environment / 版本与环境
+      description: Git commit, rustc --version, OS, and relevant host adapters.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction / 最小复现
+      description: Include runnable code or exact steps and synthetic inputs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 预期行为
+      description: Link the affected runtime contract when applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / 实际行为
+      description: Include sanitized errors and whether external effects occurred.
+    validations:
+      required: true

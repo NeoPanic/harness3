@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 272" width="256" height="272" role="img" aria-labelledby="title desc">
+<title id="title">Harness³ monochrome mark</title>
+<desc id="desc">Three isometric frames forming a cube, in dark ink for a light background.</desc>
+<path fill="#101322" d="M128 24 218 76 128 128 38 76Z"/>
+<path fill="#101322" d="m32 88 90 52v104l-90-52Z"/>
+<path fill="#101322" d="m134 140 90-52v104l-90 52Z"/>
+<g fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="square">
+<path d="m83 76 45-26 45 26-45 26Z"/>
+<path d="m57 131 40 23v46l-40-23Z"/>
+<path d="m159 154 40-23v46l-40 23Z"/>
+</g>
+</svg>

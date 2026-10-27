@@ -1,4 +1,8 @@
-# Harness 中文导读：从一条消息到可靠的执行结果
+# Harness³ 中文导读：从一条消息到可靠的执行结果
+
+[项目首页](README.zh-CN.md) · [运行契约](docs/runtime.md) · [可运行示例](examples/quickstart.rs)
+
+Harness³ 面向 Agent 集群提供可组合的执行内核；本文中的 `Harness` 指 Rust 执行器类型。
 
 这份导读对应本目录的实际 Rust 源码。示例中的“查找联系人”“保存资料”用于解释协作关系，具体业务工具由外部应用提供。
 

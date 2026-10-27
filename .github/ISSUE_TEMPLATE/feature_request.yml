@@ -1,0 +1,25 @@
+name: Feature proposal / 功能提案
+description: Propose a capability or a change to an execution contract.
+title: "[Proposal]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Use case / 使用场景
+      description: What concrete host or agent workflow needs this capability?
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Proposed design / 方案
+      description: Explain the core or adapter boundary and alternatives considered.
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Contracts and compatibility / 契约与兼容性
+      description: Consider public APIs, stored sessions, authority, cancellation, and unknown outcomes.
+    validations:
+      required: true

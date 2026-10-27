@@ -1,4 +1,7 @@
-//! A provider-, transport- and storage-independent agent harness.
+//! Harness³ — a composable runtime for agent collectives.
+//!
+//! Provider-, transport- and storage-independent execution with durable sessions.
+//! The Rust package and import name are `harness3`; the execution API is [`Harness`].
 //! Capabilities are trusted Rust components registered explicitly, not downloaded code.
 pub mod context;
 pub mod driver;
