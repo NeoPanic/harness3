@@ -14,7 +14,7 @@ function goalPage(g) {
   const complete=g.tasks.filter(t=>t.state==='completed').length;
   return `<a class="back-link" href="#goals">← 全部协作目标</a>`+head('SHARED GOAL',esc(g.title),'任务成功只表示执行已结算，目标是否达成需要按验收标准核对。',actions)+
     `<div class="goal-summary"><div><span>目标状态</span>${badge(g.state)}</div><div><span>任务完成</span><strong>${complete} / ${g.tasks.length}</strong></div><div><span>同步方式</span><strong>${active?'每 1.5 秒同步':'已结算 · 持久保存'}</strong></div></div>`+
-    panel('共同目标与验收',`<div class="panel-body"><dl class="definition"><dt>共同目标</dt><dd>${esc(g.objective)}</dd><dt>验收标准</dt><dd>${esc(g.acceptance)}</dd>${g.review?`<dt>验收记录</dt><dd>${esc(g.review)}</dd>`:''}</dl><details class="raw-data" id="goal-identity"><summary>目标身份与计划</summary>${identity('Goal ID',g.id)}${jsonView({title:g.title,objective:g.objective,acceptance:g.acceptance,tasks:g.tasks.map(({key,instance_id,instructions,depends_on})=>({key,instance_id,instructions,depends_on}))})}</details></div>`)+
+    panel('共同目标与验收',`<div class="panel-body"><dl class="definition"><dt>共同目标</dt><dd>${esc(g.objective)}</dd><dt>验收标准</dt><dd>${esc(g.acceptance)}</dd>${g.review?`<dt>验收记录</dt><dd>${esc(g.review)}</dd>`:''}</dl><details class="raw-data" id="goal-identity"><summary>目标身份与计划</summary>${identity('Goal ID',g.id)}${dataView({title:g.title,objective:g.objective,acceptance:g.acceptance,tasks:g.tasks.map(({key,instance_id,instructions,depends_on})=>({key,instance_id,instructions,depends_on}))})}</details></div>`)+
     `<div class="goal-task-heading"><h2>任务与贡献</h2><span class="hint">${active?'状态自动同步；运行详情按需刷新。':'所有结果保留原始运行链接。'}</span></div><div class="work-items">${g.tasks.map(t=>workItem(g,t)).join('')}</div>`;
 }
 function workItem(g,t) {

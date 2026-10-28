@@ -2,8 +2,8 @@
 function presetBindings(definition) {return definition.plugin_snapshots || (definition.plugin_snapshot?[definition.plugin_snapshot]:[]);}
 function presetForm() {
   const parents=data.presets;
-  const plugins=[...data.plugins,...(data.process_plugins||[]).filter(p=>p.state==='enabled')];
-  openModal('发布母体版本',`<form data-form="preset"><div class="grid-two"><label>名称<input name="name" required pattern="[A-Za-z0-9._-]+" placeholder="researcher"></label><label>版本<input name="version" required value="1.0.0" pattern="[A-Za-z0-9._-]+"></label></div><label>基于已发布母体<select name="extends"><option value="">独立定义</option>${parents.map(p=>`<option value="${esc(JSON.stringify({name:p.name,version:p.version}))}">${esc(p.name)} @ ${esc(p.version)}</option>`).join('')}</select></label><div id="parent-summary" class="hint"></div><label>模型协议<select name="protocol"><option value="">继承父级协议</option>${data.models.filter(m=>m.configured).map(m=>`<option value="${esc(m.protocol)}" ${m.protocol==='openai-responses'?'selected':''}>${esc(m.protocol)} · ${esc(m.model)}</option>`).join('')}</select></label><label>主要功能<input name="purpose" required placeholder="研究给定资料并提出有依据的结论" maxlength="2000"></label><label>预期目标<textarea name="objective" required placeholder="可引用参数，例如：研究 {{topic}}，所有结论附来源" maxlength="8000"></textarea></label><label>系统指令<textarea name="instructions" required maxlength="32000" placeholder="定义 Agent 的行为和证据要求；留空可继承父级"></textarea></label><fieldset><legend>插件绑定</legend><label>绑定策略<select name="binding_mode"><option value="inherit">沿用父级绑定（独立定义为空）</option><option value="replace">替换为以下选择</option></select></label><div id="preset-bindings">${plugins.length?plugins.map(p=>`<label class="capability-choice"><input type="checkbox" name="binding" value="${esc(JSON.stringify({id:p.id,version:p.version}))}" disabled><span><strong class="mono">${esc(p.id)} @ ${esc(p.version)}</strong><small>${p.definition?.kind==='process'?'外部进程工具':'提示词包'}</small></span></label>`).join(''):'<p class="hint">尚无可绑定插件，可先在插件与能力页安装。</p>'}</div><p class="hint">最多 16 个插件，同一 ID 只能选一个版本。替换并留空可清除继承的全部绑定。</p></fieldset><fieldset><legend>实例参数</legend><label>参数策略<select name="parameter_mode"><option value="inherit">沿用父级 schema 与默认值</option><option value="replace">定义新的参数表</option></select></label><div id="parameter-editor" hidden><div id="parameter-rows"></div><button type="button" class="text-button" data-action="parameter-add">＋ 添加参数</button><p class="hint">用途、目标和系统指令使用 {{参数名}} 引用。默认值留空表示未设置；布尔值填写 true 或 false。参数值作为指令文本传给模型，请勿填写密钥。</p></div></fieldset><p class="hint">发布时固定完整配置、父级来源和能力摘要；最多 16 层单继承。旧实例与会话保持原快照。</p>${formEnd('发布版本')}</form>`,'母体组合');
+  const plugins=[...(data.builtin_plugins||[]),...data.plugins,...(data.process_plugins||[]).filter(p=>p.state==='enabled')];
+  openModal('发布母体版本',`<form data-form="preset"><div class="grid-two"><label>名称<input name="name" required pattern="[A-Za-z0-9._-]+" placeholder="researcher"></label><label>版本<input name="version" required value="1.0.0" pattern="[A-Za-z0-9._-]+"></label></div><label>基于已发布母体<select name="extends"><option value="">独立定义</option>${parents.map(p=>`<option value="${esc(JSON.stringify({name:p.name,version:p.version}))}">${esc(p.name)} @ ${esc(p.version)}</option>`).join('')}</select></label><div id="parent-summary" class="hint"></div><label>模型协议<select name="protocol"><option value="">继承父级协议</option>${data.models.filter(m=>m.configured).map(m=>`<option value="${esc(m.protocol)}" ${m.protocol==='openai-responses'?'selected':''}>${esc(m.protocol)} · ${esc(m.model)}</option>`).join('')}</select></label><label>主要功能<input name="purpose" required placeholder="研究给定资料并提出有依据的结论" maxlength="2000"></label><label>预期目标<textarea name="objective" required placeholder="可引用参数，例如：研究 {{topic}}，所有结论附来源" maxlength="8000"></textarea></label><label>系统指令<textarea name="instructions" required maxlength="32000" placeholder="定义 Agent 的行为和证据要求；留空可继承父级"></textarea></label><fieldset><legend>插件绑定</legend><label>绑定策略<select name="binding_mode"><option value="inherit">沿用父级绑定（独立定义为空）</option><option value="replace">替换为以下选择</option></select></label><div id="preset-bindings">${plugins.length?plugins.map(p=>`<label class="capability-choice"><input type="checkbox" name="binding" value="${esc(JSON.stringify({id:p.id,version:p.version}))}" disabled><span><strong class="mono">${esc(p.id)} @ ${esc(p.version)}</strong><small>${p.kind==='organization'?'内置组织能力 · 同组或活动目标范围':p.definition?.kind==='process'?'外部进程工具':'提示词包'}</small></span></label>`).join(''):'<p class="hint">尚无可绑定插件，可先在插件与能力页安装。</p>'}</div><p class="hint">最多 16 个插件，同一 ID 只能选一个版本。替换并留空可清除继承的全部绑定。</p></fieldset><fieldset><legend>实例参数</legend><label>参数策略<select name="parameter_mode"><option value="inherit">沿用父级 schema 与默认值</option><option value="replace">定义新的参数表</option></select></label><div id="parameter-editor" hidden><div id="parameter-rows"></div><button type="button" class="text-button" data-action="parameter-add">＋ 添加参数</button><p class="hint">用途、目标和系统指令使用 {{参数名}} 引用。默认值留空表示未设置；布尔值填写 true 或 false。参数值作为指令文本传给模型，请勿填写密钥。</p></div></fieldset><p class="hint">发布时固定完整配置、父级来源和能力摘要；最多 16 层单继承。旧实例与会话保持原快照。</p>${formEnd('发布版本')}</form>`,'母体组合');
 }
 function updatePresetParent(form) {
   const ref=form.elements.extends.value?JSON.parse(form.elements.extends.value):null;
@@ -43,14 +43,53 @@ function presetPayload(form) {
   }
   return body;
 }
+function scalarControl(schema,value,required=false) {
+  const type=schema.type,attrs=`data-value-scalar ${required?'required':''}`;
+  if(schema.enum)return `<select ${attrs}><option value="">未设置</option>${schema.enum.map((v,i)=>`<option value="${i}" ${JSON.stringify(v)===JSON.stringify(value)?'selected':''}>${esc(valueText(v))}</option>`).join('')}</select>`;
+  if(type==='boolean')return `<select ${attrs}><option value="">未设置</option><option value="true" ${value===true?'selected':''}>是</option><option value="false" ${value===false?'selected':''}>否</option></select>`;
+  if(type==='null')return '<span class="hint">空值</span>';
+  return `<input ${attrs} ${['integer','number'].includes(type)?`type="number" step="${type==='integer'?'1':'any'}"`:''} value="${esc(value??'')}">`;
+}
+function structuredEditor(schema,value) {
+  const attrs=`data-structured-schema="${esc(JSON.stringify(schema))}"`;
+  if(schema.type==='object'&&!schema.enum)return `<div class="structured-editor" ${attrs}>${Object.entries(schema.properties||{}).map(([key,child])=>{
+    const required=(schema.required||[]).includes(key),present=value&&Object.hasOwn(value,key);
+    return `<div data-member="${esc(key)}"><label>${esc(key)}${required?' · 必填':''}${['object','array'].includes(child.type)&&!child.enum?`<input type="checkbox" data-complex-include ${required||present?'checked':''} ${required?'disabled':''}>` :''}</label>${['object','array'].includes(child.type)&&!child.enum?`<fieldset data-complex-fields ${required||present?'':'hidden disabled'}>${structuredEditor(child,value?.[key])}</fieldset>`:scalarControl(child,value?.[key],required)}${child.description?`<p class="hint">${esc(child.description)}</p>`:''}</div>`;
+  }).join('')}</div>`;
+  if(schema.type==='array'&&!schema.enum) {
+    const values=Array.isArray(value)?value:[];
+    return `<div class="structured-editor" ${attrs}><div data-array-items>${values.map(v=>arrayItem(schema.items,v)).join('')}</div><button type="button" class="text-button" data-action="complex-add">添加一项</button><p class="hint">${schema.minItems?`至少 ${schema.minItems} 项；`:''}${schema.maxItems?`最多 ${schema.maxItems} 项`:'按参数规则校验'}</p></div>`;
+  }
+  return `<div ${attrs}>${scalarControl(schema,value)}</div>`;
+}
+function arrayItem(schema,value) {return `<div class="structured-item" data-array-item>${structuredEditor(schema,value)}<button type="button" class="text-button" data-action="complex-remove">移除</button></div>`;}
+function readScalar(control,schema) {
+  if(schema.type==='null')return null;
+  const field=control.querySelector('[data-value-scalar]');if(!field||field.value==='')return undefined;
+  return schema.enum?schema.enum[Number(field.value)]:typedParameter(field.value,schema.type);
+}
+function readStructured(editor) {
+  const schema=JSON.parse(editor.dataset.structuredSchema);
+  if(schema.enum||!['object','array'].includes(schema.type))return readScalar(editor,schema);
+  if(schema.type==='array')return [...editor.querySelector('[data-array-items]').children].map(item=>{const value=readStructured(item.querySelector('[data-structured-schema]'));if(value===undefined)throw new Error('列表中有未填写的项目，请补全或移除。');return value;});
+  const result={};
+  for(const member of editor.children) {
+    const key=member.dataset.member;if(!key)continue;const child=schema.properties[key];let value;
+    if(['object','array'].includes(child.type)&&!child.enum) {
+      if(!member.querySelector('[data-complex-include]').checked)continue;
+      value=readStructured(member.querySelector('[data-structured-schema]'));
+    }else value=readScalar(member,child);
+    if(value!==undefined)Object.defineProperty(result,key,{value,enumerable:true});
+  }
+  return result;
+}
 function spawnParameterFields(definition) {
-  const schema=definition.parameters_schema;
-  if(!schema)return '<p class="hint">此母体未声明实例参数。</p>';
+  const schema=definition.parameters_schema;if(!schema)return '<p class="hint">此母体未声明实例参数。</p>';
   const defaults=definition.parameter_defaults||{};
   return `<fieldset><legend>实例参数</legend>${Object.entries(schema.properties).map(([key,s])=>{
-    const required=(schema.required||[]).includes(key)&&!Object.hasOwn(defaults,key),def=Object.hasOwn(defaults,key)?`默认：${JSON.stringify(defaults[key])}`:'未提供时省略',attrs=`data-instance-param="${esc(key)}" data-type="${esc(s.type)}" ${required?'required':''}`;
-    let input=s.enum?`<select ${attrs}><option value="">${esc(def)}</option>${s.enum.map((v,i)=>`<option value="${i}">${esc(typeof v==='string'?v:JSON.stringify(v))}</option>`).join('')}</select>`:s.type==='boolean'?`<select ${attrs}><option value="">${esc(def)}</option><option value="true">true</option><option value="false">false</option></select>`:['object','array','null'].includes(s.type)?`<textarea ${attrs} rows="3" placeholder="${esc(def)}"></textarea>`:`<input ${attrs} ${['integer','number'].includes(s.type)?`type="number" step="${s.type==='integer'?'1':'any'}"`:''} placeholder="${esc(def)}">`;
-    return `<label>${esc(key)}${required?' · 必填':''}${input}${s.description?`<span class="hint">${esc(s.description)}</span>`:''}</label>`;
+    const required=(schema.required||[]).includes(key)&&!Object.hasOwn(defaults,key),def=Object.hasOwn(defaults,key)?`默认：${valueText(defaults[key])}`:'未提供时省略';
+    if(['object','array'].includes(s.type)&&!s.enum)return `<div class="complex-parameter" data-instance-complex="${esc(key)}"><label>${esc(key)}${required?' · 必填':''}<input type="checkbox" data-complex-include ${required?'checked disabled':''}> 自定义</label><p class="hint">${esc(def)}</p><fieldset data-complex-fields ${required?'':'hidden disabled'}>${structuredEditor(s,defaults[key])}</fieldset></div>`;
+    return `<label data-instance-param="${esc(key)}">${esc(key)}${required?' · 必填':''}${scalarControl(s,undefined,required)}<span class="hint">${esc(def)}${s.description?' · '+esc(s.description):''}</span></label>`;
   }).join('')}<p class="hint">同组实例使用同一组参数；扩容和补建保留参数快照。参数将传给模型，勿填写密钥。</p></fieldset>`;
 }
 function refreshSpawnParameters(form) {
@@ -60,16 +99,21 @@ function refreshSpawnParameters(form) {
 function instanceParameters(form) {
   const ref=JSON.parse(form.elements.preset.value),schema=data.presets.find(p=>p.name===ref.name&&p.version===ref.version)?.definition.parameters_schema;
   const values={};
-  for(const field of form.querySelectorAll('[data-instance-param]')) {
-    if(field.value==='')continue;
-    const key=field.dataset.instanceParam,s=schema.properties[key];
-    const value=s.enum?s.enum[Number(field.value)]:typedParameter(field.value,field.dataset.type);
-    Object.defineProperty(values,key,{value,enumerable:true});
+  for(const container of form.querySelectorAll('[data-instance-param]')) {
+    const key=container.dataset.instanceParam,value=readScalar(container,schema.properties[key]);
+    if(value!==undefined)Object.defineProperty(values,key,{value,enumerable:true});
+  }
+  for(const container of form.querySelectorAll('[data-instance-complex]')) {
+    if(container.querySelector('[data-complex-include]').checked)Object.defineProperty(values,container.dataset.instanceComplex,{value:readStructured(container.querySelector('[data-structured-schema]')),enumerable:true});
   }
   return values;
 }
 document.addEventListener('change',event=>{
   const form=event.target.closest('form');if(!form)return;
+  if(event.target.matches('[data-complex-include]')) {
+    const fields=event.target.closest('[data-member],.complex-parameter').querySelector('[data-complex-fields]');
+    fields.hidden=!event.target.checked;fields.disabled=!event.target.checked;
+  }
   if(form.dataset.form==='preset') {
     if(event.target.name==='extends')updatePresetParent(form);
     if(event.target.name==='binding_mode')form.querySelectorAll('[name="binding"]').forEach(e=>e.disabled=event.target.value!=='replace');
@@ -79,6 +123,12 @@ document.addEventListener('change',event=>{
 });
 document.addEventListener('click',event=>{
   const button=event.target.closest('[data-action]');if(!button)return;
+  if(button.dataset.action==='complex-add') {
+    const editor=button.closest('[data-structured-schema]'),schema=JSON.parse(editor.dataset.structuredSchema),items=editor.querySelector('[data-array-items]');
+    if(items.children.length>=(schema.maxItems??100))return toast('已达到列表项目上限。');
+    items.insertAdjacentHTML('beforeend',arrayItem(schema.items));items.lastElementChild.querySelector('input,select,button')?.focus();
+  }
+  if(button.dataset.action==='complex-remove')button.closest('[data-array-item]').remove();
   if(button.dataset.action==='parameter-add')addParameterRow();
   if(button.dataset.action==='parameter-remove')button.closest('.parameter-row').remove();
 });

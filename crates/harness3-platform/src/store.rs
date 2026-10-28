@@ -18,7 +18,7 @@ impl Store {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 5 {
+        if version > 6 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
@@ -32,7 +32,7 @@ impl Store {
                 SELECT fleet_id,slot,generation,1,1,instance_id FROM instance_allocations;
                 COMMIT;")?;
         }
-        connection.execute_batch("PRAGMA user_version=5;")?;
+        connection.execute_batch("PRAGMA user_version=6;")?;
         Ok(Self(Arc::new(Mutex::new(connection))))
     }
     pub fn memory() -> PResult<Self> {
@@ -55,6 +55,9 @@ impl Store {
     }
     pub fn install(&self, bundle: Bundle) -> PResult<Value> {
         bundle.validate()?;
+        if bundle.id == "platform.messaging" {
+            return Err(fault(409, "plugin_kind_conflict"));
+        }
         self.transaction(|tx| {
             if tx.query_row(
                 "SELECT EXISTS(SELECT 1 FROM process_plugins WHERE id=?)",

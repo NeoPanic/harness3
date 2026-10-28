@@ -21,10 +21,10 @@
 | P2 | 外部插件与热加载 | 部分实现 | 原生测试 + Web 联调 | 进程包在线安装、内容寻址、逐调用摘要检查、版本并存、母体快照、健康检查、禁用/取消和旧版本重新绑定已实现；显式 opt-in、清空继承环境，仍以 OS 用户权限运行。MCP loader、watch、进程池/rollout、沙箱与作用域授权待补。 |
 | P2 | 显式目标与任务依赖 | 已实现 | 既有测试；见预览指南边界 | 最多 16 项任务；持久依赖图、上游输出和 Run ID 传递、取消与人工验收。 |
 | P2 | 自主规划与动态委派 | 规划中 | 待实现 | 待实现 Planner、组织插件、动态派生、依赖更新和终止条件。 |
-| P2 | 可靠协作消息 | 规划中 | 待实现 | 待实现 Inbox/Outbox、消息去重、投递确认、工作认领与 Attempts。 |
+| P2 | 可靠协作消息 | 部分实现 | 原生测试 + Web 联调 | 本地持久 Outbox/Inbox、稳定消息 ID/幂等去重、投递/派发确认/消费分离、暂停积压、未知结果人工处置和内置 platform.messaging 发送工具已落地；四入口共用。频道、工作认领/Attempts、远程投递与 Grant 待补。 |
 | P2 | 产物、验证与返工 | 规划中 | 待实现 | 现有文本输出可人工验收；版本化产物、结构化贡献、验证规则、返工及重试历史待实现。 |
-| P1 | Web 执行证据检查 | 已实现 | 既有测试；见预览指南边界 | 实例、请求快照、回执、会话、事件和协作目标来自同一后端。 |
-| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 26 个工具，默认开放 13 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
+| P1 | Web 执行证据检查 | 已实现 | 既有测试；见预览指南边界 | 实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。 |
+| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 30 个工具，默认开放 15 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
 | P2 | 实时事件与查询 | 部分实现 | 既有测试；见预览指南边界 | 持久事件游标、Web 轮询；待实现 SSE、列表游标和统一查询契约。 |
 | P2 | 预算预留与账本 | 规划中 | 待实现 | 当前只有单 Run 轮次/工具数/超时上限；待实现团队预算、原子预留、结算与费用归属。 |
 | P3 | 身份、授权与审批 | 部分实现 | 既有测试；见预览指南边界 | 当前为 loopback + 本地 token；Principal/Grant、审批等待、租户隔离与插件权限未实现。 |
@@ -51,9 +51,9 @@
 | 外部插件与热加载 | `crates/harness3-platform/src/plugins/mod.rs`<br>`crates/harness3-platform/src/plugins/package.rs`<br>`crates/harness3-platform/src/plugins/process.rs`<br>`crates/harness3-platform/web/plugins.js`<br>`crates/harness3-platform/tests/process_plugins.rs` | `crates/harness3-plugins/src/loaders/`<br>`crates/harness3-plugins/src/reload/` |
 | 显式目标与任务依赖 | `crates/harness3-platform/src/coordination.rs` | `crates/harness3-platform/src/collaboration/` |
 | 自主规划与动态委派 | 尚无实现模块 | `plugins/organization/`<br>`crates/harness3-platform/src/collaboration/` |
-| 可靠协作消息 | 尚无实现模块 | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
+| 可靠协作消息 | `crates/harness3-platform/src/messaging/mod.rs`<br>`crates/harness3-platform/src/messaging/tools.rs`<br>`crates/harness3-platform/web/messages.js`<br>`crates/harness3-platform/tests/messaging.rs` | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
 | 产物、验证与返工 | 尚无实现模块 | `crates/harness3-domain/src/artifacts/`<br>`plugins/verification/` |
-| Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/goals.js`<br>`crates/harness3-platform/web/fleets.js` | `web/src/features/` |
+| Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/goals.js`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/web/messages.js` | `web/src/features/` |
 | API / CLI / MCP 入口 | `crates/harness3-platform/src/api.rs`<br>`crates/harness3-platform/src/client.rs`<br>`crates/harness3-platform/src/main.rs`<br>`crates/harness3-platform/src/cli.rs`<br>`crates/harness3-platform/src/mcp.rs`<br>`crates/harness3-platform/tests/entrances.rs`<br>`examples/clients/mcp.json` | `crates/harness3-client/src/`<br>`crates/harness3-cli/src/`<br>`crates/harness3-mcp/src/` |
 | 实时事件与查询 | `crates/harness3-platform/src/api.rs` | `crates/harness3-server/src/events/` |
 | 预算预留与账本 | 尚无实现模块 | `crates/harness3-platform/src/accounting/`<br>`crates/harness3-domain/src/budgets/` |
@@ -83,6 +83,9 @@ src/
 └── work.rs
 crates/harness3-platform/
 ├── src/
+│   ├── messaging/
+│   │   ├── mod.rs
+│   │   └── tools.rs
 │   ├── plugins/
 │   │   ├── mod.rs
 │   │   ├── package.rs
@@ -109,6 +112,7 @@ crates/harness3-platform/
 │   ├── coordination.rs
 │   ├── entrances.rs
 │   ├── fleets.rs
+│   ├── messaging.rs
 │   ├── platform.rs
 │   ├── presets.rs
 │   └── process_plugins.rs
@@ -118,6 +122,7 @@ crates/harness3-platform/
 │   ├── fleets.js
 │   ├── goals.js
 │   ├── index.html
+│   ├── messages.js
 │   ├── plugins.js
 │   └── presets.js
 └── Cargo.toml

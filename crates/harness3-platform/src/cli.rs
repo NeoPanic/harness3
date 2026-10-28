@@ -29,6 +29,55 @@ macro_rules! resource {
         enum $action { $($variants)* }
     };
 }
+resource!(MessageArgs, MessageAction {
+    List {#[arg(long,default_value="0")] after:i64,#[arg(long)] limit:Option<usize>,#[arg(long)] instance_id:Option<String>,#[arg(long)] direction:Option<String>},
+    Show {id:String},
+    /// Send JSON task data; dispatch can call a paid model when the recipient is ready.
+    Send {id:String,#[arg(long)] file:PathBuf,#[arg(long)] key:String},
+    Action {id:String,#[arg(value_enum)] action:MessageOperation,#[arg(long)] note:String,#[arg(long)] key:String},
+});
+#[derive(Clone, ValueEnum)]
+enum MessageOperation {
+    Discard,
+    Resolve,
+}
+pub async fn messages(args: MessageArgs) -> ClientResult<()> {
+    let command = match args.action {
+        MessageAction::List {
+            after,
+            limit,
+            instance_id,
+            direction,
+        } => Command::MessagesList {
+            after,
+            limit,
+            instance_id,
+            direction,
+        },
+        MessageAction::Show { id } => Command::MessagesShow { id },
+        MessageAction::Send { id, file, key } => Command::MessagesSend {
+            id,
+            input: read_json(file)?,
+            key,
+        },
+        MessageAction::Action {
+            id,
+            action,
+            note,
+            key,
+        } => Command::MessagesAction {
+            id,
+            action: match action {
+                MessageOperation::Discard => "discard",
+                MessageOperation::Resolve => "resolve",
+            }
+            .into(),
+            note,
+            key,
+        },
+    };
+    print(args.connection.client()?.execute(command).await?)
+}
 resource!(GoalArgs, GoalAction {
     List,
     Show { id: String },

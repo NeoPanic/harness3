@@ -173,6 +173,19 @@ pub fn router(app: App) -> Router {
         .route("/api/login", post(login))
         .route("/api/logout", post(logout))
         .route("/api/v1/snapshot", get(snapshot))
+        .route(
+            "/messages.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/messages.js"),
+                )
+            }),
+        )
+        .route("/api/v1/agent-instances/{id}/messages", post(send_message))
+        .route("/api/v1/messages", get(messages))
+        .route("/api/v1/messages/{id}", get(message))
+        .route("/api/v1/messages/{id}/actions", post(message_action))
         .route("/api/v1/presets", post(publish))
         .route("/api/v1/plugins", post(install))
         .route(
@@ -238,7 +251,7 @@ async fn logout() -> Response {
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
+        json!({"messages":app.store.recent_messages()?,"builtin_plugins":[crate::messaging::package()],"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Value>) -> PResult<Json<Value>> {
@@ -413,4 +426,42 @@ async fn cancel_goal(State(app): State<App>, Path(id): Path<String>) -> PResult<
         }
     }
     Ok(Json(result))
+}
+
+async fn send_message(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::messaging::MessageInput>,
+) -> PResult<(StatusCode, Json<Value>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(app.store.send_message(
+            crate::messaging::Sender::Operator,
+            &id,
+            &input,
+            key(&headers)?,
+        )?),
+    ))
+}
+async fn messages(
+    State(app): State<App>,
+    Query(query): Query<crate::messaging::MessageQuery>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.messages(&query)?))
+}
+async fn message(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.message(&id)?))
+}
+async fn message_action(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::messaging::MessageAction>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.message_action(
+        &id,
+        &input,
+        key(&headers)?,
+    )?))
 }

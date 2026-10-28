@@ -17,7 +17,7 @@ function fleetPage(f){
     `<div class="callout">${terminal?'此组已停止补建，排空结束后保留终态与全部历史，无法恢复。':f.mode==='maintain'?'单独终止或排空组内实例后，平台会使用新的身份与会话补足同一槽位；每次补建递增 generation。停止补建请终止整个实例组或缩容。':'实例终止或 TTL 到期后不自动补建。显式扩缩容会按本次目标填足启用槽位；之后仍不自动补建。旧槽位再次创建成员时递增 generation。'} ${f.ttl_seconds?`每个新实例 TTL 为 ${f.ttl_seconds} 秒，从该实例创建时计时。`:'新实例未设置 TTL；历史成员以各自截止时间为准。'} ${pending?'当前操作正在协调，完成前暂不能再次扩缩容；终止可以中止补建并替代未完成操作。':''}</div>`+
     panel('持久槽位',table(['槽位','代际','意图','当前实例','观测状态','检查'],f.slots.map(s=>`<tr><td class="mono">${s.slot}</td><td class="mono">${s.generation}</td><td>${s.enabled?'启用':'退休'}</td><td class="mono wrap">${esc(s.instance_id||'等待创建')}</td><td>${s.state?badge(s.state):badge('pending','等待创建')}</td><td>${s.instance_id&&data.instances.some(a=>a.id===s.instance_id)?`<button class="text-button" data-action="agent-detail" data-id="${esc(s.instance_id)}">实例 ↗</button>`:'—'}</td></tr>`)))+
     panel('最近 20 次操作',f.operations.length?table(['Operation','动作','目标数 / revision','状态','接纳时间','结算时间'],f.operations.map(o=>`<tr><td class="mono wrap">${esc(o.id)}</td><td>${esc({create:'创建',scale:'扩缩容',terminate:'终止'}[o.kind]||o.kind)}</td><td class="mono">${o.target_count} / ${o.revision}</td><td>${badge(o.state,o.state==='pending'?'等待协调':undefined)}</td><td>${time(o.created_at)}</td><td>${time(o.finished_at)}</td></tr>`)):empty('历史批次','由早期版本迁移的实例组保留槽位与实例历史，没有伪造操作回执。'))+
-    `<details class="raw-data" id="fleet-metadata"><summary>实例组身份与原始状态</summary>${identity('Fleet ID',f.id)}${jsonView(f)}</details>`;
+    `<details class="raw-data" id="fleet-metadata"><summary>实例组身份与协调状态</summary>${identity('Fleet ID',f.id)}${dataView(f)}</details>`;
 }
 function fleetActionForm(id,stop){
   const f=selectedFleet?.id===id?selectedFleet:(data.fleets||[]).find(f=>f.id===id);if(!f)return;

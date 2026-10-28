@@ -65,6 +65,14 @@ fn core(snapshot: &Value) -> PResult<Preset> {
     Ok(serde_json::from_value(value)?)
 }
 fn lock_plugin(tx: &Transaction<'_>, reference: &PluginRef) -> PResult<Value> {
+    if reference.id == "platform.messaging" {
+        let package = crate::messaging::package();
+        return if package["version"] == reference.version {
+            Ok(package)
+        } else {
+            Err(fault(404, "plugin_not_found"))
+        };
+    }
     if !valid_name(&reference.id) || !valid_name(&reference.version) {
         return Err(fault(400, "invalid_plugin_reference"));
     }
@@ -275,6 +283,7 @@ impl Store {
                 if !ids.insert(&reference.id) {return Err(fault(400,"duplicate_plugin_binding"));}
                 let lock=lock_plugin(tx,reference)?;
                 instruction_bytes+=lock["instructions"].as_str().or_else(||lock["manifest"]["instructions"].as_str()).unwrap_or_default().len();
+                if lock["kind"]=="organization" && !tool_names.insert("platform.messaging.send".into()) {return Err(fault(400,"plugin_tool_name_collision"));}
                 if lock["kind"]=="process" {
                     let manifest:&Value=&lock["manifest"];
                     if let Some(tools)=manifest["tools"].as_array() {for tool in tools {

@@ -525,3 +525,126 @@ async fn inherited_parameterized_presets_use_one_contract_across_cli_mcp_and_htt
             .is_err()
     );
 }
+
+#[tokio::test]
+async fn durable_messages_share_http_cli_mcp_identity_idempotency_and_readonly_guards() {
+    use harness3_platform::{domain::Spawn, messaging::MessageInput};
+    let f = Fixture::new().await;
+    let agent = f
+        .store
+        .spawn(
+            &Spawn {
+                preset_name: "worker".into(),
+                preset_version: "1".into(),
+                count: 1,
+            },
+            "messages",
+        )
+        .unwrap()["instance_ids"][0]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let input = json!({"text":"跨入口消息 🧪"});
+    let path = f.root.join("message.json");
+    std::fs::write(&path, input.to_string()).unwrap();
+    let output = f
+        .cli(&[
+            "messages",
+            "send",
+            &agent,
+            "--file",
+            path.to_str().unwrap(),
+            "--key",
+            "same-message",
+        ])
+        .await;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let receipt: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let replay = f
+        .client()
+        .execute(Command::MessagesSend {
+            id: agent.clone(),
+            input: serde_json::from_value::<MessageInput>(input.clone()).unwrap(),
+            key: "same-message".into(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(receipt, replay);
+    let mut mcp = McpServer::new(f.client(), true);
+    initialize(&mut mcp).await;
+    assert_eq!(
+        call(
+            &mut mcp,
+            "messages_send",
+            json!({"id":agent,"input":input,"key":"same-message"})
+        )
+        .await["result"]["structuredContent"],
+        receipt
+    );
+    let id = receipt["id"].as_str().unwrap();
+    assert_eq!(
+        call(&mut mcp, "messages_show", json!({"id":id})).await["result"]["structuredContent"]["sender_kind"],
+        "operator"
+    );
+    let list = call(
+        &mut mcp,
+        "messages_list",
+        json!({"instance_id":agent,"direction":"inbox","limit":1}),
+    )
+    .await;
+    assert_eq!(list["result"]["structuredContent"]["messages"][0]["id"], id);
+    let mut readonly = McpServer::new(f.client(), false);
+    initialize(&mut readonly).await;
+    assert_eq!(
+        call(
+            &mut readonly,
+            "messages_send",
+            json!({"id":agent,"input":input,"key":"write"})
+        )
+        .await["error"]["code"],
+        -32602
+    );
+    assert_eq!(
+        call(
+            &mut readonly,
+            "messages_action",
+            json!({"id":id,"action":"discard","note":"x","key":"write"})
+        )
+        .await["error"]["code"],
+        -32602
+    );
+    let http = reqwest::Client::new();
+    let base = format!("http://127.0.0.1:{}", f.port);
+    assert_eq!(
+        http.get(format!("{base}/api/v1/messages"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+    let response = http
+        .post(format!("{base}/api/v1/agent-instances/{agent}/messages"))
+        .bearer_auth("a".repeat(64))
+        .header("Idempotency-Key", "spoof")
+        .json(&json!({"text":"spoof","sender_kind":"agent","source_run_id":"fake"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 422);
+    let discarded = call(
+        &mut mcp,
+        "messages_action",
+        json!({"id":id,"action":"discard","note":"operator checked","key":"discard"}),
+    )
+    .await;
+    assert_eq!(
+        discarded["result"]["structuredContent"]["delivery_state"],
+        "discarded"
+    );
+    assert_eq!(f.store.recent_messages().unwrap().len(), 1);
+}

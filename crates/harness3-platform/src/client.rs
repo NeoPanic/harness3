@@ -18,6 +18,27 @@ pub struct PlatformClient {
 #[serde(tag = "tool", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
     Snapshot,
+    MessagesList {
+        #[serde(default)]
+        after: i64,
+        limit: Option<usize>,
+        instance_id: Option<String>,
+        direction: Option<String>,
+    },
+    MessagesShow {
+        id: String,
+    },
+    MessagesSend {
+        id: String,
+        input: crate::messaging::MessageInput,
+        key: String,
+    },
+    MessagesAction {
+        id: String,
+        action: String,
+        note: String,
+        key: String,
+    },
     PresetsList,
     PresetsPublish {
         preset: Value,
@@ -103,7 +124,9 @@ impl Command {
     pub fn read_only(&self) -> bool {
         matches!(
             self,
-            Self::Snapshot
+            Self::MessagesList { .. }
+                | Self::MessagesShow { .. }
+                | Self::Snapshot
                 | Self::PresetsList
                 | Self::PluginsList
                 | Self::ProcessPluginsShow { .. }
@@ -182,6 +205,51 @@ impl PlatformClient {
     pub async fn execute(&self, command: Command) -> ClientResult<Value> {
         use Command::*;
         let (method, path, body, key) = match command {
+            MessagesList {
+                after,
+                limit,
+                instance_id,
+                direction,
+            } => {
+                let mut query = reqwest::Url::parse("http://localhost/messages")?;
+                {
+                    let mut pairs = query.query_pairs_mut();
+                    pairs.append_pair("after", &after.to_string());
+                    if let Some(limit) = limit {
+                        pairs.append_pair("limit", &limit.to_string());
+                    }
+                    if let Some(instance) = instance_id {
+                        pairs.append_pair("instance_id", &instance);
+                    }
+                    if let Some(direction) = direction {
+                        pairs.append_pair("direction", &direction);
+                    }
+                }
+                (
+                    Method::GET,
+                    format!("/messages?{}", query.query().unwrap_or_default()),
+                    None,
+                    None,
+                )
+            }
+            MessagesShow { id } => (Method::GET, object("messages", &id, "")?, None, None),
+            MessagesSend { id, input, key } => (
+                Method::POST,
+                object("agent-instances", &id, "/messages")?,
+                Some(serde_json::to_value(input)?),
+                Some(key),
+            ),
+            MessagesAction {
+                id,
+                action,
+                note,
+                key,
+            } => (
+                Method::POST,
+                object("messages", &id, "/actions")?,
+                Some(json!({"action":action,"note":note})),
+                Some(key),
+            ),
             Snapshot => (Method::GET, "/snapshot".into(), None, None),
             PresetsList | PluginsList | InstancesList => {
                 let collection = match command {
@@ -192,7 +260,7 @@ impl PlatformClient {
                 let snapshot = self.request(Method::GET, "/snapshot", None, None).await?;
                 if collection == "plugins" {
                     return Ok(
-                        json!({"plugins":snapshot["plugins"],"process_plugins":snapshot["process_plugins"],"execution_enabled":snapshot["process_plugin_execution"]}),
+                        json!({"builtin_plugins":snapshot["builtin_plugins"],"plugins":snapshot["plugins"],"process_plugins":snapshot["process_plugins"],"execution_enabled":snapshot["process_plugin_execution"]}),
                     );
                 }
                 return Ok(json!({collection: snapshot[collection]}));

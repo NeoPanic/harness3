@@ -233,14 +233,19 @@
     "id": "messaging",
     "name": "可靠协作消息",
     "phase": "P2",
-    "status": "planned",
-    "detail": "待实现 Inbox/Outbox、消息去重、投递确认、工作认领与 Attempts。",
-    "source": [],
+    "status": "partial",
+    "detail": "本地持久 Outbox/Inbox、稳定消息 ID/幂等去重、投递/派发确认/消费分离、暂停积压、未知结果人工处置和内置 platform.messaging 发送工具已落地；四入口共用。频道、工作认领/Attempts、远程投递与 Grant 待补。",
+    "source": [
+      "crates/harness3-platform/src/messaging/mod.rs",
+      "crates/harness3-platform/src/messaging/tools.rs",
+      "crates/harness3-platform/web/messages.js",
+      "crates/harness3-platform/tests/messaging.rs"
+    ],
     "target": [
       "crates/harness3-storage/src/inbox_outbox/",
       "crates/harness3-domain/src/collaboration/"
     ],
-    "verification": "not-implemented"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "artifacts",
@@ -260,11 +265,12 @@
     "name": "Web 执行证据检查",
     "phase": "P1",
     "status": "implemented",
-    "detail": "实例、请求快照、回执、会话、事件和协作目标来自同一后端。",
+    "detail": "实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。",
     "source": [
       "crates/harness3-platform/web/app.js",
       "crates/harness3-platform/web/goals.js",
-      "crates/harness3-platform/web/fleets.js"
+      "crates/harness3-platform/web/fleets.js",
+      "crates/harness3-platform/web/messages.js"
     ],
     "target": [
       "web/src/features/"
@@ -276,7 +282,7 @@
     "name": "API / CLI / MCP 入口",
     "phase": "P2",
     "status": "partial",
-    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 26 个工具，默认开放 13 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
+    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 30 个工具，默认开放 15 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
     "source": [
       "crates/harness3-platform/src/api.rs",
       "crates/harness3-platform/src/client.rs",

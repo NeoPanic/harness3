@@ -14,6 +14,7 @@ const iconPaths = {
   overview:'<path d="m12 3 9 5v8l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5"/>',
   agents:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   fleets:'<path d="M4 5h16v14H4zM8 2v6m8-6v6M8 12h8m-8 4h4"/>',
+  messages:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/>',
   goals:'<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4H5v4m7-4h7v4"/>',
   presets:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   runs:'<path d="m9 5 11 7-11 7Z"/><path d="M4 5v14"/>',
@@ -56,13 +57,14 @@ async function api(path, body, method = 'POST', key = null) {
   if (!response.ok) {
     const code=value.error?.code || value.rejection || `HTTP ${response.status}`;
     const messages={process_plugins_disabled:'请使用 --allow-process-plugins 启动 daemon 后重试。',plugin_disabled:'插件版本已禁用，请选择其他版本或重新检查并启用。',plugin_digest_mismatch:'文件内容与 manifest 摘要不一致，修正包内容后重试。',plugin_cache_tampered:'缓存文件已变化，平台已拒绝执行。',invalid_plugin_manifest:'请检查 manifest 协议、工具 schema、相对路径与文件摘要。',plugin_source_unreadable:'无法读取服务器上的包目录，请填写绝对路径。',plugin_kind_conflict:'此 ID 已被另一种插件占用，请更换命名空间。',invalid_fleet_plan:'请检查实例组数量、策略与 TTL。',fleet_revision_conflict:'实例组已被其他操作修改，请关闭表单并刷新后重试。',fleet_operation_in_progress:'已有操作正在协调，完成后可再次扩缩容。',fleet_terminal:'实例组已进入终止流程，无法恢复或扩缩容。',invalid_fleet_action:'请检查目标数量与操作参数。',invalid_ttl:'TTL 须为 1 秒至 30 天之间的整数。',unauthorized:'访问令牌无效或会话已过期，请重新登录。',preset_version_immutable:'这个母体版本已发布，请更换版本号。',plugin_version_immutable:'这个插件版本已安装，请更换版本号。',instance_not_ready:'实例当前无法接收任务，请刷新并选择就绪实例。',instance_quota_exceeded:'容量已满，请减少数量，或缩容/终止实例组以释放预留。',invalid_transition_or_instance_busy:'实例状态已变化或仍在执行，请刷新后重试。',idempotency_conflict:'上次请求的内容已更改，请关闭后重新打开表单提交。',invalid_preset:'请检查名称、版本号和必填内容；文本长度按 UTF-8 字节计算。',invalid_prompt_bundle:'请检查插件 ID、版本号和必填内容。'};
-    Object.assign(messages,{invalid_preset_definition:'母体定义包含未知字段或字段类型不正确。',parent_preset_not_found:'父级母体版本不存在，请刷新目录后重新选择。',invalid_preset_parent:'父级引用无效；母体不能继承自身。',preset_inheritance_depth_or_cycle:'继承链超过 16 层或包含循环，请选择更上层的母体。',duplicate_plugin_binding:'同一插件 ID 只能绑定一个版本，请取消重复选择。',ambiguous_plugin_bindings:'不能同时提交 plugin 和 plugins。',too_many_plugin_bindings:'每个母体最多绑定 16 个插件。',preset_capability_limit:'能力锁超过 64 个工具或插件指令超过 64,000 UTF-8 字节，请减少绑定。',invalid_parameters_schema:'参数 schema 不受支持或超出结构上限。',parameters_schema_must_be_closed_object:'参数 schema 根须为 object，且 additionalProperties=false。',unknown_default_parameter:'默认值中存在未声明的参数。',invalid_default_parameter:'默认值的类型或范围不符合参数 schema。',invalid_parameter_names:'参数最多 32 个；名称限英文字母、数字、点、下划线和连字符。',unknown_template_parameter:'模板引用了未声明的参数，请添加同名参数或修改模板。',template_parameter_must_be_required_or_defaulted:'模板引用的参数必须设为必填或提供默认值。',invalid_parameter_template:'模板须使用配对的 {{参数名}}，不支持表达式。',parameters_schema_required:'填写默认值前须声明参数 schema。',parameters_not_declared:'该母体未声明参数，不能传入参数值。',invalid_instance_parameters:'参数缺失、类型不正确或超出 schema 范围，请检查必填、类型和枚举值。',parameters_too_large:'合并默认值后的参数不能超过 16 KiB JSON。',preset_snapshot_too_large:'完整母体与能力快照超过 1 MiB，请减少绑定或 schema 内容。',preset_field_required:'独立定义必须填写用途、目标和系统指令。',preset_protocol_required:'请选择模型协议，或选择可继承的父级母体。',preset_field_cannot_be_null:'除旧版 plugin 外，母体字段不能为 null；省略字段表示继承。'});
+    Object.assign(messages,{invalid_preset_definition:'母体定义包含未知字段或字段类型不正确。',parent_preset_not_found:'父级母体版本不存在，请刷新目录后重新选择。',invalid_preset_parent:'父级引用无效；母体不能继承自身。',preset_inheritance_depth_or_cycle:'继承链超过 16 层或包含循环，请选择更上层的母体。',duplicate_plugin_binding:'同一插件 ID 只能绑定一个版本，请取消重复选择。',ambiguous_plugin_bindings:'不能同时提交 plugin 和 plugins。',too_many_plugin_bindings:'每个母体最多绑定 16 个插件。',preset_capability_limit:'能力锁超过 64 个工具或插件指令超过 64,000 UTF-8 字节，请减少绑定。',invalid_parameters_schema:'参数 schema 不受支持或超出结构上限。',parameters_schema_must_be_closed_object:'参数 schema 根须为 object，且 additionalProperties=false。',unknown_default_parameter:'默认值中存在未声明的参数。',invalid_default_parameter:'默认值的类型或范围不符合参数 schema。',invalid_parameter_names:'参数最多 32 个；名称限英文字母、数字、点、下划线和连字符。',unknown_template_parameter:'模板引用了未声明的参数，请添加同名参数或修改模板。',template_parameter_must_be_required_or_defaulted:'模板引用的参数必须设为必填或提供默认值。',invalid_parameter_template:'模板须使用配对的 {{参数名}}，不支持表达式。',parameters_schema_required:'填写默认值前须声明参数 schema。',parameters_not_declared:'该母体未声明参数，不能传入参数值。',invalid_instance_parameters:'参数缺失、类型不正确或超出 schema 范围，请检查必填、类型和枚举值。',parameters_too_large:'合并默认值后的参数不能超过 16 KiB 序列化内容。',preset_snapshot_too_large:'完整母体与能力快照超过 1 MiB，请减少绑定或 schema 内容。',preset_field_required:'独立定义必须填写用途、目标和系统指令。',preset_protocol_required:'请选择模型协议，或选择可继承的父级母体。',preset_field_cannot_be_null:'除旧版 plugin 外，母体字段不能为 null；省略字段表示继承。'});
+    Object.assign(messages,{invalid_message:'消息不能为空，最多 8,000 个 UTF-8 字节；请检查关联 ID。',message_recipient_terminal:'接收实例已停止接收消息，请选择其他身份。',message_backlog_full:'消息积压已达上限；请等待消费或丢弃待处理消息。',message_action_state_conflict:'状态已变化，无法执行此处置；请刷新消息详情。',invalid_message_action:'请填写处置说明，最多 2,000 个 UTF-8 字节。',message_goal_scope_invalid:'接收实例不属于正在运行或待验收的目标。',message_causal_context_conflict:'关联 ID 或目标与前置消息不一致。',message_hop_limit:'消息因果链已达 8 层，请检查是否存在回复循环。',message_correlation_quota_exceeded:'该关联链已达 128 条消息上限。',causation_message_not_found:'前置消息不存在，请核对完整 ID。',message_not_found:'消息不存在，请刷新列表。'});
     Object.assign(messages,{invalid_goal:'请填写目标名称、共同目标、验收标准及 1–16 项任务；检查 UTF-8 字节上限。',invalid_task_graph:'任务 key 必须唯一，依赖只能引用前面的任务，且不能重复。',goal_quota_exceeded:'运行中或待验收目标已达 32 个，请先验收或取消已有目标。',goal_instance_terminated:'计划包含已终止的实例，请重新选择执行实例。',goal_not_reviewable:'目标尚未完成或已经结算，请刷新后核对状态。',goal_not_cancellable:'目标已经结算，无法再取消。',invalid_goal_review:'请填写验收结论，最多 8,000 个 UTF-8 字节。',goal_not_found:'没有找到该目标，请返回目标列表。'});
     throw new Error(messages[code] || `操作未完成（${code}），请检查配置后重试。`);
   }
   return value;
 }
-function page() { return fleetId()?'fleets':goalId()?'goals':['overview','agents','fleets','goals','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
+function page() { return fleetId()?'fleets':goalId()?'goals':['overview','agents','fleets','goals','messages','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
 function head(eyebrow, title, description, buttons = '') { return `<div class="page-head"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p>${description}</p></div><div class="head-actions">${buttons}</div></div>`; }
 function button(label, action, primary = false, extra = '') { return `<button type="button" class="button ${primary ? 'primary' : ''}" data-action="${action}" ${extra}>${label}</button>`; }
 function empty(title, text, action = '') { return `<div class="empty"><b>${title}</b>${text}${action ? `<br>${action}` : ''}</div>`; }
@@ -101,12 +103,13 @@ function progressPage() {
 }
 function render() {
   if (!data || composing) return;
-  const p=page(), names={overview:'总览',agents:'Agent 实例',fleets:'实例组',goals:'协作目标',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
+  const p=page(), names={overview:'总览',agents:'Agent 实例',fleets:'实例组',goals:'协作目标',messages:'协作消息',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
   $('#page-title').textContent=names[p]; $('#nav-count').textContent=data.instances.filter(a=>a.state!=='terminated').length;
   document.querySelectorAll('nav a').forEach(a=>{a.classList.toggle('active',a.dataset.page===p);if(a.dataset.page===p)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.title=`${names[p]} · Harness³`;
   let html='';
   if(p==='overview') html=overview();
+  if(p==='messages') html=messagesPage();
   if(p==='goals') html=goalsPage();
   if(p==='fleets') html=fleetsPage();
   if(p==='agents') html=head('MANAGED INSTANCES','Agent 实例','同一母体可创建多个独立实例；支持有限批次、TTL 和排空；可在协作目标中编排分工。可在实例组页选择持续维持、扩缩容与整体终止。',button('＋ 批量创建','spawn',true))+filterBar('agents')+panel('实例目录',`<div id="directory-results">${directory('agents')}</div>`,badge('neutral',`共 ${data.instances.length} 个实例`));
@@ -115,7 +118,7 @@ function render() {
   if(p==='plugins') html=pluginsPage();
   if(p==='capabilities') html=progressPage();
 
-  if(p==='events') html=head('PERSISTENT EVENT LOG','事件日志','来自 SQLite 的有序平台事件；包含生命周期与真实执行事件，按游标增量读取。')+panel('平台事件',events.length?table(['序号','事件','对象','时间','载荷'],events.slice(-150).reverse().map(e=>`<tr><td class="mono">#${e.seq}</td><td class="mono">${esc(e.kind)}</td><td class="mono">${esc(short(e.subject))}</td><td>${time(e.at)}</td><td><button class="text-button" data-action="event-detail" data-id="${e.seq}">JSON ↗</button></td></tr>`)):empty('暂无事件','开始操作后查看完整变化。'),badge('neutral',`cursor ${cursor}`))+`<p class="scroll-note">控制台保留最近 500 条已读取事件，列表展示最近 150 条；更早事件可使用 API 的 after 游标查询。</p>`;
+  if(p==='events') html=head('PERSISTENT EVENT LOG','事件日志','来自 SQLite 的有序平台事件；包含生命周期与真实执行事件，按游标增量读取。')+panel('平台事件',events.length?table(['序号','事件','对象','时间','载荷'],events.slice(-150).reverse().map(e=>`<tr><td class="mono">#${e.seq}</td><td class="mono">${esc(e.kind)}</td><td class="mono">${esc(short(e.subject))}</td><td>${time(e.at)}</td><td><button class="text-button" data-action="event-detail" data-id="${e.seq}">检查 ↗</button></td></tr>`)):empty('暂无事件','开始操作后查看完整变化。'),badge('neutral',`cursor ${cursor}`))+`<p class="scroll-note">控制台保留最近 500 条已读取事件，列表展示最近 150 条；更早事件可使用 API 的 after 游标查询。</p>`;
   // Do not replace an unchanged view during polling: preserve focus and scroll.
   if(renderedMarkup!==html) {
     const focused=document.activeElement, focusId=focused?.id, action=focused?.dataset.action, itemId=focused?.dataset.id;
@@ -171,9 +174,34 @@ function openModal(title, html, eyebrow='工作区') {
   const focus=$('#modal form input:not(:disabled), #modal form select:not(:disabled), #modal form textarea')||$('#modal [data-action="close"]');
   focus.focus({preventScroll:true});$('#modal').scrollTop=0;
 }
-function jsonView(value) { return `<pre tabindex="0" aria-label="JSON 数据">${esc(JSON.stringify(value,null,2))}</pre>`; }
+const fieldLabels={id:'标识',name:'名称',version:'版本',text:'文本',input:'输入',output:'输出',content:'内容',body:'内容',kind:'类型',state:'状态',status:'状态',error:'错误',code:'错误码',message:'说明',seq:'序号',sequence:'序号',at:'时间',created_at:'创建时间',started_at:'开始时间',finished_at:'结束时间',subject:'关联对象',data:'记录内容',arguments:'调用参数',call:'工具调用',calls:'工具调用',observations:'工具回执',changed:'有变更',run_id:'运行标识',instance_id:'实例标识',recipient_id:'接收实例',sender_instance_id:'发送实例',source_run_id:'来源运行',correlation_id:'关联标识',causation_id:'前置消息',goal_id:'目标标识',purpose:'用途',objective:'目标',instructions:'指令',protocol:'协议',model:'模型',tools:'工具',parameters:'参数',properties:'字段',required:'必填字段',type:'类型',description:'说明',additionalProperties:'允许额外字段',enum:'可选值',minimum:'最小值',maximum:'最大值',minLength:'最短长度',maxLength:'最长长度',minItems:'最少项目',maxItems:'最多项目',items:'项目规则',schema:'参数规则',defaults:'默认值',actual:'实际参数',revision:'修订',turns:'会话记录',events:'事件',requests:'模型请求',report:'运行回执',snapshot:'固定配置',definition:'定义',publication:'发布定义',extends:'继承来源',lineage:'继承链',plugin_snapshot:'插件快照',plugin_snapshots:'插件快照',plugins:'插件',digest:'内容摘要',manifest:'插件契约',runtime:'运行方式',files:'文件',mutates:'声明有副作用',parallel_safe:'允许并行',input_schema:'输入规则',output_schema:'输出规则',acceptance:'验收标准',review:'验收记录',tasks:'任务',depends_on:'上游依赖',key:'键',value:'值',usage:'模型用量',input_tokens:'输入 Token',output_tokens:'输出 Token',generation_ms:'模型生成耗时（ms）',execution_ms:'执行耗时（ms）',model_metadata:'模型信息',model_request:'模型请求',system:'系统指令',sender_kind:'发送方类型',delivery_state:'投递状态',inbox_state:'消费状态',resolution:'处置说明',resolved_at:'处置时间',received_at:'入 Inbox 时间',ack_at:'派发确认时间',depth:'因果深度',continuation:'供应商续接记录'};
+function valueText(value) {
+  if(value===null||value===undefined)return '未设置';
+  if(typeof value==='boolean')return value?'是':'否';
+  if(Array.isArray(value))return value.map(valueText).join('、')||'空列表';
+  if(typeof value==='object')return Object.entries(value).map(([k,v])=>`${fieldLabels[k]||k}：${valueText(v)}`).join('；')||'无字段';
+  return String(value);
+}
+function dataView(value,depth=0) {
+  if(depth>10)return '<span class="hint">嵌套记录较深，请通过 API 查询完整内容。</span>';
+  if(typeof value==='string') {
+    const text=value.trim();
+    if(text.length<128000&&((text.startsWith('{')&&text.endsWith('}'))||(text.startsWith('[')&&text.endsWith(']')))) {
+      try{return dataView(JSON.parse(text),depth+1);}catch{}
+    }
+    return `<span class="record-text">${esc(value)}</span>`;
+  }
+  if(value===null||typeof value!=='object')return `<span class="record-value">${esc(valueText(value))}</span>`;
+  if(Array.isArray(value)) {
+    if(!value.length)return '<span class="secondary-text">暂无记录</span>';
+    if(value.every(v=>v===null||typeof v!=='object'))return `<ul class="record-values">${value.slice(0,100).map(v=>`<li>${dataView(v,depth+1)}</li>`).join('')}</ul>${value.length>100?'<p class="hint">显示前 100 项，其余请通过 API 查询。</p>':''}`;
+    return `<div class="record-list">${value.slice(0,100).map((v,i)=>`<details class="record-item" ${value.length===1?'open':''}><summary>${esc(v?.name||v?.kind||v?.call?.name||v?.role||`记录 ${i+1}`)}</summary>${dataView(v,depth+1)}</details>`).join('')}${value.length>100?'<p class="hint">显示前 100 项，其余请通过 API 查询。</p>':''}</div>`;
+  }
+  const entries=Object.entries(value);if(!entries.length)return '<span class="secondary-text">无字段</span>';
+  return `<dl class="record-fields">${entries.map(([k,v])=>`<dt>${esc(fieldLabels[k]||k)}</dt><dd>${dataView(v,depth+1)}</dd>`).join('')}</dl>`;
+}
 function identity(label,value) { return `<div class="identity"><span>${esc(label)}</span><code>${esc(value)}</code><button type="button" class="text-button" data-action="copy" data-value="${esc(value)}" aria-label="复制${esc(label)}">复制</button></div>`; }
-function rawView(value,label='原始 JSON') { return `<details class="raw-data"><summary>${label}</summary>${jsonView(value)}</details>`; }
+function rawView(value,label='详细字段') { return `<details class="raw-data"><summary>${label}</summary>${dataView(value)}</details>`; }
 function formEnd(label) { return `<div class="error" id="form-error" role="alert"></div><div class="form-actions">${button('取消','close')}<button class="button primary" type="submit">${label} ↗</button></div>`; }
 function spawnForm(name,version) {
   const selected=data.presets.find(p=>p.name===name&&p.version===version)||data.presets.find(p=>p.name==='researcher')||data.presets[0];
@@ -199,7 +227,7 @@ async function agentDetail(id) {
 }
 function definitionView(definition) {
   const bindings=presetBindings(definition);
-  return `<dl class="definition"><dt>主要功能</dt><dd>${esc(definition.purpose)}</dd><dt>预期目标</dt><dd>${esc(definition.objective)}</dd><dt>模型协议</dt><dd class="mono">${esc(definition.protocol)}</dd>${definition.extends?`<dt>继承来源</dt><dd class="mono">${esc(definition.extends.name)} @ ${esc(definition.extends.version)} · ${definition.lineage.length} 层</dd>`:''}<dt>系统指令</dt><dd class="instructions">${esc(definition.instructions)}</dd></dl>${definition.parameters?`<dl class="detail-kv"><dt>实际参数</dt><dd>${Object.entries(definition.parameters).map(([key,value])=>`<div><strong class="mono">${esc(key)}</strong> · ${esc(typeof value==='string'?value:JSON.stringify(value))}</div>`).join('')||'空参数对象'}</dd></dl>`:''}${bindings.length?`<dl class="definition"><dt>能力快照</dt><dd>${bindings.map(p=>`<div><strong class="mono">${esc(p.id)} @ ${esc(p.version)}</strong> · ${p.kind==='process'?'外部进程工具':'提示词包'}${p.digest?`<p class="hint mono wrap">${esc(p.digest)}</p>`:''}${p.kind==='process'?`<p class="hint">${p.manifest.tools.map(t=>esc(`${p.id}.${t.name}`)).join(' · ')}</p>`:''}</div>`).join('')}</dd></dl>`:''}${definition.parameters_schema?rawView({schema:definition.parameters_schema,defaults:definition.parameter_defaults||{},...(definition.parameters?{actual:definition.parameters}:{})},definition.parameters?'实例参数与 schema':'参数 schema 与默认值'):''}${rawView(definition,'完整配置 JSON')}`;
+  return `<dl class="definition"><dt>主要功能</dt><dd>${esc(definition.purpose)}</dd><dt>预期目标</dt><dd>${esc(definition.objective)}</dd><dt>模型协议</dt><dd class="mono">${esc(definition.protocol)}</dd>${definition.extends?`<dt>继承来源</dt><dd class="mono">${esc(definition.extends.name)} @ ${esc(definition.extends.version)} · ${definition.lineage.length} 层</dd>`:''}<dt>系统指令</dt><dd class="instructions">${esc(definition.instructions)}</dd></dl>${definition.parameters?`<dl class="detail-kv"><dt>实际参数</dt><dd>${Object.entries(definition.parameters).map(([key,value])=>`<div><strong class="mono">${esc(key)}</strong> · ${esc(valueText(value))}</div>`).join('')||'空参数对象'}</dd></dl>`:''}${bindings.length?`<dl class="definition"><dt>能力快照</dt><dd>${bindings.map(p=>`<div><strong class="mono">${esc(p.id)} @ ${esc(p.version)}</strong> · ${p.kind==='organization'?'内置组织能力':p.kind==='process'?'外部进程工具':'提示词包'}${p.digest?`<p class="hint mono wrap">${esc(p.digest)}</p>`:''}${p.kind==='process'?`<p class="hint">${p.manifest.tools.map(t=>esc(`${p.id}.${t.name}`)).join(' · ')}</p>`:''}</div>`).join('')}</dd></dl>`:''}${definition.parameters_schema?rawView({schema:definition.parameters_schema,defaults:definition.parameter_defaults||{},...(definition.parameters?{actual:definition.parameters}:{})},definition.parameters?'实例参数与 schema':'参数 schema 与默认值'):''}${rawView(definition,'完整配置字段')}`;
 }
 async function runDetail(id, preserve=false) {
   const request=++inspectionRequest;
@@ -218,12 +246,12 @@ function runTabView(r,tab) {
   if(tab==='output')return runOutput(r);
   if(tab==='report')return reportView(r.report);
   if(tab==='requests'&&!requests.length)return empty('暂无请求快照','模型开始执行后可在此检查请求上下文。');
-  return jsonView(tab==='requests'?requests:tab==='session'?modalContext.session:events.filter(e=>e.subject===r.id));
+  return dataView(tab==='requests'?requests:tab==='session'?modalContext.session:events.filter(e=>e.subject===r.id));
 }
 function reportView(report) {
   if(!report)return empty('回执尚未生成','运行结算后可以检查工具调用与完整回执。');
   const observations=report.observations||[];
-  return `<div class="receipt-summary"><span>${icon('capabilities')} ${observations.length} 次工具调用</span><span class="mono">${report.execution_ms} ms</span></div>${observations.map((item,i)=>`<section class="receipt"><div class="receipt-head"><span class="receipt-index">${String(i+1).padStart(2,'0')}</span><strong class="mono">${esc(item.call.name)}</strong>${badge('neutral',item.output.changed?'有变更':'无变更')}</div><div class="receipt-content"><div><h3>调用参数</h3>${jsonView(item.call.arguments)}</div><div><h3>工具结果</h3>${jsonView(item.output.content)}</div></div></section>`).join('')}${report.error?`<div class="callout">${esc(report.error.code)} · ${esc(report.error.message)}</div>`:''}<details class="raw-data"><summary>查看完整原始回执</summary>${jsonView(report)}</details>`;
+  return `<div class="receipt-summary"><span>${icon('capabilities')} ${observations.length} 次工具调用</span><span class="mono">${report.execution_ms} ms</span></div>${observations.map((item,i)=>`<section class="receipt"><div class="receipt-head"><span class="receipt-index">${String(i+1).padStart(2,'0')}</span><strong class="mono">${esc(item.call.name)}</strong>${badge('neutral',item.output.changed?'有变更':'无变更')}</div><div class="receipt-content"><div><h3>调用参数</h3>${dataView(item.call.arguments)}</div><div><h3>工具结果</h3>${dataView(item.output.content)}</div></div></section>`).join('')}${report.error?`<div class="callout">${esc(report.error.code)} · ${esc(report.error.message)}</div>`:''}<details class="raw-data"><summary>查看完整回执字段</summary>${dataView(report)}</details>`;
 }
 function runOutput(r) {
   const error=r.report?.error,pending=['queued','running'].includes(r.state);
@@ -252,6 +280,7 @@ async function handleAction(action, element) {
   }
   if(action==='goto-agents') {location.hash='agents';return;}
   if(action==='clear-filters') {filters[page()]={query:'',state:'all'};render();$('#directory-search')?.focus();return;}
+  if(await messageAction(action,element))return;
   if(action==='close') {if(!$('#modal form[aria-busy="true"]'))$('#modal').close();return;}
   if(action==='logout') {$('#modal').close();await api('/api/logout',{});authenticated=false;data=null;events=[];cursor=0;renderedMarkup='';$('#content').innerHTML='';$('#login-dialog').showModal();return;}
   if(action==='capabilities') {location.hash='capabilities';return;}
@@ -263,8 +292,8 @@ async function handleAction(action, element) {
   if(action==='run-detail') return runDetail(id);
   if(action==='refresh-run') {await refresh(true);return runDetail(id,true);}
   if(action==='preset-detail') {const p=data.presets.find(p=>p.name===id&&p.version===element.dataset.version);return openModal(p.name,definitionView(p.definition),`母体版本 ${p.version}`);}
-  if(action==='plugin-detail') {const p=data.plugins.find(p=>p.id===id&&p.version===element.dataset.version);return openModal('插件定义',jsonView(p),'PLUGIN / CONTENT DIGEST');}
-  if(action==='event-detail') return openModal('事件载荷',jsonView(events.find(e=>String(e.seq)===id)),'PERSISTENT EVENT');
+  if(action==='plugin-detail') {const p=data.plugins.find(p=>p.id===id&&p.version===element.dataset.version);return openModal('插件定义',dataView(p),'PLUGIN / CONTENT DIGEST');}
+  if(action==='event-detail') return openModal('事件载荷',dataView(events.find(e=>String(e.seq)===id)),'PERSISTENT EVENT');
   if(action==='help') return openModal('本地内核预览',`<div class="steps"><div class="step">从母体页发布用途、目标与模型配置。新版本不可覆盖旧定义。</div><div class="step">创建一组独立实例，选择就绪实例提交任务。</div><div class="step">打开执行记录，查看输出、工具回执、请求快照和完整会话。</div><div class="step">在实现进度页确认当前已交付能力与尚未实现的功能。</div></div><p class="hint">所有数据来自同一 SQLite。平台仅监听 loopback，登录使用本地 token；模型密钥仅由服务端读取。</p><div class="form-actions">${button('退出工作区','logout')}</div>`);
   if(['suspend','resume','terminate','drain'].includes(action)) {
     if(action==='drain')return openModal('排空并终止实例？',`<form data-form="drain" data-id="${esc(id)}"><p class="form-intro">立即停止接收新任务，等待已接纳的排队或运行任务结算后终止。没有活动任务时立即终止。历史记录保留；此操作无法恢复。若属于持续维持组，退休后会创建新成员补足目标数量。</p>${identity('实例 ID',id)}${formEnd('确认排空')}</form>`,'生命周期操作');
@@ -274,7 +303,7 @@ async function handleAction(action, element) {
   if(action==='cancel-run') {await api(`/api/v1/runs/${encodeURIComponent(id)}/cancel`,{});await refresh();await runDetail(id);return toast('取消请求已提交，运行将协作收尾');}
   if(action==='agent-tab') {
     const a=data.instances.find(a=>a.id===modalContext.id);
-    $('#detail-view').innerHTML=element.dataset.tab==='session'?jsonView(modalContext.session):definitionView(a.snapshot);
+    $('#detail-view').innerHTML=element.dataset.tab==='session'?dataView(modalContext.session):definitionView(a.snapshot);
   }
   if(action==='run-tab') {
     const r=modalContext.run, tab=element.dataset.tab;
@@ -319,6 +348,15 @@ document.addEventListener('submit',async event=>{
   form.dataset.commandKey ||= crypto.randomUUID();
   try {
     let result;
+    if(form.dataset.form==='message-send') {
+      if(new TextEncoder().encode(values.text).length>8000)throw new Error('消息超过 8,000 个 UTF-8 字节。');
+      const input={text:values.text};for(const field of ['goal_id','correlation_id','causation_id'])if(values[field])input[field]=values[field];
+      result=await api(`/api/v1/agent-instances/${encodeURIComponent(values.recipient_id)}/messages`,input,'POST',form.dataset.commandKey);location.hash='messages';
+    }
+    if(form.dataset.form==='message-action') {
+      if(new TextEncoder().encode(values.note).length>2000)throw new Error('处置说明超过 2,000 个 UTF-8 字节。');
+      result=await api(`/api/v1/messages/${encodeURIComponent(form.dataset.id)}/actions`,{action:form.dataset.operation,note:values.note},'POST',form.dataset.commandKey);
+    }
     if(form.dataset.form==='goal') {result=await api('/api/v1/goals',goalPlanFromForm(form),'POST',form.dataset.commandKey);location.hash=`goal/${result.id}`;}
     if(form.dataset.form==='goal-review') {result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/accept`,{review:values.review});}
     if(form.dataset.form==='goal-cancel') {result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/cancel`,{});}
@@ -333,7 +371,7 @@ document.addEventListener('submit',async event=>{
     if(form.dataset.form==='run') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/runs`,{text:values.text},'POST',form.dataset.commandKey);location.hash='runs';}
     $('#modal').close();await refresh(true);
     if(form.dataset.form==='run'&&data.runs.some(r=>r.id===result.id)){await runDetail(result.id);}
-    toast(form.dataset.form==='process-state'?(result.state==='disabled'?'插件版本已禁用，新的调用将被拒绝。':'健康检查通过，插件版本已启用。'):form.dataset.form==='process-install'?'包校验和健康检查通过，插件版本已安装。':result?.operation_id ? '操作已接纳，协调进度见实例组详情。' : result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='drain'?'排空请求已保存，活动任务结算后终止。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
+    toast(form.dataset.form==='message-send'?'消息已接纳；投递与消费状态见协作消息页。':form.dataset.form==='message-action'?'处置记录已保存。':form.dataset.form==='process-state'?(result.state==='disabled'?'插件版本已禁用，新的调用将被拒绝。':'健康检查通过，插件版本已启用。'):form.dataset.form==='process-install'?'包校验和健康检查通过，插件版本已安装。':result?.operation_id ? '操作已接纳，协调进度见实例组详情。' : result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='drain'?'排空请求已保存，活动任务结算后终止。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
   }catch(error){const target=form.querySelector('#form-error');if(target){target.textContent=error.message;target.tabIndex=-1;target.focus();}}
   finally {submit.disabled=false;submit.textContent=label;form.removeAttribute('aria-busy');}
 });

@@ -161,6 +161,14 @@ async fn execute(
     registry.model("selected", model).map_err(core_error)?;
     registry.tool(Arc::new(InspectText)).map_err(core_error)?;
     let mut tools = vec!["text.inspect".to_owned()];
+    for snapshot in bound.iter().filter(|p| p["kind"] == "organization") {
+        if snapshot != &crate::messaging::package() {
+            return Err(fault(409, "organization_plugin_snapshot_unsupported"));
+        }
+        let tool = crate::messaging::tool(store.clone(), run);
+        tools.push(tool.spec().name);
+        registry.tool(tool).map_err(core_error)?;
+    }
     for snapshot in bound.into_iter().filter(|p| p["kind"] == "process") {
         for tool in plugins.tools(serde_json::from_value(snapshot)?)? {
             tools.push(tool.spec().name);
@@ -220,6 +228,7 @@ pub async fn recover(store: &Store) -> PResult<()> {
     }
     store.recover_startup()?;
     store.reconcile_fleets()?;
+    store.reconcile_messages()?;
     store.reconcile_goals()
 }
 
@@ -255,6 +264,9 @@ pub async fn worker_loop_with_plugins(
                     token.cancel();
                 }
             }
+        }
+        if let Err(error) = store.reconcile_messages() {
+            eprintln!("Message reconciliation failed: {error}");
         }
         if let Err(error) = store.reconcile_goals() {
             eprintln!("Goal coordination failed: {error}");

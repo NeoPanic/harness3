@@ -6,6 +6,7 @@ pub mod domain;
 pub mod fleets;
 pub mod lifecycle;
 pub mod mcp;
+pub mod messaging;
 pub mod models;
 pub mod plugins;
 pub mod presets;
