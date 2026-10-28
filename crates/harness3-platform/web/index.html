@@ -5,7 +5,7 @@
   <meta name="color-scheme" content="light"><title>Harness³ · Kernel Console</title>
   <link rel="icon" href="/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/app.css">
   <script src="/fleets.js" defer></script><script src="/goals.js" defer></script><script src="/plugins.js" defer></script>
-  <script src="/messages.js" defer></script>
+  <script src="/research.js" defer></script><script src="/messages.js" defer></script>
   <script src="/presets.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
@@ -13,12 +13,12 @@
   <a class="skip-link" href="#content">跳至主要内容</a>
   <div id="shell">
     <aside class="sidebar">
-      <a class="brand" href="#overview" aria-label="Harness³ 工作区总览"><img src="/mark.svg" alt=""><span>Harness<sup>3</sup><small>MANAGED AGENTS</small></span></a>
-      <div class="workspace"><span class="dot"></span><div>Local workspace<small>本地内核预览 · v0.1</small></div><span class="keycap">LOCAL</span></div>
+      <a class="brand" href="#overview" aria-label="Harness³ 工作区总览"><img src="/mark.svg" alt=""><span>harness³</span></a>
       <div class="navigation">
       <p class="nav-label">WORKSPACE</p>
       <nav aria-label="主导航">
         <a href="#overview" data-page="overview"><span class="nav-icon">◈</span>总览 <small>Overview</small></a>
+        <a href="#research" data-page="research"><span class="nav-icon"></span>自主调研</a>
         <a href="#agents" data-page="agents"><span class="nav-icon">▦</span>Agent 实例 <span id="nav-count" class="nav-count">0</span></a>
         <a href="#fleets" data-page="fleets"><span class="nav-icon">▦</span>实例组</a>
         <a href="#goals" data-page="goals"><span class="nav-icon">◇</span>协作目标</a>
@@ -33,13 +33,12 @@
         <a href="#events" data-page="events"><span class="nav-icon">≋</span>事件日志</a>
       </nav>
       </div>
-      <div class="sidebar-bottom"><div class="mini-mark">H³</div><p>Composable by design.<small>道生一，三生万物。</small></p><button class="logout" data-action="logout" aria-label="退出登录">↗</button></div>
+      <div class="sidebar-bottom connection-status" role="status"><span id="connection" class="connection-indicator" aria-label="正在连接">●</span><span>127.0.0.1</span><span id="app-version">v0.1.0</span></div>
     </aside>
     <section class="body">
-      <header class="topbar"><div><span class="breadcrumb">Workspace</span><span class="slash">/</span><strong id="page-title">总览</strong></div><div class="top-status"><span id="connection" class="badge neutral">正在连接</span><span class="local-chip">⌁ &nbsp;127.0.0.1</span><button class="avatar" data-action="help" title="本地连接说明" aria-label="本地连接说明">?</button></div></header>
+      <header class="topbar"><div><span class="breadcrumb">Workspace</span><span class="slash">/</span><strong id="page-title">总览</strong></div></header>
       <div id="notice" role="status" aria-live="polite"></div>
       <main id="content" tabindex="-1" aria-label="工作区内容"><div class="loading">正在读取本地内核状态…</div></main>
-      <footer><span>Harness³ / Kernel preview</span><span>SQLite · 4 Worker slots · HTTP API + Web</span><span id="last-update">—</span></footer>
     </section>
   </div>
   <dialog id="login-dialog" aria-labelledby="login-title" aria-describedby="login-description"><form id="login-form"><div class="modal-brand"><img src="/mark.svg" alt=""> Harness³</div><h1 id="login-title">连接本地工作区</h1><p id="login-description">输入数据目录中 <code>token</code> 文件的内容。凭证仅用于此本地平台，不是模型 API Key。</p><label>平台访问令牌<input id="token" type="password" name="token" autocomplete="current-password" required spellcheck="false" placeholder="64 位本地 token"></label><div id="login-error" class="error" role="alert"></div><button class="button primary full" type="submit">进入控制台 <span>↗</span></button><p class="hint">默认位置：仓库目录下的 <code>.harness3/token</code></p></form></dialog>

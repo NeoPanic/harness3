@@ -10,5 +10,6 @@ pub mod messaging;
 pub mod models;
 pub mod plugins;
 pub mod presets;
+pub mod research;
 pub mod runtime;
 pub mod store;

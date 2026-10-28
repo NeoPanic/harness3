@@ -16,7 +16,7 @@
 
 Harness³ gives agents a shared execution foundation: model and tool interfaces, explicit authority, recoverable conversations, and inspectable execution. A host can compose these foundations into larger agent systems while choosing its own models, storage, channels, and coordination strategy.
 
-This repository contains the independent **runtime core** and a **local control-plane preview** with Presets, independent instances, SQLite persistence, and an embedded Web console. Explicit task graphs now coordinate multiple instances with dependency evidence and human acceptance. Trusted local process Tool plugins now have a versioned manifest, reference SDK, immutable packages and explicit daemon opt-in. Multi-machine scheduling, autonomous delegation, remote MCP plugin loading and hosted deployment remain planned.
+This repository contains the independent **runtime core** and a **local control-plane preview** with Presets, independent instances, SQLite persistence, and an embedded Web console. Explicit task graphs now coordinate multiple instances with dependency evidence and human acceptance. Trusted local process Tool plugins now have a versioned manifest, reference SDK, immutable packages and explicit daemon opt-in. A bounded research workflow now turns one objective into a planner, parallel researchers and an independent synthesizer. Recursive delegation, multi-machine scheduling, remote MCP plugin loading and hosted deployment remain planned.
 
 ## Local kernel platform preview
 
@@ -25,6 +25,8 @@ cargo run --locked -p harness3-platform -- up --demo
 ```
 
 Open [http://127.0.0.1:7333](http://127.0.0.1:7333) and sign in with the local `.harness3/token` file. Publish Presets, create independent instances, run the real Harness loop, and inspect requests, receipts, sessions, events, and implementation status. The platform supports non-streaming OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages adapters. See the [platform guide (中文)](docs/kernel-preview.zh-CN.md) for model configuration, API endpoints, and current limits. Fleets support finite/maintain policies, asynchronous provisioning and scaling, graceful retirement, and TTL. Fleets and explicit collaboration goals share state across Web, HTTP, CLI, and outward MCP stdio tools. [Client examples](examples/clients/) include a fleet plan and MCP configuration. See the [process plugin guide](docs/process-plugins.zh-CN.md) for local executable Tool packages, health checks, version pinning and cancellation. Durable local Agent messaging now separates delivery, dispatch and consumption, with a pinned first-party messaging capability; channels, work claims and remote MCP tool loading remain planned. See the [messaging contract](docs/messaging.zh-CN.md).
+
+Launch a team from **自主调研** in the console; see the [research workflow](docs/research.zh-CN.md) for planning, evidence handoffs, limits and automatic retirement.
 
 Presets support pinned single-parent inheritance, validated instance parameters, and multiple prompt/process plugin bindings. See the [Preset composition contract](docs/presets.zh-CN.md) for the current JSON format and limits.
 

@@ -12,7 +12,7 @@
 | P1 | 有限批量实例化 | 已实现 | 原生测试 + Web 联调 | HTTP 以 202 接纳创建 Operation，每轮最多创建 8 个实例；全局 64 容量包含未创建的预留槽位，幂等重试返回原回执。 |
 | P1 | 实例生命周期与 TTL | 部分实现 | 原生测试 + Web 联调 | 暂停/恢复/终止、排空与 TTL；实例组支持 finite/maintain 扩缩容。空闲策略、stop/start、配置升级和单实例 Operation 尚未实现。 |
 | P2 | 维持型实例组与异步 Operation | 部分实现 | 原生测试 + Web 联调 | finite/maintain、异步创建/扩缩容/终止、持久槽位与代际、容量预留、分批协调、重启续作已落地；尚无排空期限、Operation 单独取消与远程执行配置。 |
-| P2 | 受限 Agent 派生 | 规划中 | 待实现 | 待实现父子谱系、深度/数量限制和子 Agent 生命周期授权。 |
+| P2 | 受限 Agent 派生 | 部分实现 | 原生测试 + Web 联调 | 自主调研可自动创建一层有界团队，保存规划父级身份、角色与独立实例关系；2–6 位研究者加规划/汇总，完成或取消自动回收。通用递归派生、子树授权和角色母体选择待补。 |
 | P1 | 持久队列与取消 | 已实现 | 既有测试；见预览指南边界 | 4 个本地并发槽、单实例串行、幂等提交、协作取消。 |
 | P1 | SQLite 与恢复 | 部分实现 | 既有测试；见预览指南边界 | 事务、检查点、事件、daemon 锁；已知回执保留，未知结果中断。待补迁移运维、对账与事件分页。 |
 | P1 | 三类模型协议 | 部分实现 | 既有测试；见预览指南边界 | Chat Completions / Responses / Anthropic 非流式工具循环；Responses 已真实联调。流式与分片中断契约待补。 |
@@ -20,11 +20,11 @@
 | P2 | 可执行插件契约与 SDK | 部分实现 | 原生测试 + Web 联调 | 已实现版本化 manifest/RPC、严格 schema 子集、握手/健康/进度/取消、错误分类、Rust 同步 SDK 和 Python 示例；配置/权限/依赖锁、多种能力与对账协议待补。 |
 | P2 | 外部插件与热加载 | 部分实现 | 原生测试 + Web 联调 | 进程包在线安装、内容寻址、逐调用摘要检查、版本并存、母体快照、健康检查、禁用/取消和旧版本重新绑定已实现；显式 opt-in、清空继承环境，仍以 OS 用户权限运行。MCP loader、watch、进程池/rollout、沙箱与作用域授权待补。 |
 | P2 | 显式目标与任务依赖 | 已实现 | 既有测试；见预览指南边界 | 最多 16 项任务；持久依赖图、上游输出和 Run ID 传递、取消与人工验收。 |
-| P2 | 自主规划与动态委派 | 规划中 | 待实现 | 待实现 Planner、组织插件、动态派生、依赖更新和终止条件。 |
+| P2 | 自主规划与动态委派 | 部分实现 | 原生测试 + Web 联调 | 自主调研入口已实现：一个目标接纳有界团队，规划 Agent 提交分工，2–6 位独立研究者并行，独立汇总等待贡献后运行；持久恢复、取消、15 分钟期限与回收。任意动态任务图、递归委派、自主返工和费用预算待补。 |
 | P2 | 可靠协作消息 | 部分实现 | 原生测试 + Web 联调 | 本地持久 Outbox/Inbox、稳定消息 ID/幂等去重、投递/派发确认/消费分离、暂停积压、未知结果人工处置和内置 platform.messaging 发送工具已落地；四入口共用。频道、工作认领/Attempts、远程投递与 Grant 待补。 |
 | P2 | 产物、验证与返工 | 规划中 | 待实现 | 现有文本输出可人工验收；版本化产物、结构化贡献、验证规则、返工及重试历史待实现。 |
 | P1 | Web 执行证据检查 | 已实现 | 既有测试；见预览指南边界 | 实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。 |
-| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 30 个工具，默认开放 15 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
+| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 34 个工具，默认开放 17 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
 | P2 | 实时事件与查询 | 部分实现 | 既有测试；见预览指南边界 | 持久事件游标、Web 轮询；待实现 SSE、列表游标和统一查询契约。 |
 | P2 | 预算预留与账本 | 规划中 | 待实现 | 当前只有单 Run 轮次/工具数/超时上限；待实现团队预算、原子预留、结算与费用归属。 |
 | P3 | 身份、授权与审批 | 部分实现 | 既有测试；见预览指南边界 | 当前为 loopback + 本地 token；Principal/Grant、审批等待、租户隔离与插件权限未实现。 |
@@ -42,7 +42,7 @@
 | 有限批量实例化 | `crates/harness3-platform/src/fleets.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/` |
 | 实例生命周期与 TTL | `crates/harness3-platform/src/lifecycle.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/`<br>`crates/harness3-domain/src/agents/` |
 | 维持型实例组与异步 Operation | `crates/harness3-platform/src/fleets.rs`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/tests/fleets.rs` | `crates/harness3-domain/src/operations/`<br>`crates/harness3-platform/src/control/` |
-| 受限 Agent 派生 | 尚无实现模块 | `crates/harness3-domain/src/agents/` |
+| 受限 Agent 派生 | `crates/harness3-platform/src/research/mod.rs`<br>`crates/harness3-platform/web/research.js` | `crates/harness3-domain/src/agents/` |
 | 持久队列与取消 | `crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/runtime.rs` | `crates/harness3-platform/src/scheduling/` |
 | SQLite 与恢复 | `crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/schema.sql` | `crates/harness3-storage/src/` |
 | 三类模型协议 | `crates/harness3-platform/src/models.rs` | `crates/harness3-models/src/` |
@@ -50,7 +50,7 @@
 | 可执行插件契约与 SDK | `crates/harness3-plugin-protocol/src/lib.rs`<br>`crates/harness3-plugin-sdk/src/lib.rs`<br>`crates/harness3-plugin-sdk/tests/contract.rs`<br>`examples/plugins/text-inspector/manifest.json` | `crates/harness3-plugin-protocol/src/`<br>`crates/harness3-plugin-sdk/src/` |
 | 外部插件与热加载 | `crates/harness3-platform/src/plugins/mod.rs`<br>`crates/harness3-platform/src/plugins/package.rs`<br>`crates/harness3-platform/src/plugins/process.rs`<br>`crates/harness3-platform/web/plugins.js`<br>`crates/harness3-platform/tests/process_plugins.rs` | `crates/harness3-plugins/src/loaders/`<br>`crates/harness3-plugins/src/reload/` |
 | 显式目标与任务依赖 | `crates/harness3-platform/src/coordination.rs` | `crates/harness3-platform/src/collaboration/` |
-| 自主规划与动态委派 | 尚无实现模块 | `plugins/organization/`<br>`crates/harness3-platform/src/collaboration/` |
+| 自主规划与动态委派 | `crates/harness3-platform/src/research/mod.rs`<br>`crates/harness3-platform/src/research/tools.rs`<br>`crates/harness3-platform/web/research.js`<br>`crates/harness3-platform/tests/research.rs` | `plugins/organization/`<br>`crates/harness3-platform/src/collaboration/` |
 | 可靠协作消息 | `crates/harness3-platform/src/messaging/mod.rs`<br>`crates/harness3-platform/src/messaging/tools.rs`<br>`crates/harness3-platform/web/messages.js`<br>`crates/harness3-platform/tests/messaging.rs` | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
 | 产物、验证与返工 | 尚无实现模块 | `crates/harness3-domain/src/artifacts/`<br>`plugins/verification/` |
 | Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/goals.js`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/web/messages.js` | `web/src/features/` |
@@ -92,6 +92,9 @@ crates/harness3-platform/
 │   │   └── process.rs
 │   ├── presets/
 │   │   └── mod.rs
+│   ├── research/
+│   │   ├── mod.rs
+│   │   └── tools.rs
 │   ├── api.rs
 │   ├── cli.rs
 │   ├── client.rs
@@ -115,7 +118,8 @@ crates/harness3-platform/
 │   ├── messaging.rs
 │   ├── platform.rs
 │   ├── presets.rs
-│   └── process_plugins.rs
+│   ├── process_plugins.rs
+│   └── research.rs
 ├── web/
 │   ├── app.css
 │   ├── app.js
@@ -124,7 +128,8 @@ crates/harness3-platform/
 │   ├── index.html
 │   ├── messages.js
 │   ├── plugins.js
-│   └── presets.js
+│   ├── presets.js
+│   └── research.js
 └── Cargo.toml
 crates/harness3-plugin-protocol/
 ├── src/
@@ -145,7 +150,8 @@ examples/clients/
 ├── mcp.json
 ├── parameterized-fleet.json
 ├── process-fleet.json
-└── process-preset.json
+├── process-preset.json
+└── research.json
 examples/plugins/
 └── text-inspector/
     ├── manifest.json

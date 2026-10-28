@@ -68,33 +68,7 @@ fn goal_state(tx: &Transaction<'_>, goal: &str, state: &str) -> PResult<()> {
 
 impl Store {
     pub fn create_goal(&self, plan: &GoalPlan, key: &str) -> PResult<Value> {
-        plan.validate()?;
-        if key.is_empty() || key.len() > 160 {
-            return Err(fault(400, "invalid_idempotency_key"));
-        }
-        self.transaction(|tx| {
-            let command = format!("goal:{key}");
-            let fingerprint = serde_json::to_string(plan)?;
-            if let Some((old, response)) = tx.query_row("SELECT fingerprint,response FROM commands WHERE key=?", [&command], |r| Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()? {
-                if old != fingerprint { return Err(fault(409, "idempotency_conflict")); }
-                return Ok(serde_json::from_str(&response)?);
-            }
-            let active: usize = tx.query_row("SELECT count(*) FROM goals WHERE state IN ('running','cancelling','awaiting-review')", [], |r|r.get(0))?;
-            if active >= 32 { return Err(fault(409, "goal_quota_exceeded")); }
-            for task in &plan.tasks {
-                let state: String = tx.query_row("SELECT state FROM instances WHERE id=?", [&task.instance_id], |r|r.get(0)).optional()?.ok_or_else(||fault(404,"instance_not_found"))?;
-                if state == "terminated" || state == "draining" { return Err(fault(409, "goal_instance_terminated")); }
-            }
-            let goal = id("goal");
-            tx.execute("INSERT INTO goals(id,title,objective,acceptance,state,created_at) VALUES(?,?,?,?,'running',?)", params![goal,plan.title,plan.objective,plan.acceptance,now()])?;
-            for (position, task) in plan.tasks.iter().enumerate() {
-                tx.execute("INSERT INTO work_items(goal_id,key,position,instance_id,instructions,depends_on,state) VALUES(?,?,?,?,?,?,'pending')",params![goal,task.key,position,task.instance_id,task.instructions,serde_json::to_string(&task.depends_on)?])?;
-            }
-            event(tx, "goal.created", &goal, json!({"task_count":plan.tasks.len()}))?;
-            let response = json!({"id":goal,"state":"running","task_count":plan.tasks.len()});
-            tx.execute("INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",params![command,fingerprint,response.to_string()])?;
-            Ok(response)
-        })
+        self.transaction(|tx| create_in(tx, plan, key))
     }
     pub fn goal(&self, id: &str) -> PResult<Value> {
         self.transaction(|tx| goal_json(tx, id))
@@ -120,36 +94,7 @@ impl Store {
         })
     }
     pub fn cancel_goal(&self, id: &str) -> PResult<Value> {
-        self.transaction(|tx| {
-            let goal = goal_json(tx, id)?;
-            if goal["state"] == "cancelled" { return Ok(json!({"id":id,"state":"cancelled","run_ids":[]})); }
-            if !["running","cancelling","awaiting-review"].contains(&goal["state"].as_str().unwrap_or_default()) { return Err(fault(409, "goal_not_cancellable")); }
-            let mut runs = Vec::new();
-            for task in goal["tasks"].as_array().unwrap() {
-                match task["run"]["state"].as_str() {
-                    Some("queued") => {
-                        let run = task["run_id"].as_str().unwrap();
-                        tx.execute("UPDATE runs SET state='cancelled',cancel_requested=1,finished_at=? WHERE id=?",params![now(),run])?;
-                        tx.execute("UPDATE instances SET state='ready' WHERE id=? AND state='busy'", [task["instance_id"].as_str().unwrap()])?;
-                        task_state(tx,id,task["key"].as_str().unwrap(),"cancelled",None)?;
-                        event(tx,"run.cancel_requested",run,json!({"goal_id":id,"previous_state":"queued"}))?;
-                    }
-                    Some("running") => {
-                        let run = task["run_id"].as_str().unwrap();
-                        tx.execute("UPDATE runs SET cancel_requested=1 WHERE id=?",[run])?;
-                        event(tx,"run.cancel_requested",run,json!({"goal_id":id,"previous_state":"running"}))?;
-                        runs.push(run.to_owned());
-                    }
-                    None => {if task["state"]=="pending" {task_state(tx,id,task["key"].as_str().unwrap(),"cancelled",None)?;}}
-                    Some(state) => {
-                        if task["state"] != state { task_state(tx,id,task["key"].as_str().unwrap(),state,task["run"]["report"]["error"]["code"].as_str())?; }
-                    }
-                }
-            }
-            let state = if runs.is_empty() {"cancelled"} else {"cancelling"};
-            if goal["state"] != state { goal_state(tx,id,state)?; }
-            Ok(json!({"id":id,"state":state,"run_ids":runs}))
-        })
+        self.transaction(|tx| cancel_in(tx, id))
     }
     pub fn reconcile_goals(&self) -> PResult<()> {
         self.transaction(|tx| {
@@ -284,4 +229,136 @@ fn reconcile(tx: &Transaction<'_>, id: &str, cancelling: bool) -> PResult<()> {
         goal_state(tx, id, state)?;
     }
     Ok(())
+}
+
+pub(crate) fn create_in(tx: &Transaction<'_>, plan: &GoalPlan, key: &str) -> PResult<Value> {
+    plan.validate()?;
+    if key.is_empty() || key.len() > 160 {
+        return Err(fault(400, "invalid_idempotency_key"));
+    }
+
+    let command = format!("goal:{key}");
+    let fingerprint = serde_json::to_string(plan)?;
+    if let Some((old, response)) = tx
+        .query_row(
+            "SELECT fingerprint,response FROM commands WHERE key=?",
+            [&command],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+        )
+        .optional()?
+    {
+        if old != fingerprint {
+            return Err(fault(409, "idempotency_conflict"));
+        }
+        return Ok(serde_json::from_str(&response)?);
+    }
+    let active: usize = tx.query_row(
+        "SELECT count(*) FROM goals WHERE state IN ('running','cancelling','awaiting-review')",
+        [],
+        |r| r.get(0),
+    )?;
+    if active >= 32 {
+        return Err(fault(409, "goal_quota_exceeded"));
+    }
+    for task in &plan.tasks {
+        let state: String = tx
+            .query_row(
+                "SELECT state FROM instances WHERE id=?",
+                [&task.instance_id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| fault(404, "instance_not_found"))?;
+        if state == "terminated" || state == "draining" {
+            return Err(fault(409, "goal_instance_terminated"));
+        }
+    }
+    let goal = id("goal");
+    tx.execute("INSERT INTO goals(id,title,objective,acceptance,state,created_at) VALUES(?,?,?,?,'running',?)", params![goal,plan.title,plan.objective,plan.acceptance,now()])?;
+    for (position, task) in plan.tasks.iter().enumerate() {
+        tx.execute("INSERT INTO work_items(goal_id,key,position,instance_id,instructions,depends_on,state) VALUES(?,?,?,?,?,?,'pending')",params![goal,task.key,position,task.instance_id,task.instructions,serde_json::to_string(&task.depends_on)?])?;
+    }
+    event(
+        tx,
+        "goal.created",
+        &goal,
+        json!({"task_count":plan.tasks.len()}),
+    )?;
+    let response = json!({"id":goal,"state":"running","task_count":plan.tasks.len()});
+    tx.execute(
+        "INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",
+        params![command, fingerprint, response.to_string()],
+    )?;
+    Ok(response)
+}
+
+pub(crate) fn cancel_in(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
+    let goal = goal_json(tx, id)?;
+    if goal["state"] == "cancelled" {
+        return Ok(json!({"id":id,"state":"cancelled","run_ids":[]}));
+    }
+    if !["running", "cancelling", "awaiting-review"]
+        .contains(&goal["state"].as_str().unwrap_or_default())
+    {
+        return Err(fault(409, "goal_not_cancellable"));
+    }
+    let mut runs = Vec::new();
+    for task in goal["tasks"].as_array().unwrap() {
+        match task["run"]["state"].as_str() {
+            Some("queued") => {
+                let run = task["run_id"].as_str().unwrap();
+                tx.execute(
+                    "UPDATE runs SET state='cancelled',cancel_requested=1,finished_at=? WHERE id=?",
+                    params![now(), run],
+                )?;
+                tx.execute(
+                    "UPDATE instances SET state='ready' WHERE id=? AND state='busy'",
+                    [task["instance_id"].as_str().unwrap()],
+                )?;
+                task_state(tx, id, task["key"].as_str().unwrap(), "cancelled", None)?;
+                event(
+                    tx,
+                    "run.cancel_requested",
+                    run,
+                    json!({"goal_id":id,"previous_state":"queued"}),
+                )?;
+            }
+            Some("running") => {
+                let run = task["run_id"].as_str().unwrap();
+                tx.execute("UPDATE runs SET cancel_requested=1 WHERE id=?", [run])?;
+                event(
+                    tx,
+                    "run.cancel_requested",
+                    run,
+                    json!({"goal_id":id,"previous_state":"running"}),
+                )?;
+                runs.push(run.to_owned());
+            }
+            None => {
+                if task["state"] == "pending" {
+                    task_state(tx, id, task["key"].as_str().unwrap(), "cancelled", None)?;
+                }
+            }
+            Some(state) => {
+                if task["state"] != state {
+                    task_state(
+                        tx,
+                        id,
+                        task["key"].as_str().unwrap(),
+                        state,
+                        task["run"]["report"]["error"]["code"].as_str(),
+                    )?;
+                }
+            }
+        }
+    }
+    let state = if runs.is_empty() {
+        "cancelled"
+    } else {
+        "cancelling"
+    };
+    if goal["state"] != state {
+        goal_state(tx, id, state)?;
+    }
+    Ok(json!({"id":id,"state":state,"run_ids":runs}))
 }

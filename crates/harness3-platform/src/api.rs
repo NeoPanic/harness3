@@ -174,6 +174,21 @@ pub fn router(app: App) -> Router {
         .route("/api/logout", post(logout))
         .route("/api/v1/snapshot", get(snapshot))
         .route(
+            "/research.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/research.js"),
+                )
+            }),
+        )
+        .route(
+            "/api/v1/research-jobs",
+            get(research_list).post(research_create),
+        )
+        .route("/api/v1/research-jobs/{id}", get(research_show))
+        .route("/api/v1/research-jobs/{id}/cancel", post(research_cancel))
+        .route(
             "/messages.js",
             get(|| async {
                 (
@@ -251,7 +266,7 @@ async fn logout() -> Response {
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"messages":app.store.recent_messages()?,"builtin_plugins":[crate::messaging::package()],"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
+        json!({"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":[crate::messaging::package()],"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Value>) -> PResult<Json<Value>> {
@@ -464,4 +479,24 @@ async fn message_action(
         &input,
         key(&headers)?,
     )?))
+}
+
+async fn research_list(State(app): State<App>) -> PResult<Json<Value>> {
+    Ok(Json(json!({"research_jobs":app.store.researches()?})))
+}
+async fn research_create(
+    State(app): State<App>,
+    headers: HeaderMap,
+    Json(input): Json<crate::research::ResearchInput>,
+) -> PResult<(StatusCode, Json<Value>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(app.store.create_research(&input, key(&headers)?)?),
+    ))
+}
+async fn research_show(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.research(&id)?))
+}
+async fn research_cancel(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.cancel_research(&id)?))
 }

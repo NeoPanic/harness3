@@ -98,13 +98,16 @@
     "id": "lineage",
     "name": "受限 Agent 派生",
     "phase": "P2",
-    "status": "planned",
-    "detail": "待实现父子谱系、深度/数量限制和子 Agent 生命周期授权。",
-    "source": [],
+    "status": "partial",
+    "detail": "自主调研可自动创建一层有界团队，保存规划父级身份、角色与独立实例关系；2–6 位研究者加规划/汇总，完成或取消自动回收。通用递归派生、子树授权和角色母体选择待补。",
+    "source": [
+      "crates/harness3-platform/src/research/mod.rs",
+      "crates/harness3-platform/web/research.js"
+    ],
     "target": [
       "crates/harness3-domain/src/agents/"
     ],
-    "verification": "not-implemented"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "queue",
@@ -220,14 +223,19 @@
     "id": "planning",
     "name": "自主规划与动态委派",
     "phase": "P2",
-    "status": "planned",
-    "detail": "待实现 Planner、组织插件、动态派生、依赖更新和终止条件。",
-    "source": [],
+    "status": "partial",
+    "detail": "自主调研入口已实现：一个目标接纳有界团队，规划 Agent 提交分工，2–6 位独立研究者并行，独立汇总等待贡献后运行；持久恢复、取消、15 分钟期限与回收。任意动态任务图、递归委派、自主返工和费用预算待补。",
+    "source": [
+      "crates/harness3-platform/src/research/mod.rs",
+      "crates/harness3-platform/src/research/tools.rs",
+      "crates/harness3-platform/web/research.js",
+      "crates/harness3-platform/tests/research.rs"
+    ],
     "target": [
       "plugins/organization/",
       "crates/harness3-platform/src/collaboration/"
     ],
-    "verification": "not-implemented"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "messaging",
@@ -282,7 +290,7 @@
     "name": "API / CLI / MCP 入口",
     "phase": "P2",
     "status": "partial",
-    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 30 个工具，默认开放 15 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
+    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 34 个工具，默认开放 17 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
     "source": [
       "crates/harness3-platform/src/api.rs",
       "crates/harness3-platform/src/client.rs",

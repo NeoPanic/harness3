@@ -1,0 +1,9 @@
+{
+  "title": "比较 Agent 协作方案",
+  "objective": "基于提供的资料，分别分析显式任务图与持久消息交接的适用场景、失败恢复和证据追踪。没有检索工具时，请明确说明未进行在线调研。",
+  "acceptance": "汇总不同维度的贡献，引用各研究 Run ID，区分证据、推理和待核实事项。",
+  "preset_name": "researcher",
+  "preset_version": "1.0.0",
+  "researchers": 3,
+  "parameters": {}
+}

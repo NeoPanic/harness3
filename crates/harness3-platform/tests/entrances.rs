@@ -648,3 +648,70 @@ async fn durable_messages_share_http_cli_mcp_identity_idempotency_and_readonly_g
     );
     assert_eq!(f.store.recent_messages().unwrap().len(), 1);
 }
+
+#[tokio::test]
+async fn autonomous_research_is_one_idempotent_job_across_cli_http_mcp() {
+    use harness3_platform::research::ResearchInput;
+    let f = Fixture::new().await;
+    let input = json!({"title":"Independent research","objective":"Compare architectures","acceptance":"Evidence and limitations","preset_name":"worker","preset_version":"1","researchers":2});
+    let path = f.root.join("research.json");
+    std::fs::write(&path, input.to_string()).unwrap();
+    let output = f
+        .cli(&[
+            "research",
+            "create",
+            "--file",
+            path.to_str().unwrap(),
+            "--key",
+            "same-research",
+        ])
+        .await;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let receipt: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        f.client()
+            .execute(Command::ResearchCreate {
+                input: serde_json::from_value::<ResearchInput>(input.clone()).unwrap(),
+                key: "same-research".into()
+            })
+            .await
+            .unwrap(),
+        receipt
+    );
+    let mut mcp = McpServer::new(f.client(), true);
+    initialize(&mut mcp).await;
+    assert_eq!(
+        call(
+            &mut mcp,
+            "research_create",
+            json!({"input":input,"key":"same-research"})
+        )
+        .await["result"]["structuredContent"],
+        receipt
+    );
+    let id = receipt["id"].as_str().unwrap();
+    assert_eq!(
+        call(&mut mcp, "research_show", json!({"id":id})).await["result"]["structuredContent"]["researchers"],
+        2
+    );
+    let mut readonly = McpServer::new(f.client(), false);
+    initialize(&mut readonly).await;
+    assert_eq!(
+        call(
+            &mut readonly,
+            "research_create",
+            json!({"input":input,"key":"blocked"})
+        )
+        .await["error"]["code"],
+        -32602
+    );
+    assert_eq!(call(&mut readonly,"research_list",json!({})).await["result"]["structuredContent"]["research_jobs"].as_array().unwrap().len(),1);
+    call(&mut mcp, "research_cancel", json!({"id":id})).await;
+    f.store.reconcile_research().unwrap();
+    assert_eq!(f.store.research(id).unwrap()["state"], "cancelled");
+    assert_eq!(f.store.capacity().unwrap()["reserved"], 0);
+}

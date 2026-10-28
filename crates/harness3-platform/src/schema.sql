@@ -32,3 +32,6 @@ CREATE INDEX IF NOT EXISTS messages_correlation ON messages(correlation_id,seq);
 CREATE INDEX IF NOT EXISTS messages_recipient ON messages(recipient_id,seq);
 CREATE INDEX IF NOT EXISTS messages_sender ON messages(sender_instance_id,seq);
 CREATE INDEX IF NOT EXISTS messages_source_run ON messages(source_run_id);
+CREATE TABLE IF NOT EXISTS research_jobs(id TEXT PRIMARY KEY,title TEXT NOT NULL,objective TEXT NOT NULL,acceptance TEXT NOT NULL,researchers INTEGER NOT NULL,fleet_id TEXT NOT NULL UNIQUE REFERENCES fleets(id),state TEXT NOT NULL,planner_run_id TEXT UNIQUE REFERENCES runs(id),plan TEXT,goal_id TEXT UNIQUE REFERENCES goals(id),error TEXT,created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS research_members(research_id TEXT NOT NULL REFERENCES research_jobs(id),instance_id TEXT PRIMARY KEY REFERENCES instances(id),role TEXT NOT NULL,position INTEGER NOT NULL,parent_instance_id TEXT REFERENCES instances(id),UNIQUE(research_id,position));
+CREATE INDEX IF NOT EXISTS research_jobs_state ON research_jobs(state,created_at);

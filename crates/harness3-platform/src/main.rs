@@ -23,6 +23,7 @@ enum Command {
     /// Manage shared goals through the running daemon's authenticated HTTP API.
     Goals(cli::GoalArgs),
     Messages(cli::MessageArgs),
+    Research(cli::ResearchArgs),
     /// Manage durable fleets and asynchronous operation receipts.
     Fleets(cli::FleetArgs),
     /// Inspect instances, manage lifecycle, and read durable sessions.
@@ -86,6 +87,7 @@ enum McpCommand {
 #[tokio::main]
 async fn main() -> harness3_platform::client::ClientResult<()> {
     match Cli::parse().command {
+        Command::Research(args) => cli::research(args).await?,
         Command::Messages(args) => cli::messages(args).await?,
         Command::Goals(args) => cli::goals(args).await?,
         Command::Fleets(args) => cli::fleets(args).await?,

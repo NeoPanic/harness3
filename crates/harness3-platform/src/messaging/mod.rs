@@ -367,18 +367,3 @@ pub(crate) fn reconcile(tx: &Transaction<'_>) -> PResult<()> {
     }
     Ok(())
 }
-
-fn outcome_unknown(value: &Value) -> bool {
-    match value {
-        Value::Object(map) => map.iter().any(|(key, value)| {
-            ((key == "code" || key == "error")
-                && value
-                    .as_str()
-                    .is_some_and(|s| s.contains("outcome_unknown")))
-                || (key == "outcome_unknown" && value == &Value::Bool(true))
-                || (key != "arguments" && key != "call" && outcome_unknown(value))
-        }),
-        Value::Array(items) => items.iter().any(outcome_unknown),
-        _ => false,
-    }
-}

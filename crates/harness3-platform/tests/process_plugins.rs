@@ -299,7 +299,18 @@ async fn caller_cancellation_and_daemon_opt_in_are_enforced() {
     let cancel = token.clone();
     let future = f.invoke(&snapshot, token);
     tokio::pin!(future);
-    let result = tokio::select! {result=&mut future=>result,_=tokio::time::sleep(Duration::from_millis(100))=>{cancel.cancel();future.await}};
+    tokio::time::timeout(Duration::from_secs(5),async {
+        loop {
+            tokio::select! {
+                result=&mut future=>panic!("invocation ended before cancellation: {:?}",result.err().map(|e|e.code)),
+                _=tokio::time::sleep(Duration::from_millis(10))=> {
+                    if f.store.events(0).unwrap().iter().any(|e|e["kind"]=="plugin.progress") {break;}
+                }
+            }
+        }
+    }).await.unwrap();
+    cancel.cancel();
+    let result = future.await;
     assert_eq!(result.err().unwrap().code, "plugin_outcome_unknown");
     let disabled = ProcessHost::disabled(f.store.clone());
     assert_eq!(

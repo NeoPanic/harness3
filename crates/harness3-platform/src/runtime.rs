@@ -34,6 +34,35 @@ impl Model for DemoModel {
     ) -> Result<ModelReply> {
         // A small interruptible delay makes the real execution phases inspectable.
         tokio::select! {_=cancel.cancelled()=>return Err(Error::new("cancelled")),_=tokio::time::sleep(Duration::from_millis(500))=>{}}
+        if let Some(spec) = input
+            .tools
+            .iter()
+            .find(|s| s.name == "platform.research.plan")
+        {
+            let finished = matches!(input.turns.last(), Some(Turn::Tools(_)));
+            let count = spec.parameters["properties"]["tasks"]["minItems"]
+                .as_u64()
+                .unwrap() as usize;
+            return Ok(ModelReply {
+                text: if finished {
+                    "[确定性演示] 分工计划已提交；研究任务由平台派发。".into()
+                } else {
+                    String::new()
+                },
+                calls: if finished {
+                    vec![]
+                } else {
+                    vec![Call {
+                        id: "demo-plan".into(),
+                        name: spec.name.clone(),
+                        arguments: json!({"tasks":(0..count).map(|i|json!({"title":format!("演示维度 {}",i+1),"instructions":format!("确定性演示：检查第 {} 个维度的输入文本，报告工具统计；这不是语义调研。",i+1)})).collect::<Vec<_>>(),"synthesis":"确定性演示：检查上游贡献文本；不宣称执行真实调研。"}),
+                    }]
+                },
+                usage: None,
+                continuation: Value::Null,
+                reasoning: None,
+            });
+        }
         let (text, calls) = if let Some(Turn::Tools(observations)) = input.turns.last() {
             let evidence = observations
                 .first()
@@ -128,6 +157,7 @@ async fn execute(
     let snapshot = &work["snapshot"];
     let preset = crate::presets::runtime_preset(snapshot)?;
     let bound = crate::presets::bindings(snapshot);
+    let planning = store.planner_job(run)?;
     let mut instructions = format!(
         "{}\nPurpose: {}\nObjective: {}",
         preset.instructions, preset.purpose, preset.objective
@@ -140,6 +170,29 @@ async fn execute(
                 .or_else(|| plugin["manifest"]["instructions"].as_str())
                 .unwrap_or_default()
         ));
+    }
+    if let Some(job) = &planning {
+        let mut worker_tools = vec![
+            json!({"name":"text.inspect","description":"Count Unicode characters, lines and bytes in supplied text; no filesystem or network access."}),
+        ];
+        for plugin in &bound {
+            if plugin["kind"] == "process"
+                && let Some(tools) = plugin["manifest"]["tools"].as_array()
+            {
+                for tool in tools {
+                    worker_tools.push(json!({"name":format!("{}.{}",plugin["id"].as_str().unwrap_or_default(),tool["name"].as_str().unwrap_or_default()),"description":tool["description"].as_str().unwrap_or_default().chars().take(512).collect::<String>()}));
+                }
+            }
+            if plugin["kind"] == "organization" {
+                worker_tools.push(json!({"name":"platform.messaging.send","description":"Send to a known existing Agent in the same fleet or shared active Goal."}));
+            }
+        }
+        instructions = format!(
+            "You are the planning Agent for a bounded research team. Your only tool submits a plan; you cannot execute research tools, spawn recursively or pick identities. Produce exactly {} independent assignments and one synthesis brief. The selected worker role is:\n{}\nAvailable worker capabilities (declarations only): {}\nNever claim web research unless an actual retrieval tool is available. Submit the plan then stop.",
+            job["researchers"],
+            instructions,
+            serde_json::to_string(&worker_tools)?
+        );
     }
     let model: Arc<dyn Model> = if preset.protocol == Protocol::Demo {
         Arc::new(DemoModel)
@@ -159,20 +212,31 @@ async fn execute(
     let mut registry = Registry::default();
     registry.source(Arc::new(InputSource)).map_err(core_error)?;
     registry.model("selected", model).map_err(core_error)?;
-    registry.tool(Arc::new(InspectText)).map_err(core_error)?;
-    let mut tools = vec!["text.inspect".to_owned()];
-    for snapshot in bound.iter().filter(|p| p["kind"] == "organization") {
-        if snapshot != &crate::messaging::package() {
-            return Err(fault(409, "organization_plugin_snapshot_unsupported"));
-        }
-        let tool = crate::messaging::tool(store.clone(), run);
+    let mut tools = Vec::new();
+    if let Some(job) = &planning {
+        let tool = crate::research::tool(
+            store.clone(),
+            run,
+            job["researchers"].as_u64().unwrap() as usize,
+        );
         tools.push(tool.spec().name);
         registry.tool(tool).map_err(core_error)?;
-    }
-    for snapshot in bound.into_iter().filter(|p| p["kind"] == "process") {
-        for tool in plugins.tools(serde_json::from_value(snapshot)?)? {
+    } else {
+        registry.tool(Arc::new(InspectText)).map_err(core_error)?;
+        tools.push("text.inspect".to_owned());
+        for snapshot in bound.iter().filter(|p| p["kind"] == "organization") {
+            if snapshot != &crate::messaging::package() {
+                return Err(fault(409, "organization_plugin_snapshot_unsupported"));
+            }
+            let tool = crate::messaging::tool(store.clone(), run);
             tools.push(tool.spec().name);
             registry.tool(tool).map_err(core_error)?;
+        }
+        for snapshot in bound.into_iter().filter(|p| p["kind"] == "process") {
+            for tool in plugins.tools(serde_json::from_value(snapshot)?)? {
+                tools.push(tool.spec().name);
+                registry.tool(tool).map_err(core_error)?;
+            }
         }
     }
     registry.observer(Arc::new(RunObserver {
@@ -184,7 +248,7 @@ async fn execute(
             name: "agent".into(),
             instructions,
             tools,
-            required_tool: None,
+            required_tool: planning.as_ref().map(|_| "platform.research.plan".into()),
             skills: vec![],
         })
         .map_err(core_error)?;
@@ -228,6 +292,7 @@ pub async fn recover(store: &Store) -> PResult<()> {
     }
     store.recover_startup()?;
     store.reconcile_fleets()?;
+    store.reconcile_research()?;
     store.reconcile_messages()?;
     store.reconcile_goals()
 }
@@ -264,6 +329,9 @@ pub async fn worker_loop_with_plugins(
                     token.cancel();
                 }
             }
+        }
+        if let Err(error) = store.reconcile_research() {
+            eprintln!("Research coordination failed: {error}");
         }
         if let Err(error) = store.reconcile_messages() {
             eprintln!("Message reconciliation failed: {error}");

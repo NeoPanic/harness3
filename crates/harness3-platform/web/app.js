@@ -14,6 +14,7 @@ const iconPaths = {
   overview:'<path d="m12 3 9 5v8l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5"/>',
   agents:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   fleets:'<path d="M4 5h16v14H4zM8 2v6m8-6v6M8 12h8m-8 4h4"/>',
+  research:'<circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="12" cy="18" r="3"/><path d="m7 9 4 6m6-6-4 6M9 6h6"/>',
   messages:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/>',
   goals:'<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4H5v4m7-4h7v4"/>',
   presets:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
@@ -58,13 +59,14 @@ async function api(path, body, method = 'POST', key = null) {
     const code=value.error?.code || value.rejection || `HTTP ${response.status}`;
     const messages={process_plugins_disabled:'请使用 --allow-process-plugins 启动 daemon 后重试。',plugin_disabled:'插件版本已禁用，请选择其他版本或重新检查并启用。',plugin_digest_mismatch:'文件内容与 manifest 摘要不一致，修正包内容后重试。',plugin_cache_tampered:'缓存文件已变化，平台已拒绝执行。',invalid_plugin_manifest:'请检查 manifest 协议、工具 schema、相对路径与文件摘要。',plugin_source_unreadable:'无法读取服务器上的包目录，请填写绝对路径。',plugin_kind_conflict:'此 ID 已被另一种插件占用，请更换命名空间。',invalid_fleet_plan:'请检查实例组数量、策略与 TTL。',fleet_revision_conflict:'实例组已被其他操作修改，请关闭表单并刷新后重试。',fleet_operation_in_progress:'已有操作正在协调，完成后可再次扩缩容。',fleet_terminal:'实例组已进入终止流程，无法恢复或扩缩容。',invalid_fleet_action:'请检查目标数量与操作参数。',invalid_ttl:'TTL 须为 1 秒至 30 天之间的整数。',unauthorized:'访问令牌无效或会话已过期，请重新登录。',preset_version_immutable:'这个母体版本已发布，请更换版本号。',plugin_version_immutable:'这个插件版本已安装，请更换版本号。',instance_not_ready:'实例当前无法接收任务，请刷新并选择就绪实例。',instance_quota_exceeded:'容量已满，请减少数量，或缩容/终止实例组以释放预留。',invalid_transition_or_instance_busy:'实例状态已变化或仍在执行，请刷新后重试。',idempotency_conflict:'上次请求的内容已更改，请关闭后重新打开表单提交。',invalid_preset:'请检查名称、版本号和必填内容；文本长度按 UTF-8 字节计算。',invalid_prompt_bundle:'请检查插件 ID、版本号和必填内容。'};
     Object.assign(messages,{invalid_preset_definition:'母体定义包含未知字段或字段类型不正确。',parent_preset_not_found:'父级母体版本不存在，请刷新目录后重新选择。',invalid_preset_parent:'父级引用无效；母体不能继承自身。',preset_inheritance_depth_or_cycle:'继承链超过 16 层或包含循环，请选择更上层的母体。',duplicate_plugin_binding:'同一插件 ID 只能绑定一个版本，请取消重复选择。',ambiguous_plugin_bindings:'不能同时提交 plugin 和 plugins。',too_many_plugin_bindings:'每个母体最多绑定 16 个插件。',preset_capability_limit:'能力锁超过 64 个工具或插件指令超过 64,000 UTF-8 字节，请减少绑定。',invalid_parameters_schema:'参数 schema 不受支持或超出结构上限。',parameters_schema_must_be_closed_object:'参数 schema 根须为 object，且 additionalProperties=false。',unknown_default_parameter:'默认值中存在未声明的参数。',invalid_default_parameter:'默认值的类型或范围不符合参数 schema。',invalid_parameter_names:'参数最多 32 个；名称限英文字母、数字、点、下划线和连字符。',unknown_template_parameter:'模板引用了未声明的参数，请添加同名参数或修改模板。',template_parameter_must_be_required_or_defaulted:'模板引用的参数必须设为必填或提供默认值。',invalid_parameter_template:'模板须使用配对的 {{参数名}}，不支持表达式。',parameters_schema_required:'填写默认值前须声明参数 schema。',parameters_not_declared:'该母体未声明参数，不能传入参数值。',invalid_instance_parameters:'参数缺失、类型不正确或超出 schema 范围，请检查必填、类型和枚举值。',parameters_too_large:'合并默认值后的参数不能超过 16 KiB 序列化内容。',preset_snapshot_too_large:'完整母体与能力快照超过 1 MiB，请减少绑定或 schema 内容。',preset_field_required:'独立定义必须填写用途、目标和系统指令。',preset_protocol_required:'请选择模型协议，或选择可继承的父级母体。',preset_field_cannot_be_null:'除旧版 plugin 外，母体字段不能为 null；省略字段表示继承。'});
+    Object.assign(messages,{invalid_research:'请填写任务名称、目标和验收标准，并选择 2–6 位研究者。',research_quota_exceeded:'正在执行的调研已达 8 项，请先完成或取消已有任务。',research_not_cancellable:'调研已经结算，请核对最新状态。',research_not_found:'调研任务不存在，请返回列表。'});
     Object.assign(messages,{invalid_message:'消息不能为空，最多 8,000 个 UTF-8 字节；请检查关联 ID。',message_recipient_terminal:'接收实例已停止接收消息，请选择其他身份。',message_backlog_full:'消息积压已达上限；请等待消费或丢弃待处理消息。',message_action_state_conflict:'状态已变化，无法执行此处置；请刷新消息详情。',invalid_message_action:'请填写处置说明，最多 2,000 个 UTF-8 字节。',message_goal_scope_invalid:'接收实例不属于正在运行或待验收的目标。',message_causal_context_conflict:'关联 ID 或目标与前置消息不一致。',message_hop_limit:'消息因果链已达 8 层，请检查是否存在回复循环。',message_correlation_quota_exceeded:'该关联链已达 128 条消息上限。',causation_message_not_found:'前置消息不存在，请核对完整 ID。',message_not_found:'消息不存在，请刷新列表。'});
     Object.assign(messages,{invalid_goal:'请填写目标名称、共同目标、验收标准及 1–16 项任务；检查 UTF-8 字节上限。',invalid_task_graph:'任务 key 必须唯一，依赖只能引用前面的任务，且不能重复。',goal_quota_exceeded:'运行中或待验收目标已达 32 个，请先验收或取消已有目标。',goal_instance_terminated:'计划包含已终止的实例，请重新选择执行实例。',goal_not_reviewable:'目标尚未完成或已经结算，请刷新后核对状态。',goal_not_cancellable:'目标已经结算，无法再取消。',invalid_goal_review:'请填写验收结论，最多 8,000 个 UTF-8 字节。',goal_not_found:'没有找到该目标，请返回目标列表。'});
     throw new Error(messages[code] || `操作未完成（${code}），请检查配置后重试。`);
   }
   return value;
 }
-function page() { return fleetId()?'fleets':goalId()?'goals':['overview','agents','fleets','goals','messages','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
+function page() { return researchId()?'research':fleetId()?'fleets':goalId()?'goals':['overview','research','agents','fleets','goals','messages','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
 function head(eyebrow, title, description, buttons = '') { return `<div class="page-head"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p>${description}</p></div><div class="head-actions">${buttons}</div></div>`; }
 function button(label, action, primary = false, extra = '') { return `<button type="button" class="button ${primary ? 'primary' : ''}" data-action="${action}" ${extra}>${label}</button>`; }
 function empty(title, text, action = '') { return `<div class="empty"><b>${title}</b>${text}${action ? `<br>${action}` : ''}</div>`; }
@@ -87,7 +89,7 @@ function overview() {
     ['已完成运行',complete.length,'/ 最近 100 条','runs','持久回执 · 独立 Session'],
     ['已实现能力',implemented,`/ ${data.capabilities.length}`,'capabilities','查看部分实现与后续建设范围']
   ];
-  return head('CONTROL PLANE / LOCAL','工作区总览','让 Agent 从定义走向执行。管理实例，追踪每一次决策与回执。',button('查看实现进度','capabilities')+button('＋ 创建实例','spawn',true))+
+  return head('CONTROL PLANE / LOCAL','工作区总览','让 Agent 从定义走向执行。管理实例，追踪每一次决策与回执。',button('查看实现进度','capabilities')+button('发起调研任务','research-form',true))+
     `<div class="stats">${stats.map(([label,count,unit,symbol,detail])=>`<div class="stat"><span class="stat-label">${label}</span><span class="stat-icon">${icon(symbol)}</span><div class="stat-number">${count}<small>${unit}</small></div><div class="stat-detail">${detail}</div></div>`).join('')}</div>`+
     `<section class="kernel-map" aria-label="内核运行路径"><div class="kernel-map-head"><span class="eyebrow">THE HARNESS CYCLE</span><span class="kernel-caption">从定义到执行，每一步都有迹可循</span>${badge('good','本地内核')}</div><div class="architecture">${[['presets','01','Preset 母体',`${data.presets.length} 个不可变版本`],['agents','02','Agent 实例',`${active.length} 个独立身份`],['runs','03','Harness 执行','模型 → 工具 → 模型'],['events','04','持久化证据','会话 · 回执 · 事件']].map(([target,num,title,detail],i)=>`${i?`<span class="arch-arrow">${icon('arrow')}</span>`:''}<a class="arch-node" href="#${target}"><span class="arch-number">${num}</span><span class="arch-symbol">${icon(target==='events'?'storage':target)}</span><span><b>${title}</b><small>${detail}</small></span><span class="arch-link">↗</span></a>`).join('')}</div><div class="kernel-map-foot"><span><span class="dot"></span> 单机控制面 · 独立会话</span><span>4 WORKER SLOTS <span class="worker-slots" aria-label="${busy.length} 个实例执行中">${Array.from({length:4},(_,i)=>`<i class="${i<busy.length?'occupied':''}"></i>`).join('')}</span></span></div></section>`+
     `<div class="split"><div>${panel('Agent 实例',agentsTable(data.instances.slice(0,5),true),`<a href="#agents" class="panel-link">全部实例 ${icon('arrow')}</a>`,`<small>${active.length} ACTIVE</small>`)}${panel('最近执行',recentRuns(data.runs.slice(0,4)),`<a href="#runs" class="panel-link">执行记录 ${icon('arrow')}</a>`)}</div><div>${panel('模型连接',`<div class="panel-body">${data.models.map(m=>`<div class="model-row"><span class="model-icon ${m.configured?'configured':''}">${m.protocol==='demo'?'D':icon('plugins')}</span><div><p>${esc(m.protocol)}</p><small>${esc(m.model || '未配置模型')}</small></div>${badge(m.configured?'good':'neutral',m.configured?'已配置':'未配置')}</div>`).join('')}<p class="hint">配置状态反映凭证加载情况，连通结果见执行回执。</p></div>`)}${panel('最近活动',`<div class="panel-body">${activity(events.slice(-5).reverse())}</div>`,`<a href="#events" class="panel-link">事件日志 ${icon('arrow')}</a>`)}</div></div>`;
@@ -103,12 +105,13 @@ function progressPage() {
 }
 function render() {
   if (!data || composing) return;
-  const p=page(), names={overview:'总览',agents:'Agent 实例',fleets:'实例组',goals:'协作目标',messages:'协作消息',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
+  const p=page(), names={overview:'总览',research:'自主调研',agents:'Agent 实例',fleets:'实例组',goals:'协作目标',messages:'协作消息',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
   $('#page-title').textContent=names[p]; $('#nav-count').textContent=data.instances.filter(a=>a.state!=='terminated').length;
   document.querySelectorAll('nav a').forEach(a=>{a.classList.toggle('active',a.dataset.page===p);if(a.dataset.page===p)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.title=`${names[p]} · Harness³`;
   let html='';
   if(p==='overview') html=overview();
+  if(p==='research') html=researchPage();
   if(p==='messages') html=messagesPage();
   if(p==='goals') html=goalsPage();
   if(p==='fleets') html=fleetsPage();
@@ -143,6 +146,10 @@ async function refresh(force=false) {
 async function readState() {
   try {
     data=await api('/api/v1/snapshot'); authenticated=true;
+    if(researchId()) {
+      try {selectedResearch=await api(`/api/v1/research-jobs/${encodeURIComponent(researchId())}`);}
+      catch(error){selectedResearch={id:researchId(),loadError:error.message};}
+    }
     if(goalId()) {
       try {selectedGoal=await api(`/api/v1/goals/${encodeURIComponent(goalId())}`);}
       catch(error) {selectedGoal={id:goalId(),loadError:error.message};}
@@ -154,11 +161,10 @@ async function readState() {
     // Drain a bounded page per tick; the cursor always advances only after a successful read.
     const chunk=await api(`/api/v1/events?after=${cursor}`);
     if(chunk.events.length){events=events.concat(chunk.events).slice(-500);cursor=chunk.events.at(-1).seq;}
-    $('#connection').className='badge good'; $('#connection').textContent='● 内核已连接'; $('#notice').textContent='';
-    $('#last-update').textContent=`更新于 ${time(Date.now())}`;
+    $('#connection').className='connection-indicator connected'; $('#connection').setAttribute('aria-label','内核已连接'); $('#connection').title='内核已连接'; $('#app-version').textContent=`v${data.version}`; $('#notice').textContent='';
     render();
   } catch(error) {
-    $('#connection').className='badge failed'; $('#connection').textContent='● 连接未就绪';
+    $('#connection').className='connection-indicator disconnected'; $('#connection').setAttribute('aria-label','连接未就绪'); $('#connection').title='连接未就绪，将自动重连';
     if(authenticated) $('#notice').textContent=`刷新失败：${error.message}。页面保留上次成功读取的状态。`;
   }
 }
@@ -280,9 +286,9 @@ async function handleAction(action, element) {
   }
   if(action==='goto-agents') {location.hash='agents';return;}
   if(action==='clear-filters') {filters[page()]={query:'',state:'all'};render();$('#directory-search')?.focus();return;}
+  if(await researchAction(action,element))return;
   if(await messageAction(action,element))return;
   if(action==='close') {if(!$('#modal form[aria-busy="true"]'))$('#modal').close();return;}
-  if(action==='logout') {$('#modal').close();await api('/api/logout',{});authenticated=false;data=null;events=[];cursor=0;renderedMarkup='';$('#content').innerHTML='';$('#login-dialog').showModal();return;}
   if(action==='capabilities') {location.hash='capabilities';return;}
   if(action==='spawn') return spawnForm(id,element.dataset.version);
   if(action==='preset-form') return presetForm();
@@ -294,7 +300,6 @@ async function handleAction(action, element) {
   if(action==='preset-detail') {const p=data.presets.find(p=>p.name===id&&p.version===element.dataset.version);return openModal(p.name,definitionView(p.definition),`母体版本 ${p.version}`);}
   if(action==='plugin-detail') {const p=data.plugins.find(p=>p.id===id&&p.version===element.dataset.version);return openModal('插件定义',dataView(p),'PLUGIN / CONTENT DIGEST');}
   if(action==='event-detail') return openModal('事件载荷',dataView(events.find(e=>String(e.seq)===id)),'PERSISTENT EVENT');
-  if(action==='help') return openModal('本地内核预览',`<div class="steps"><div class="step">从母体页发布用途、目标与模型配置。新版本不可覆盖旧定义。</div><div class="step">创建一组独立实例，选择就绪实例提交任务。</div><div class="step">打开执行记录，查看输出、工具回执、请求快照和完整会话。</div><div class="step">在实现进度页确认当前已交付能力与尚未实现的功能。</div></div><p class="hint">所有数据来自同一 SQLite。平台仅监听 loopback，登录使用本地 token；模型密钥仅由服务端读取。</p><div class="form-actions">${button('退出工作区','logout')}</div>`);
   if(['suspend','resume','terminate','drain'].includes(action)) {
     if(action==='drain')return openModal('排空并终止实例？',`<form data-form="drain" data-id="${esc(id)}"><p class="form-intro">立即停止接收新任务，等待已接纳的排队或运行任务结算后终止。没有活动任务时立即终止。历史记录保留；此操作无法恢复。若属于持续维持组，退休后会创建新成员补足目标数量。</p>${identity('实例 ID',id)}${formEnd('确认排空')}</form>`,'生命周期操作');
     if(action==='terminate')return openModal('终止这个实例？',`<form data-form="terminate" data-id="${esc(id)}"><p class="form-intro">终止后，此实例无法恢复，历史记录保留。若属于持续维持组，平台会创建新实例补足目标数量；停止补建请终止整个实例组或缩容。</p>${identity('实例 ID',id)}${formEnd('确认终止实例')}</form>`,'生命周期操作');
@@ -348,6 +353,10 @@ document.addEventListener('submit',async event=>{
   form.dataset.commandKey ||= crypto.randomUUID();
   try {
     let result;
+    if(form.dataset.form==='research') {
+      const ref=JSON.parse(values.preset);result=await api('/api/v1/research-jobs',{title:values.title,objective:values.objective,acceptance:values.acceptance,preset_name:ref.name,preset_version:ref.version,researchers:Number(values.researchers),parameters:instanceParameters(form)},'POST',form.dataset.commandKey);location.hash=`research/${result.id}`;
+    }
+    if(form.dataset.form==='research-cancel')result=await api(`/api/v1/research-jobs/${encodeURIComponent(form.dataset.id)}/cancel`,{});
     if(form.dataset.form==='message-send') {
       if(new TextEncoder().encode(values.text).length>8000)throw new Error('消息超过 8,000 个 UTF-8 字节。');
       const input={text:values.text};for(const field of ['goal_id','correlation_id','causation_id'])if(values[field])input[field]=values[field];
@@ -371,7 +380,7 @@ document.addEventListener('submit',async event=>{
     if(form.dataset.form==='run') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/runs`,{text:values.text},'POST',form.dataset.commandKey);location.hash='runs';}
     $('#modal').close();await refresh(true);
     if(form.dataset.form==='run'&&data.runs.some(r=>r.id===result.id)){await runDetail(result.id);}
-    toast(form.dataset.form==='message-send'?'消息已接纳；投递与消费状态见协作消息页。':form.dataset.form==='message-action'?'处置记录已保存。':form.dataset.form==='process-state'?(result.state==='disabled'?'插件版本已禁用，新的调用将被拒绝。':'健康检查通过，插件版本已启用。'):form.dataset.form==='process-install'?'包校验和健康检查通过，插件版本已安装。':result?.operation_id ? '操作已接纳，协调进度见实例组详情。' : result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='drain'?'排空请求已保存，活动任务结算后终止。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
+    toast(form.dataset.form==='research'?'调研已接纳：创建团队后自动规划与派发。':form.dataset.form==='research-cancel'?'取消已保存，正在回收团队。':form.dataset.form==='message-send'?'消息已接纳；投递与消费状态见协作消息页。':form.dataset.form==='message-action'?'处置记录已保存。':form.dataset.form==='process-state'?(result.state==='disabled'?'插件版本已禁用，新的调用将被拒绝。':'健康检查通过，插件版本已启用。'):form.dataset.form==='process-install'?'包校验和健康检查通过，插件版本已安装。':result?.operation_id ? '操作已接纳，协调进度见实例组详情。' : result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='drain'?'排空请求已保存，活动任务结算后终止。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
   }catch(error){const target=form.querySelector('#form-error');if(target){target.textContent=error.message;target.tabIndex=-1;target.focus();}}
   finally {submit.disabled=false;submit.textContent=label;form.removeAttribute('aria-busy');}
 });
@@ -395,6 +404,6 @@ $('#modal').addEventListener('close',()=>{
 });
 $('#modal').addEventListener('cancel',event=>{if($('#modal form[aria-busy="true"]'))event.preventDefault();});
 $('.skip-link').addEventListener('click',event=>{event.preventDefault();$('#content').focus();});
-window.addEventListener('hashchange',()=>{render();if(goalId()||fleetId())refresh(true);$('#content').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});});
+window.addEventListener('hashchange',()=>{render();if(researchId()||goalId()||fleetId())refresh(true);$('#content').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});});
 refresh();setInterval(()=>{if(authenticated&&!document.hidden)refresh();},1500);
 window.addEventListener('focus',()=>{if(authenticated)refresh();});

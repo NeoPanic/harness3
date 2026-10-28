@@ -18,6 +18,17 @@ pub struct PlatformClient {
 #[serde(tag = "tool", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
     Snapshot,
+    ResearchList,
+    ResearchShow {
+        id: String,
+    },
+    ResearchCreate {
+        input: crate::research::ResearchInput,
+        key: String,
+    },
+    ResearchCancel {
+        id: String,
+    },
     MessagesList {
         #[serde(default)]
         after: i64,
@@ -124,7 +135,9 @@ impl Command {
     pub fn read_only(&self) -> bool {
         matches!(
             self,
-            Self::MessagesList { .. }
+            Self::ResearchList
+                | Self::ResearchShow { .. }
+                | Self::MessagesList { .. }
                 | Self::MessagesShow { .. }
                 | Self::Snapshot
                 | Self::PresetsList
@@ -205,6 +218,20 @@ impl PlatformClient {
     pub async fn execute(&self, command: Command) -> ClientResult<Value> {
         use Command::*;
         let (method, path, body, key) = match command {
+            ResearchList => (Method::GET, "/research-jobs".into(), None, None),
+            ResearchShow { id } => (Method::GET, object("research-jobs", &id, "")?, None, None),
+            ResearchCreate { input, key } => (
+                Method::POST,
+                "/research-jobs".into(),
+                Some(serde_json::to_value(input)?),
+                Some(key),
+            ),
+            ResearchCancel { id } => (
+                Method::POST,
+                object("research-jobs", &id, "/cancel")?,
+                Some(json!({})),
+                None,
+            ),
             MessagesList {
                 after,
                 limit,

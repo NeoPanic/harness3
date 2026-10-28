@@ -106,36 +106,7 @@ impl Store {
         })
     }
     pub fn create_fleet(&self, plan: &FleetPlan, key: &str) -> PResult<Value> {
-        key_valid(key)?;
-        if plan.count == 0
-            || plan.count > 64
-            || !["finite", "maintain"].contains(&plan.mode.as_str())
-            || plan
-                .ttl_seconds
-                .is_some_and(|ttl| ttl == 0 || ttl > 2_592_000)
-        {
-            return Err(fault(400, "invalid_fleet_plan"));
-        }
-        self.transaction(|tx| {
-            let command=format!("fleet-create:{key}");let fingerprint=serde_json::to_string(plan)?;
-            if let Some(value)=replay(tx,&command,&fingerprint)? {return Ok(value);}
-            let legacy = tx.query_row("SELECT fingerprint,response FROM commands WHERE key=?",[format!("spawn:{key}")],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?;
-            if let Some((old,response))=legacy {
-                let input=Spawn{preset_name:plan.preset_name.clone(),preset_version:plan.preset_version.clone(),count:plan.count};
-                let fingerprint=match plan.ttl_seconds {Some(ttl)=>json!({"spawn":input,"ttl_seconds":ttl}).to_string(),None=>serde_json::to_string(&input)?};
-                if plan.mode!="finite" || !plan.parameters.is_empty() || old!=fingerprint {return Err(fault(409,"idempotency_conflict"));}
-                return Ok(serde_json::from_str(&response)?);
-            }
-            crate::lifecycle::reconcile(tx)?;
-            if quota_used(tx)?+plan.count>64 {return Err(fault(409,"instance_quota_exceeded"));}
-            let template:String=tx.query_row("SELECT body FROM presets WHERE name=? AND version=?",params![plan.preset_name,plan.preset_version],|r|r.get(0)).optional()?.ok_or_else(||fault(404,"preset_not_found"))?;
-            let snapshot=crate::presets::instantiate(serde_json::from_str(&template)?, &plan.parameters)?.to_string();
-            let fleet=id("fleet");
-            tx.execute("INSERT INTO fleets(id,preset_name,preset_version,snapshot,mode,desired_count,state,revision,ttl_seconds,created_at) VALUES(?,?,?,?,?,?,'provisioning',1,?,?)",params![fleet,plan.preset_name,plan.preset_version,snapshot,plan.mode,plan.count,plan.ttl_seconds,now()])?;
-            enable_slots(tx,&fleet,plan.count)?;
-            event(tx,"fleet.created",&fleet,json!({"desired_count":plan.count,"mode":plan.mode}))?;
-            receipt(tx,&fleet,"create",1,&command,&fingerprint)
-        })
+        self.transaction(|tx| create_in(tx, plan, key))
     }
     pub fn fleet_action(&self, fleet: &str, action: &FleetAction, key: &str) -> PResult<Value> {
         key_valid(key)?;
@@ -344,4 +315,69 @@ pub(crate) fn reconcile(tx: &Transaction<'_>) -> PResult<()> {
         }
     }
     Ok(())
+}
+
+pub(crate) fn create_in(tx: &Transaction<'_>, plan: &FleetPlan, key: &str) -> PResult<Value> {
+    key_valid(key)?;
+    if plan.count == 0
+        || plan.count > 64
+        || !["finite", "maintain"].contains(&plan.mode.as_str())
+        || plan
+            .ttl_seconds
+            .is_some_and(|ttl| ttl == 0 || ttl > 2_592_000)
+    {
+        return Err(fault(400, "invalid_fleet_plan"));
+    }
+
+    let command = format!("fleet-create:{key}");
+    let fingerprint = serde_json::to_string(plan)?;
+    if let Some(value) = replay(tx, &command, &fingerprint)? {
+        return Ok(value);
+    }
+    let legacy = tx
+        .query_row(
+            "SELECT fingerprint,response FROM commands WHERE key=?",
+            [format!("spawn:{key}")],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+        )
+        .optional()?;
+    if let Some((old, response)) = legacy {
+        let input = Spawn {
+            preset_name: plan.preset_name.clone(),
+            preset_version: plan.preset_version.clone(),
+            count: plan.count,
+        };
+        let fingerprint = match plan.ttl_seconds {
+            Some(ttl) => json!({"spawn":input,"ttl_seconds":ttl}).to_string(),
+            None => serde_json::to_string(&input)?,
+        };
+        if plan.mode != "finite" || !plan.parameters.is_empty() || old != fingerprint {
+            return Err(fault(409, "idempotency_conflict"));
+        }
+        return Ok(serde_json::from_str(&response)?);
+    }
+    crate::lifecycle::reconcile(tx)?;
+    if quota_used(tx)? + plan.count > 64 {
+        return Err(fault(409, "instance_quota_exceeded"));
+    }
+    let template: String = tx
+        .query_row(
+            "SELECT body FROM presets WHERE name=? AND version=?",
+            params![plan.preset_name, plan.preset_version],
+            |r| r.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| fault(404, "preset_not_found"))?;
+    let snapshot = crate::presets::instantiate(serde_json::from_str(&template)?, &plan.parameters)?
+        .to_string();
+    let fleet = id("fleet");
+    tx.execute("INSERT INTO fleets(id,preset_name,preset_version,snapshot,mode,desired_count,state,revision,ttl_seconds,created_at) VALUES(?,?,?,?,?,?,'provisioning',1,?,?)",params![fleet,plan.preset_name,plan.preset_version,snapshot,plan.mode,plan.count,plan.ttl_seconds,now()])?;
+    enable_slots(tx, &fleet, plan.count)?;
+    event(
+        tx,
+        "fleet.created",
+        &fleet,
+        json!({"desired_count":plan.count,"mode":plan.mode}),
+    )?;
+    receipt(tx, &fleet, "create", 1, &command, &fingerprint)
 }
