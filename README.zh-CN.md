@@ -1,4 +1,6 @@
-<p align="center"><img src="docs/brand/mark.svg" width="64" alt="Harness³"></p>
+<p align="center">
+  <img src="docs/brand/banner.svg" alt="Harness³ — Composable runtime for agent collectives" width="960">
+</p>
 
 # Harness³
 
@@ -7,8 +9,6 @@
 用 Preset 定义 Agent 母体，启动独立实例，围绕共同目标组建团队。Harness³ 在统一控制面管理实例生命周期、任务依赖、协作频道、文件产物、独立验证与人工验收，让每次执行都有可检查的过程和证据。
 
 [English](README.md) · [文档导航](docs/README.md) · [架构设计](docs/managed-agents.zh-CN.md) · [当前状态](docs/status.zh-CN.md) · [参与贡献](CONTRIBUTING.md)
-
-![Harness³ 桌面控制台总览](docs/images/console-overview.png)
 
 ## 本地启动
 
@@ -29,6 +29,12 @@ cargo run --locked -p harness3-platform -- up --demo
 Demo 使用确定性响应运行真实控制面，输出明确标记为演示；它不执行外部调研，也不自主追加任务。配置真实 Responses 模型后，可选择 `research-team@1.1.0`，让 Agent 按需要请求追加工作。
 
 真实模型支持 **OpenAI-compatible Chat Completions、OpenAI Responses、Anthropic Messages** 三种协议。模型配置、CLI / API / MCP 用法与可信本地进程插件设置见[入门指南](docs/getting-started.zh-CN.md)。
+
+## 控制台示例
+
+以下为本地桌面控制台的 Demo 数据示例。
+
+![Harness³ 桌面控制台总览](docs/images/console-overview.png)
 
 ## 当前可以做什么
 

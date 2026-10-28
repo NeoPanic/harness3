@@ -1,4 +1,6 @@
-<p align="center"><img src="docs/brand/mark.svg" width="64" alt="Harness³"></p>
+<p align="center">
+  <img src="docs/brand/banner.svg" alt="Harness³ — Composable runtime for agent collectives" width="960">
+</p>
 
 # Harness³
 
@@ -7,8 +9,6 @@
 Define an Agent with a Preset, launch independent instances, and give a team a shared objective. Harness³ manages their lifecycle, task dependencies, collaboration channels, workspace artifacts, verification, and human acceptance in one inspectable control plane.
 
 [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) · [Architecture](docs/managed-agents.zh-CN.md) · [Current status](docs/status.zh-CN.md) · [Contributing](CONTRIBUTING.md)
-
-![Harness³ desktop console overview](docs/images/console-overview.png)
 
 ## Start locally
 
@@ -29,6 +29,12 @@ Open [localhost:7333](http://127.0.0.1:7333) and sign in with the contents of `.
 The Demo exercises the real control plane with deterministic responses; its outputs are explicitly labeled as demonstrations. It does not perform external research or autonomously append tasks. With a configured Responses model, `research-team@1.1.0` also supports Agent-requested follow-up work.
 
 For real models, configure one of **OpenAI-compatible Chat Completions**, **OpenAI Responses**, or **Anthropic Messages**. See the [getting-started guide](docs/getting-started.zh-CN.md) for configuration, CLI/API/MCP usage, and trusted local process plugins.
+
+## Console example
+
+The local desktop console, shown with Demo data.
+
+![Harness³ desktop console overview](docs/images/console-overview.png)
 
 ## What you can use
 
