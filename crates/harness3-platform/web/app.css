@@ -322,3 +322,15 @@ pre { max-height: 450px; overflow: auto; margin: 12px 0; padding: 18px; border: 
 .progress-item summary{cursor:pointer;font-size:12px;color:var(--muted)}
 .progress-item code{font-size:11px;overflow-wrap:anywhere}
 .badge.draining{background:#ececec;color:#404040}
+
+/* Capability choices follow the same thin borders as the surrounding forms. */
+.capability-choice {display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.capability-choice input,.parameter-row-actions input {width:auto;flex:none;margin-top:3px}
+.capability-choice small {display:block;color:var(--muted);margin-top:3px}
+.parameter-row {padding:14px 0;border-bottom:1px solid var(--line)}
+.parameter-row-actions {display:flex;align-items:center;justify-content:space-between;gap:16px}
+.parameter-row-actions label {display:flex;align-items:center;gap:8px;margin:0}
+
+form fieldset {border:1px solid var(--line);border-radius:6px;padding:14px 16px;margin:18px 0;min-width:0}
+form legend {padding:0 6px;color:var(--ink);font-size:13px;font-weight:600}
+form input[type="checkbox"],form input[type="radio"] {accent-color:var(--ink)}

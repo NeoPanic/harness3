@@ -120,6 +120,15 @@ pub fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/presets.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/presets.js"),
+                )
+            }),
+        )
+        .route(
             "/plugins.js",
             get(|| async {
                 (
@@ -232,11 +241,13 @@ async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
         json!({"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
-async fn publish(State(app): State<App>, Json(preset): Json<Preset>) -> PResult<Json<Value>> {
-    if preset.protocol != Protocol::Demo {
-        app.models.get(&preset.protocol)?;
-    }
-    Ok(Json(app.store.publish(preset)?))
+async fn publish(State(app): State<App>, Json(preset): Json<Value>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.publish_checked(preset, |protocol| {
+        if *protocol != Protocol::Demo {
+            app.models.get(protocol)?;
+        }
+        Ok(())
+    })?))
 }
 async fn install(State(app): State<App>, Json(bundle): Json<Bundle>) -> PResult<Json<Value>> {
     Ok(Json(app.store.install(bundle)?))

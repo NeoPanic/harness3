@@ -26,6 +26,7 @@ fn seed(store: &Store) {
 }
 fn plan(mode: &str, count: usize) -> FleetPlan {
     FleetPlan {
+        parameters: Default::default(),
         preset_name: "worker".into(),
         preset_version: "1".into(),
         count,

@@ -51,60 +51,7 @@ impl Store {
         Ok(value)
     }
     pub fn publish(&self, preset: Preset) -> PResult<Value> {
-        preset.validate()?;
-        self.transaction(|tx| {
-            let mut snapshot = serde_json::to_value(&preset)?;
-            if let Some(plugin) = &preset.plugin {
-                let bundle: Option<String> = tx
-                    .query_row(
-                        "SELECT body FROM plugins WHERE id=? AND version=?",
-                        params![plugin.id, plugin.version],
-                        |r| r.get(0),
-                    )
-                    .optional()?;
-                snapshot["plugin_snapshot"] = if let Some(bundle) = bundle {
-                    serde_json::from_str(&bundle)?
-                } else {
-                    let (body, state): (String, String) = tx
-                        .query_row(
-                            "SELECT body,state FROM process_plugins WHERE id=? AND version=?",
-                            params![plugin.id, plugin.version],
-                            |r| Ok((r.get(0)?, r.get(1)?)),
-                        )
-                        .optional()?
-                        .ok_or_else(|| fault(404, "plugin_not_found"))?;
-                    if state != "enabled" {
-                        return Err(fault(403, "plugin_disabled"));
-                    }
-                    serde_json::from_str(&body)?
-                };
-            }
-            let body = serde_json::to_string(&snapshot)?;
-            if let Some(existing) = tx
-                .query_row(
-                    "SELECT body FROM presets WHERE name=? AND version=?",
-                    params![preset.name, preset.version],
-                    |r| r.get::<_, String>(0),
-                )
-                .optional()?
-            {
-                if existing != body {
-                    return Err(fault(409, "preset_version_immutable"));
-                }
-                return Ok(snapshot);
-            }
-            tx.execute(
-                "INSERT INTO presets(name,version,body,created_at) VALUES(?,?,?,?)",
-                params![preset.name, preset.version, body, now()],
-            )?;
-            event(
-                tx,
-                "preset.published",
-                &preset.name,
-                json!({"version":preset.version}),
-            )?;
-            Ok(snapshot)
-        })
+        self.publish_definition(serde_json::to_value(preset)?)
     }
     pub fn install(&self, bundle: Bundle) -> PResult<Value> {
         bundle.validate()?;
@@ -171,7 +118,8 @@ impl Store {
             crate::lifecycle::reconcile(tx)?;
             let current = crate::fleets::quota_used(tx)?;
             if current + input.count > 64 { return Err(fault(409,"instance_quota_exceeded")); }
-            let snapshot: String = tx.query_row("SELECT body FROM presets WHERE name=? AND version=?",params![input.preset_name,input.preset_version],|r|r.get(0)).optional()?.ok_or_else(||fault(404,"preset_not_found"))?;
+            let template: String = tx.query_row("SELECT body FROM presets WHERE name=? AND version=?",params![input.preset_name,input.preset_version],|r|r.get(0)).optional()?.ok_or_else(||fault(404,"preset_not_found"))?;
+            let snapshot=crate::presets::instantiate(serde_json::from_str(&template)?, &serde_json::Map::new())?.to_string();
             let fleet = id("fleet");
             let expires_at = ttl_seconds.map(|ttl| now() + (ttl * 1000) as i64);
             tx.execute("INSERT INTO fleets(id,preset_name,preset_version,snapshot,mode,desired_count,state,revision,ttl_seconds,created_at) VALUES(?,?,?,?,'finite',?,'active',1,?,?)",params![fleet,input.preset_name,input.preset_version,snapshot,input.count,ttl_seconds,now()])?;

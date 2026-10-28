@@ -20,7 +20,7 @@ pub enum Command {
     Snapshot,
     PresetsList,
     PresetsPublish {
-        preset: crate::domain::Preset,
+        preset: Value,
     },
     PluginsList,
     ProcessPluginsInstall {

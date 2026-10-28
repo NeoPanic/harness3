@@ -259,4 +259,12 @@ Web 联调从 Demo 母体创建一个 60 秒 TTL 实例，确认截止时间可�
 
 本机 Responses `gpt-6-luna` 实测：`external-inspector@1.0.0` 绑定 `local.text@1.0.0`，Run `run_98b5cbdbf3834a26a4ab96d1e8fa889c` 实际调用 `local.text.inspect`，统计输入 `Harness³`，回执为 8 字符、1 行、9 UTF-8 字节。运行耗时 3,931 ms，用量 509 输入 / 55 输出 token；这些数值只描述该次调用。重启 daemon 后目录、母体绑定及工具回执保留，Web 已检查安装、禁用、重新启用、契约详情与真实调用证据。
 
-该版本仍只支持每个母体绑定一个包；进程使用 daemon 的 OS 用户权限，未验证 Windows，未实现 OS 沙箱、远程 MCP loader、自动 rollout 或作用域授权。协议和使用边界见 [进程插件 v1](process-plugins.zh-CN.md)。
+进程插件首版当时只支持每个母体绑定一个包（后续母体组合阶段已扩展）；进程使用 daemon 的 OS 用户权限，未验证 Windows，未实现 OS 沙箱、远程 MCP loader、自动 rollout 或作用域授权。协议和使用边界见 [进程插件 v1](process-plugins.zh-CN.md)。
+
+## 母体组合与实例参数
+
+固定版本单继承、多个提示词/进程包绑定与创建时参数现已接入共享发布/实例组 API、CLI、MCP 和 Web。打开母体页发布衍生版本，输入 `{{topic}}` 目标并定义 topic 参数，再从该母体创建实例；详情可检查继承来源、能力摘要和实际参数。使用方式与限制见 [母体组合](presets.zh-CN.md)。
+
+本阶段新增 7 项集成测试，工作区累计 78 项通过原生 Cargo；既有 Worker 测试扩展为固定父级 + 提示词/进程两个包 + 参数默认值，真实 Responses HTTP fixture 检查展开目标与提示词确实进入模型请求、外部工具回执正常结算。跨入口测试以 CLI 发布衍生定义、MCP 重发相同发布并创建带参数实例组，再用 CLI 重试取得同一 Operation。
+
+Web 实测发布 `topic-inspector@1.0.0`，继承 `researcher@1.0.0` 并绑定 `local.evidence-guide` 与 `local.text`。创建实例组 `fleet_d8103d6f0f284c7a9dbc695e267672a0`，显式参数 topic=`Agents 集群`，两个实例均就绪，实例目标已展开为“检查 Agents 集群，只依据工具回执报告统计结果”。该验证未提交真实供应商运行，未增加模型费用；模型→多包→工具路径由本地 fixture 覆盖。

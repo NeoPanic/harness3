@@ -114,6 +114,21 @@ async fn installation_pins_files_schemas_and_sessions_while_versions_coexist() {
         f.host.tools(first).unwrap()[0].spec().name,
         "test.text.inspect"
     );
+    f.host.action("test.text", "1", "disable").await.unwrap();
+    assert_eq!(f.store.publish(preset("1", "1")).unwrap(), published);
+    assert_eq!(
+        f.store.publish(preset("new", "1")).unwrap_err().1,
+        "plugin_disabled"
+    );
+    assert_eq!(
+        f.store
+            .publish_definition(
+                json!({"name":"child","version":"1","extends":{"name":"worker","version":"1"}})
+            )
+            .unwrap_err()
+            .1,
+        "plugin_disabled"
+    );
 }
 #[tokio::test]
 async fn changed_versions_failed_candidates_and_bad_files_do_not_replace_live_code() {
@@ -348,6 +363,8 @@ async fn runtime_worker_dispatches_an_external_tool_and_preserves_model_and_tool
     let f = Fixture::new();
     let snapshot = f.install("1", "normal", 2000).await;
     let service=Router::new().route("/responses",post(|Json(body):Json<Value>|async move {
+        assert!(body["instructions"].as_str().unwrap().contains("prompt companion"));
+        assert!(body["instructions"].as_str().unwrap().contains("Inspect Harness³"));
         if let Some(output)=body["input"].as_array().unwrap().iter().find(|i|i["type"]=="function_call_output") {
             let content:Value=serde_json::from_str(output["output"].as_str().unwrap()).unwrap();
             assert_eq!(content["characters"],8);
@@ -378,11 +395,20 @@ async fn runtime_worker_dispatches_an_external_tool_and_preserves_model_and_tool
     let mut definition = preset("1", "1");
     definition.protocol = Protocol::OpenaiResponses;
     f.store.publish(definition).unwrap();
+    f.store
+        .install(Bundle {
+            id: "local.companion".into(),
+            version: "1".into(),
+            description: "companion".into(),
+            instructions: "prompt companion".into(),
+        })
+        .unwrap();
+    f.store.publish_definition(json!({"name":"composed","version":"1","extends":{"name":"worker","version":"1"},"objective":"Inspect {{topic}}","plugins":[{"id":"test.text","version":"1"},{"id":"local.companion","version":"1"}],"parameters_schema":{"type":"object","properties":{"topic":{"type":"string"}},"required":["topic"],"additionalProperties":false},"parameter_defaults":{"topic":"Harness³"}})).unwrap();
     let batch = f
         .store
         .spawn(
             &Spawn {
-                preset_name: "worker".into(),
+                preset_name: "composed".into(),
                 preset_version: "1".into(),
                 count: 1,
             },
@@ -440,7 +466,7 @@ async fn runtime_worker_dispatches_an_external_tool_and_preserves_model_and_tool
         .find(|i| i["id"] == agent)
         .unwrap();
     assert_eq!(
-        instance["snapshot"]["plugin_snapshot"]["digest"],
+        instance["snapshot"]["plugin_snapshots"][0]["digest"],
         snapshot.digest
     );
     use harness3::session::SessionStore;

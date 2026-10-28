@@ -1,0 +1,17 @@
+{
+  "name": "topic-inspector",
+  "version": "1.0.0",
+  "extends": {"name": "researcher", "version": "1.0.0"},
+  "objective": "检查 {{topic}}，只依据工具回执报告统计结果",
+  "plugins": [
+    {"id": "local.evidence-guide", "version": "1.0.0"},
+    {"id": "local.text", "version": "1.0.0"}
+  ],
+  "parameters_schema": {
+    "type": "object",
+    "properties": {"topic": {"type": "string", "minLength": 1, "maxLength": 200}},
+    "required": ["topic"],
+    "additionalProperties": false
+  },
+  "parameter_defaults": {"topic": "Harness³"}
+}

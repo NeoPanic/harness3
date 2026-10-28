@@ -26,6 +26,8 @@ cargo run --locked -p harness3-platform -- up --demo
 
 Open [http://127.0.0.1:7333](http://127.0.0.1:7333) and sign in with the local `.harness3/token` file. Publish Presets, create independent instances, run the real Harness loop, and inspect requests, receipts, sessions, events, and implementation status. The platform supports non-streaming OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages adapters. See the [platform guide (中文)](docs/kernel-preview.zh-CN.md) for model configuration, API endpoints, and current limits. Fleets support finite/maintain policies, asynchronous provisioning and scaling, graceful retirement, and TTL. Fleets and explicit collaboration goals share state across Web, HTTP, CLI, and outward MCP stdio tools. [Client examples](examples/clients/) include a fleet plan and MCP configuration. See the [process plugin guide](docs/process-plugins.zh-CN.md) for local executable Tool packages, health checks, version pinning and cancellation. Autonomous agent messaging and remote MCP tool loading remain planned.
 
+Presets support pinned single-parent inheritance, validated instance parameters, and multiple prompt/process plugin bindings. See the [Preset composition contract](docs/presets.zh-CN.md) for the current JSON format and limits.
+
 ## Why the cube?
 
 > 道生一，一生二，二生三，三生万物。

@@ -323,7 +323,10 @@ async fn real_workers_execute_a_graph_and_resume_a_persisted_plan() {
     // Use the public snapshots to create the same actors in a file-backed store.
     let disk = Store::open(&path).unwrap();
     disk.publish(
-        serde_json::from_value(store.list("presets").unwrap()[0]["definition"].clone()).unwrap(),
+        harness3_platform::presets::runtime_preset(
+            &store.list("presets").unwrap()[0]["definition"],
+        )
+        .unwrap(),
     )
     .unwrap();
     let fleet = disk

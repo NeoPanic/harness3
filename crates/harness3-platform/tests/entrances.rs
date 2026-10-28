@@ -463,3 +463,65 @@ async fn transport_flushes_each_response_before_eof() {
     drop(peer);
     task.await.unwrap().unwrap();
 }
+
+#[tokio::test]
+async fn inherited_parameterized_presets_use_one_contract_across_cli_mcp_and_http() {
+    let f = Fixture::new().await;
+    let definition = json!({"name":"derived","version":"1","extends":{"name":"worker","version":"1"},"objective":"Inspect {{topic}}","plugins":[],"parameters_schema":{"type":"object","properties":{"topic":{"type":"string","minLength":1}},"required":["topic"],"additionalProperties":false}});
+    let path = f.root.join("derived.json");
+    std::fs::write(&path, definition.to_string()).unwrap();
+    let output = f
+        .cli(&["presets", "publish", "--file", path.to_str().unwrap()])
+        .await;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let published: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(published["instructions"], "inspect");
+    assert_eq!(published["extends"]["name"], "worker");
+    let mut mcp = McpServer::new(f.client(), true);
+    initialize(&mut mcp).await;
+    let replay = call(&mut mcp, "presets_publish", json!({"preset":definition})).await;
+    assert_eq!(replay["result"]["structuredContent"], published);
+    let bad=call(&mut mcp,"fleets_create",json!({"plan":{"preset_name":"derived","preset_version":"1","count":1,"parameters":{"extra":"wrong"}},"key":"parameterized"})).await;
+    assert_eq!(bad["result"]["isError"], true);
+    assert_eq!(f.store.capacity().unwrap()["reserved"], 0);
+    let plan = json!({"preset_name":"derived","preset_version":"1","count":1,"parameters":{"topic":"Harness³"}});
+    let accepted = call(
+        &mut mcp,
+        "fleets_create",
+        json!({"plan":plan,"key":"parameterized"}),
+    )
+    .await;
+    assert_eq!(accepted["result"]["isError"], false);
+    let path = f.root.join("fleet.json");
+    std::fs::write(&path, plan.to_string()).unwrap();
+    let output = f
+        .cli(&[
+            "fleets",
+            "create",
+            "--file",
+            path.to_str().unwrap(),
+            "--key",
+            "parameterized",
+        ])
+        .await;
+    assert!(output.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&output.stdout).unwrap(),
+        accepted["result"]["structuredContent"]
+    );
+    f.store.reconcile_fleets().unwrap();
+    let instances = f.store.list("instances").unwrap();
+    assert_eq!(instances[0]["snapshot"]["objective"], "Inspect Harness³");
+    let mut typo = definition.clone();
+    typo["typo"] = true.into();
+    assert!(
+        f.client()
+            .execute(Command::PresetsPublish { preset: typo })
+            .await
+            .is_err()
+    );
+}

@@ -125,17 +125,14 @@ async fn execute(
     let run = work["id"]
         .as_str()
         .ok_or_else(|| fault(500, "invalid_work"))?;
-    let mut snapshot = work["snapshot"].clone();
-    let plugin = snapshot
-        .as_object_mut()
-        .and_then(|v| v.remove("plugin_snapshot"));
-    let preset: Preset = serde_json::from_value(snapshot)?;
+    let snapshot = &work["snapshot"];
+    let preset = crate::presets::runtime_preset(snapshot)?;
+    let bound = crate::presets::bindings(snapshot);
     let mut instructions = format!(
         "{}\nPurpose: {}\nObjective: {}",
         preset.instructions, preset.purpose, preset.objective
     );
-    let process_snapshot = plugin.as_ref().filter(|p| p["kind"] == "process").cloned();
-    if let Some(plugin) = &plugin {
+    for plugin in &bound {
         instructions.push_str(&format!(
             "\nPlugin instructions:\n{}",
             plugin["instructions"]
@@ -164,7 +161,7 @@ async fn execute(
     registry.model("selected", model).map_err(core_error)?;
     registry.tool(Arc::new(InspectText)).map_err(core_error)?;
     let mut tools = vec!["text.inspect".to_owned()];
-    if let Some(snapshot) = process_snapshot {
+    for snapshot in bound.into_iter().filter(|p| p["kind"] == "process") {
         for tool in plugins.tools(serde_json::from_value(snapshot)?)? {
             tools.push(tool.spec().name);
             registry.tool(tool).map_err(core_error)?;

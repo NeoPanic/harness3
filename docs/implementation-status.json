@@ -19,10 +19,11 @@
     "name": "不可变母体发布",
     "phase": "P1",
     "status": "implemented",
-    "detail": "用途、目标、指令、模型协议和单个提示词包或进程插件包按版本锁定。",
+    "detail": "用途、目标、指令、模型协议与多个插件按版本锁定；保留原始发布定义、单继承来源与能力摘要。",
     "source": [
       "crates/harness3-platform/src/domain.rs",
-      "crates/harness3-platform/src/store.rs"
+      "crates/harness3-platform/src/store.rs",
+      "crates/harness3-platform/src/presets/mod.rs"
     ],
     "target": [
       "crates/harness3-domain/src/presets/"
@@ -33,13 +34,17 @@
     "id": "preset-compose",
     "name": "母体继承与参数化",
     "phase": "P2",
-    "status": "planned",
-    "detail": "待实现继承解析、参数 schema、多个能力绑定锁和发布校验。",
-    "source": [],
+    "status": "partial",
+    "detail": "固定版本单继承（最多 16 层）、严格参数 schema/默认值、创建时模板展开、最多 16 个插件的能力锁与冲突校验已实现；Web 可定义与实例化。按主体的权限收窄、预算/资源锁与配置升级待补。",
+    "source": [
+      "crates/harness3-platform/src/presets/mod.rs",
+      "crates/harness3-platform/web/presets.js",
+      "crates/harness3-platform/tests/presets.rs"
+    ],
     "target": [
       "crates/harness3-domain/src/presets/"
     ],
-    "verification": "not-implemented"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "spawn",

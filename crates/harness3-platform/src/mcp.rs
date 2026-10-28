@@ -15,13 +15,17 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
     let plan = json!({"type":"object","additionalProperties":false,"properties":{
         "preset_name":id,"preset_version":id,"count":{"type":"integer","minimum":1,"maximum":64},
         "mode":{"type":"string","enum":["finite","maintain"],"default":"finite"},
-        "ttl_seconds":{"type":"integer","minimum":1,"maximum":2592000}
+        "ttl_seconds":{"type":"integer","minimum":1,"maximum":2592000},
+        "parameters":{"type":"object","description":"Values validated against the selected Preset parameter schema."}
     },"required":["preset_name","preset_version","count"]});
     let preset = json!({"type":"object","additionalProperties":false,"properties":{
         "name":id,"version":id,"purpose":text,"objective":text,"instructions":text,
         "protocol":{"type":"string","enum":["demo","openai-compatible","openai-responses","anthropic"]},
-        "plugin":{"type":"object","additionalProperties":false,"properties":{"id":id,"version":id},"required":["id","version"]}
-    },"required":["name","version","purpose","objective","instructions","protocol"]});
+        "plugin":{"type":"object","additionalProperties":false,"properties":{"id":id,"version":id},"required":["id","version"]},
+        "plugins":{"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"properties":{"id":id,"version":id},"required":["id","version"]}},
+        "extends":{"type":"object","additionalProperties":false,"properties":{"name":id,"version":id},"required":["name","version"]},
+        "parameters_schema":{"type":"object"},"parameter_defaults":{"type":"object"}
+    },"required":["name","version"]});
     let bundle = json!({"type":"object","additionalProperties":false,"properties":{
         "id":id,"version":id,"description":text,"instructions":text
     },"required":["id","version","description","instructions"]});

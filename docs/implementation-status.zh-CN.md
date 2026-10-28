@@ -7,8 +7,8 @@
 | 阶段 | 能力 | 实现状态 | 验证 | 当前行为 / 缺口 |
 | --- | --- | --- | --- | --- |
 | P1 | Harness 执行循环 | 已实现 | 既有测试；见预览指南边界 | 模型→工具→模型、会话与回执；领域中立内核保留在根包。 |
-| P1 | 不可变母体发布 | 已实现 | 既有测试；见预览指南边界 | 用途、目标、指令、模型协议和单个提示词包或进程插件包按版本锁定。 |
-| P2 | 母体继承与参数化 | 规划中 | 待实现 | 待实现继承解析、参数 schema、多个能力绑定锁和发布校验。 |
+| P1 | 不可变母体发布 | 已实现 | 既有测试；见预览指南边界 | 用途、目标、指令、模型协议与多个插件按版本锁定；保留原始发布定义、单继承来源与能力摘要。 |
+| P2 | 母体继承与参数化 | 部分实现 | 原生测试 + Web 联调 | 固定版本单继承（最多 16 层）、严格参数 schema/默认值、创建时模板展开、最多 16 个插件的能力锁与冲突校验已实现；Web 可定义与实例化。按主体的权限收窄、预算/资源锁与配置升级待补。 |
 | P1 | 有限批量实例化 | 已实现 | 原生测试 + Web 联调 | HTTP 以 202 接纳创建 Operation，每轮最多创建 8 个实例；全局 64 容量包含未创建的预留槽位，幂等重试返回原回执。 |
 | P1 | 实例生命周期与 TTL | 部分实现 | 原生测试 + Web 联调 | 暂停/恢复/终止、排空与 TTL；实例组支持 finite/maintain 扩缩容。空闲策略、stop/start、配置升级和单实例 Operation 尚未实现。 |
 | P2 | 维持型实例组与异步 Operation | 部分实现 | 原生测试 + Web 联调 | finite/maintain、异步创建/扩缩容/终止、持久槽位与代际、容量预留、分批协调、重启续作已落地；尚无排空期限、Operation 单独取消与远程执行配置。 |
@@ -37,8 +37,8 @@
 | 能力 | 当前落点 | 目标目录 |
 | --- | --- | --- |
 | Harness 执行循环 | `src/engine.rs`<br>`src/session.rs` | `crates/harness3-core/src/` |
-| 不可变母体发布 | `crates/harness3-platform/src/domain.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-domain/src/presets/` |
-| 母体继承与参数化 | 尚无实现模块 | `crates/harness3-domain/src/presets/` |
+| 不可变母体发布 | `crates/harness3-platform/src/domain.rs`<br>`crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/presets/mod.rs` | `crates/harness3-domain/src/presets/` |
+| 母体继承与参数化 | `crates/harness3-platform/src/presets/mod.rs`<br>`crates/harness3-platform/web/presets.js`<br>`crates/harness3-platform/tests/presets.rs` | `crates/harness3-domain/src/presets/` |
 | 有限批量实例化 | `crates/harness3-platform/src/fleets.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/` |
 | 实例生命周期与 TTL | `crates/harness3-platform/src/lifecycle.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/`<br>`crates/harness3-domain/src/agents/` |
 | 维持型实例组与异步 Operation | `crates/harness3-platform/src/fleets.rs`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/tests/fleets.rs` | `crates/harness3-domain/src/operations/`<br>`crates/harness3-platform/src/control/` |
@@ -87,6 +87,8 @@ crates/harness3-platform/
 │   │   ├── mod.rs
 │   │   ├── package.rs
 │   │   └── process.rs
+│   ├── presets/
+│   │   └── mod.rs
 │   ├── api.rs
 │   ├── cli.rs
 │   ├── client.rs
@@ -108,6 +110,7 @@ crates/harness3-platform/
 │   ├── entrances.rs
 │   ├── fleets.rs
 │   ├── platform.rs
+│   ├── presets.rs
 │   └── process_plugins.rs
 ├── web/
 │   ├── app.css
@@ -115,7 +118,8 @@ crates/harness3-platform/
 │   ├── fleets.js
 │   ├── goals.js
 │   ├── index.html
-│   └── plugins.js
+│   ├── plugins.js
+│   └── presets.js
 └── Cargo.toml
 crates/harness3-plugin-protocol/
 ├── src/
@@ -131,8 +135,10 @@ crates/harness3-plugin-sdk/
 └── Cargo.toml
 examples/clients/
 ├── README.md
+├── composed-preset.json
 ├── fleet.json
 ├── mcp.json
+├── parameterized-fleet.json
 ├── process-fleet.json
 └── process-preset.json
 examples/plugins/

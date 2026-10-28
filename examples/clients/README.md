@@ -17,3 +17,5 @@ Replace the two absolute paths in `mcp.json` before copying it to your MCP clien
 The outward MCP adapter exposes tools over stdio. It does not load third-party MCP tools into Agents. Remote MCP plugin loading, MCP resources, Streamable HTTP, concurrent tool calls and protocol cancellation are not implemented. Cancel a Run or Goal through its explicit tool instead. HTTP timeouts are bounded at 10 seconds. No automatic write retries or `--wait` are implemented.
 
 Local process Tool packages have a separate daemon opt-in. See [the plugin guide](../../docs/process-plugins.zh-CN.md); `process-preset.json` and `process-fleet.json` bind the supplied executable reference package.
+
+母体继承、多插件与参数示例：`composed-preset.json` / `parameterized-fleet.json`，依赖与操作顺序见 [母体组合指南](../../docs/presets.zh-CN.md)。

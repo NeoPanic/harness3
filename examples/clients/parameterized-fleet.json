@@ -1,0 +1,7 @@
+{
+  "preset_name": "topic-inspector",
+  "preset_version": "1.0.0",
+  "count": 2,
+  "mode": "finite",
+  "parameters": {"topic": "Harness³"}
+}
