@@ -16,7 +16,15 @@
 
 Harness³ gives agents a shared execution foundation: model and tool interfaces, explicit authority, recoverable conversations, and inspectable execution. A host can compose these foundations into larger agent systems while choosing its own models, storage, channels, and coordination strategy.
 
-This repository contains the **runtime core**. Cluster scheduling, agent-to-agent routing, deployment, provider SDKs, and production storage adapters belong to the host application. There is no hosted service or bundled cluster control plane.
+This repository contains the independent **runtime core** and a **local control-plane preview** with Presets, independent instances, SQLite persistence, and an embedded Web console. Multi-machine scheduling, agent collaboration, external executable plugins, and hosted deployment remain planned.
+
+## Local kernel platform preview
+
+```sh
+cargo run --locked -p harness3-platform -- up --demo
+```
+
+Open [http://127.0.0.1:7333](http://127.0.0.1:7333) and sign in with the local `.harness3/token` file. Publish Presets, create independent instances, run the real Harness loop, and inspect requests, receipts, sessions, events, and implementation status. The platform supports non-streaming OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages adapters. See the [platform guide (中文)](docs/kernel-preview.zh-CN.md) for model configuration, API endpoints, and current limits. Agent collaboration and external code plugins are not implemented yet.
 
 ## Why the cube?
 
@@ -94,6 +102,7 @@ Each harness supplies an execution boundary. The host defines how agents share w
 
 ## Documentation
 
+- [Managed Agents architecture proposal (中文)](docs/managed-agents.zh-CN.md): Presets, N-instance control plane, plugin hot loading, three model protocols, target source layout, and local experience; proposed, not implemented.
 - [中文首页](README.zh-CN.md): positioning, setup, and naming in Chinese.
 - [中文技术导读](GUIDE.zh-CN.md): sequence diagrams, source walkthrough, and design reasoning.
 - [Runtime contracts](docs/runtime.md): recovery, authorization, compaction, delivery, and trace semantics.
@@ -103,7 +112,7 @@ Each harness supplies an execution boundary. The host defines how agents share w
 
 ## Project status and development
 
-The core is at **0.2.7**, before a stable 1.0 API. This standalone repository does not yet contain the originating application's deterministic behavior suite. CI checks compilation and rustdoc on Rust 1.89 and stable, and runs the offline example; that example is a smoke check, not comprehensive recovery or concurrency coverage.
+The core is at **0.2.7**, before a stable 1.0 API. The originating application's behavior suite has not been migrated. The platform now has standalone integration coverage for versions, idempotency, lifecycle, cancellation, persistence, recovery, and model protocols. CI runs workspace compilation, Clippy, tests, rustdoc, and the offline example on Rust 1.89 and stable; distributed scheduling and executable plugin failures remain future work.
 
 ```sh
 cargo check --locked --all-targets

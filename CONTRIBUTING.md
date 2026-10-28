@@ -20,10 +20,11 @@ The Cargo package and import are `harness3`. The user-facing brand is Harness³.
 4. Run the checks below and report the result in the pull request. Disclose checks you could not run.
 
 ```sh
-cargo check --locked --all-targets
-cargo test --locked
+cargo check --locked --workspace --all-targets
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace
 cargo run --locked --example quickstart
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 ```
 
 Format new Rust code with `rustfmt --edition 2024 path/to/file.rs`. Avoid unrelated repository-wide formatting in a focused patch. CI runs the same compilation, test, example, and documentation checks on Rust 1.89 and stable.
@@ -32,7 +33,7 @@ Format new Rust code with `rustfmt --edition 2024 path/to/file.rs`. Avoid unrela
 
 Explain the concrete trigger and resulting behavior, with a before/after example when useful. Include compatibility consequences for downstream users and persisted sessions. Keep external writes explicit and preserve uncertain outcomes during recovery. New tool implementations must validate their own inputs and document idempotency assumptions.
 
-This repository is pre-1.0 and its original application-level behavior suite has not been migrated. New tests should expand standalone coverage rather than depend on the original host.
+This repository is pre-1.0. The platform has standalone integration tests; the original host application's core behavior suite has not been migrated. New tests should expand standalone coverage. See the [local platform guide](docs/kernel-preview.zh-CN.md) for the current implementation boundary.
 
 ## Reporting issues
 

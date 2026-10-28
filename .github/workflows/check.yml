@@ -13,9 +13,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
-      - run: cargo check --locked --all-targets
-      - run: cargo test --locked
+      - run: cargo check --locked --workspace --all-targets
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo test --locked --workspace
       - run: cargo run --locked --example quickstart
-      - run: cargo doc --locked --no-deps
+      - run: cargo doc --locked --workspace --no-deps
         env:
           RUSTDOCFLAGS: -D warnings

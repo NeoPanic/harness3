@@ -1,0 +1,11 @@
+PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+CREATE TABLE IF NOT EXISTS presets(name TEXT NOT NULL,version TEXT NOT NULL,body TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(name,version));
+CREATE TABLE IF NOT EXISTS plugins(id TEXT NOT NULL,version TEXT NOT NULL,body TEXT NOT NULL,digest TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(id,version));
+CREATE TABLE IF NOT EXISTS instances(id TEXT PRIMARY KEY,fleet_id TEXT NOT NULL,preset_name TEXT NOT NULL,preset_version TEXT NOT NULL,state TEXT NOT NULL,snapshot TEXT NOT NULL,created_at INTEGER NOT NULL,FOREIGN KEY(preset_name,preset_version) REFERENCES presets(name,version));
+CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,instance_id TEXT NOT NULL REFERENCES instances(id),state TEXT NOT NULL,cancel_requested INTEGER NOT NULL DEFAULT 0,input TEXT NOT NULL,report TEXT,created_at INTEGER NOT NULL,started_at INTEGER,finished_at INTEGER);
+CREATE INDEX IF NOT EXISTS runs_state ON runs(state,created_at);
+CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS commands(key TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,response TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,kind TEXT NOT NULL,subject TEXT NOT NULL,body TEXT NOT NULL,at INTEGER NOT NULL);
+PRAGMA user_version=1;

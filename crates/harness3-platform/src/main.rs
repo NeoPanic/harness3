@@ -1,0 +1,154 @@
+use clap::{Parser, Subcommand};
+use fs2::FileExt;
+use harness3::CancellationToken;
+use harness3_platform::{
+    api::{App, router},
+    domain::{Preset, Protocol},
+    models::Models,
+    runtime,
+    store::Store,
+};
+use std::{collections::HashMap, fs::OpenOptions, path::PathBuf, sync::Arc};
+use tokio::sync::Mutex;
+
+#[derive(Parser)]
+#[command(name = "harness3", about = "Harness³ local kernel control plane")]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+#[derive(Subcommand)]
+enum Command {
+    Up {
+        #[arg(long, default_value = "7333")]
+        port: u16,
+        #[arg(long, default_value = ".harness3")]
+        data_dir: PathBuf,
+        #[arg(long)]
+        codex_config_dir: Option<PathBuf>,
+        #[arg(long, default_value = "gpt-6-luna")]
+        model: String,
+        #[arg(long)]
+        demo: bool,
+    },
+    Doctor {
+        #[arg(long, default_value = "7333")]
+        port: u16,
+    },
+}
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    match Cli::parse().command {
+        Command::Doctor { port } => {
+            let response = reqwest::get(format!("http://127.0.0.1:{port}/health")).await?;
+            println!("{}", response.error_for_status()?.text().await?);
+        }
+        Command::Up {
+            port,
+            data_dir,
+            codex_config_dir,
+            model,
+            demo,
+        } => {
+            std::fs::create_dir_all(&data_dir)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&data_dir, std::fs::Permissions::from_mode(0o700))?;
+            }
+            let lock = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(data_dir.join("daemon.lock"))?;
+            lock.try_lock_exclusive()
+                .map_err(|_| "another daemon already owns this data directory")?;
+            let token_path = data_dir.join("token");
+            let token = match std::fs::read_to_string(&token_path) {
+                Ok(token) => token.trim().to_owned(),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    use std::io::Write;
+                    let token = format!(
+                        "{}{}",
+                        uuid::Uuid::new_v4().simple(),
+                        uuid::Uuid::new_v4().simple()
+                    );
+                    let mut options = OpenOptions::new();
+                    options.write(true).create_new(true);
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::OpenOptionsExt;
+                        options.mode(0o600);
+                    }
+                    let mut file = options.open(&token_path)?;
+                    file.write_all(token.as_bytes())?;
+                    token
+                }
+                Err(error) => return Err(error.into()),
+            };
+            if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) {
+                return Err("invalid local token file".into());
+            }
+            let store = Store::open(&data_dir.join("platform.sqlite"))?;
+            let mut models = Models::from_env();
+            if let Some(root) = codex_config_dir {
+                models.load_codex_responses(&root, &model)?;
+            }
+            store.publish(Preset {
+                name: "demo-inspector".into(),
+                version: "1.0.0".into(),
+                purpose: "无需模型账号的内核执行验证".into(),
+                objective: "通过真实工具回执验证输入统计与会话恢复边界".into(),
+                instructions: "Inspect the input with text.inspect and summarize its evidence."
+                    .into(),
+                protocol: Protocol::Demo,
+                plugin: None,
+            })?;
+            if !demo && models.responses.is_some() {
+                store.publish(Preset{name:"researcher".into(),version:"1.0.0".into(),purpose:"通用研究与分析".into(),objective:"依据可用证据回答用户问题；需要文本统计时使用 text.inspect".into(),instructions:"You are a careful research agent. Use tools when needed. Distinguish evidence from inference. Reply in the user's language. Never claim tool results without receipts.".into(),protocol:Protocol::OpenaiResponses,plugin:None})?;
+            }
+            runtime::recover(&store).await?;
+            let cancellations = Arc::new(Mutex::new(HashMap::new()));
+            let shutdown = CancellationToken::new();
+            let listener =
+                tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).await?;
+            let actual = listener.local_addr()?;
+            store.record(
+                "platform.started",
+                "daemon",
+                serde_json::json!({"version":env!("CARGO_PKG_VERSION")}),
+            )?;
+            println!(
+                "Harness³ kernel preview: http://{actual}\nData: {}\nLogin / API token file: {}\nWorker slots: 4 · instance quota: 64\nOpen the console and paste the local token to log in. Ctrl-C drains active runs.",
+                data_dir.display(),
+                token_path.display()
+            );
+            let worker = tokio::spawn(runtime::worker_loop(
+                store.clone(),
+                models.clone(),
+                cancellations.clone(),
+                shutdown.clone(),
+            ));
+            let app = router(App {
+                store,
+                token,
+                cancellations,
+                models,
+            });
+            let stop = shutdown.clone();
+            let signal = async move {
+                let _ = tokio::signal::ctrl_c().await;
+                stop.cancel();
+            };
+            let result = axum::serve(listener, app)
+                .with_graceful_shutdown(signal)
+                .await;
+            shutdown.cancel();
+            worker.await?;
+            result?;
+            drop(lock);
+        }
+    }
+    Ok(())
+}

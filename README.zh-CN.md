@@ -16,7 +16,17 @@
 
 Harness³ 为 Agents 提供共同的执行基础：模型与工具接口、明确的权限边界、可恢复的会话、可追踪的执行过程。宿主应用可以把这些基础组合成更大的 Agent 系统，自行选择模型、存储、通信渠道和协作方式。
 
-当前仓库提供**运行时内核**。集群调度、Agent 间路由、部署、模型供应商 SDK 和生产存储适配器由宿主接入；仓库暂未提供托管服务或集群控制面。
+当前仓库包含独立的**运行时内核**和可本地运行的**控制面预览**。控制面提供 Preset、独立实例、SQLite 与 Web；集群调度、Agent 间协作、远程部署和托管服务仍在规划中。
+
+## 本地内核平台预览
+
+已有可运行的 SQLite 控制面与 Web 检查台，支持发布母体、批量创建独立实例、提交真实 Harness 执行，以及查看请求快照、工具回执和实现进度：
+
+```sh
+cargo run --locked -p harness3-platform -- up --demo
+```
+
+打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。Agent 协作与外部代码插件尚未实现。
 
 ## 为什么是三次方
 
@@ -77,13 +87,14 @@ let harness = Harness::new(Registry::default(), Limits::default());
 
 ## 文档与项目状态
 
+- [Managed Agents 目标架构](docs/managed-agents.zh-CN.md)：母体 Presets、N 实例控制面、插件热加载、三类模型接入、完整目录结构与本地体验路线；属于待实现的设计提案。
 - [中文技术导读](GUIDE.zh-CN.md)：时序图、逐文件说明、设计取舍。
 - [运行契约](docs/runtime.md)：恢复、权限、上下文压缩、交付与追踪的详细语义。
 - [可运行示例](examples/quickstart.rs)：从能力注册到工具执行与会话去重。
 - API 文档：`cargo doc --locked --no-deps --open`。
 - [贡献说明](CONTRIBUTING.md)、[安全报告](SECURITY.md)、[社区行为准则](CODE_OF_CONDUCT.md)。
 
-当前版本 **0.2.7**，尚未承诺 1.0 稳定 API。独立仓库暂未迁入原应用中的确定性行为测试集。CI 在 Rust 1.89 与 stable 上检查编译和 rustdoc，并运行离线示例；示例覆盖基础集成流程，恢复和并发等行为仍需补充测试。
+当前版本 **0.2.7**，尚未承诺 1.0 稳定 API。内核原应用中的行为测试集尚未迁入；平台已有独立集成测试，覆盖版本、幂等、存储、生命周期、恢复与模型协议。CI 在 Rust 1.89 与 stable 上运行工作区检查、Clippy、测试、rustdoc 与离线示例；多机和外部插件故障仍需后续覆盖。
 
 ```sh
 cargo check --locked --all-targets
