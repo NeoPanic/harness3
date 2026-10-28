@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub type PResult<T> = Result<T, Fault>;
@@ -175,16 +175,6 @@ impl GoalPlan {
 }
 
 pub fn capabilities() -> Value {
-    json!([
-        {"id":"core","name":"Harness 执行内核","status":"implemented","detail":"真实模型 → 工具 → 模型循环、会话快照、回执与上下文预算。"},
-        {"id":"presets","name":"Preset 母体与版本","status":"implemented","detail":"不可变发布、指定版本批量实例化，实例独立身份与会话。尚无继承与自动派生。"},
-        {"id":"lifecycle","name":"本地实例控制面","status":"partial","detail":"有限批次创建、暂停/恢复/终止、运行取消。配额 64、Worker 并发 4；尚无维持型扩缩容、TTL、多机器调度。"},
-        {"id":"storage","name":"SQLite 持久化","status":"implemented","detail":"事务与 revision 检查、独占 daemon 锁、检查点、幂等命令、持久事件、启动时结算中断记录。"},
-        {"id":"models","name":"三类模型协议","status":"partial","detail":"Chat Completions / Responses / Anthropic 非流式文本与工具循环。未实现多模态、流式增量和自动重试；真实账号需自行配置。"},
-        {"id":"plugins","name":"插件与热加载","status":"partial","detail":"内置 text.inspect 工具，声明式提示词包可在线安装并绑定新 Preset；版本固定。外部进程/MCP 代码加载尚未实现。"},
-        {"id":"inspection","name":"执行检查与 Web","status":"implemented","detail":"查看真实实例、运行、工具回执、请求快照、会话与事件；HTTP API 与同一 Web 状态源。"},
-        {"id":"collaboration","name":"Agent 组织协作","status":"partial","detail":"持久共同目标、显式依赖任务图、上游贡献与 Run ID 传递、取消与人工验收；Web / API / CLI 共用状态。尚无自主拆解、Agent 通信、返工和动态委派。"},
-        {"id":"governance","name":"治理与隔离","status":"planned","detail":"当前仅本地 token 与内置只读工具；多租户、费用账本、工作区沙箱、审批尚未实现。"},
-        {"id":"mcp","name":"MCP 与远程 Worker","status":"planned","detail":"本轮未实现 MCP 服务、外部 MCP 工具、多机 Worker 或自动恢复原 Run。"}
-    ])
+    serde_json::from_str(include_str!("../../../docs/implementation-status.json"))
+        .expect("embedded implementation status must be valid JSON")
 }

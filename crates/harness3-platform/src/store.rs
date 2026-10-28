@@ -18,7 +18,7 @@ impl Store {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 2 {
+        if version > 3 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
@@ -113,33 +113,56 @@ impl Store {
         })
     }
     pub fn spawn(&self, input: &Spawn, key: &str) -> PResult<Value> {
+        self.spawn_with_ttl(input, key, None)
+    }
+    pub fn spawn_with_ttl(
+        &self,
+        input: &Spawn,
+        key: &str,
+        ttl_seconds: Option<u64>,
+    ) -> PResult<Value> {
+        if ttl_seconds.is_some_and(|ttl| ttl == 0 || ttl > 30 * 24 * 60 * 60) {
+            return Err(fault(400, "invalid_ttl"));
+        }
         if input.count == 0 || input.count > 64 || key.is_empty() || key.len() > 160 {
             return Err(fault(400, "invalid_spawn_or_idempotency_key"));
         }
         self.transaction(|tx| {
-            let fingerprint = serde_json::to_string(input)?;
+            let fingerprint = match ttl_seconds {
+                Some(ttl) => json!({"spawn":input,"ttl_seconds":ttl}).to_string(),
+                None => serde_json::to_string(input)?,
+            };
             if let Some((old,response)) = tx.query_row("SELECT fingerprint,response FROM commands WHERE key=?",[format!("spawn:{key}")], |r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()? {
                 if old != fingerprint { return Err(fault(409,"idempotency_conflict")); }
                 return Ok(serde_json::from_str(&response)?);
             }
+            crate::lifecycle::reconcile(tx)?;
             let current: usize = tx.query_row("SELECT count(*) FROM instances WHERE state != 'terminated'",[],|r|r.get(0))?;
             if current + input.count > 64 { return Err(fault(409,"instance_quota_exceeded")); }
             let snapshot: String = tx.query_row("SELECT body FROM presets WHERE name=? AND version=?",params![input.preset_name,input.preset_version],|r|r.get(0)).optional()?.ok_or_else(||fault(404,"preset_not_found"))?;
             let fleet = id("fleet");
+            let expires_at = ttl_seconds.map(|ttl| now() + (ttl * 1000) as i64);
             let mut ids=vec![];
             for _ in 0..input.count {
                 let agent=id("agent");
                 tx.execute("INSERT INTO instances(id,fleet_id,preset_name,preset_version,state,snapshot,created_at) VALUES(?,?,?,?,'ready',?,?)",params![agent,fleet,input.preset_name,input.preset_version,snapshot,now()])?;
+                if let Some(expires_at) = expires_at {
+                    tx.execute("INSERT INTO instance_deadlines(instance_id,expires_at) VALUES(?,?)",params![agent,expires_at])?;
+                }
                 event(tx,"instance.created",&agent,json!({"fleet_id":fleet}))?;
                 ids.push(agent);
             }
-            let response=json!({"fleet_id":fleet,"instance_ids":ids,"count":input.count,"mode":"finite","state":"completed"});
+            let response=json!({"fleet_id":fleet,"instance_ids":ids,"count":input.count,"mode":"finite","state":"completed","expires_at":expires_at});
             tx.execute("INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",params![format!("spawn:{key}"),fingerprint,response.to_string()])?;
             Ok(response)
         })
     }
     pub fn transition(&self, agent: &str, action: &str) -> PResult<Value> {
         self.transaction(|tx| {
+            crate::lifecycle::reconcile(tx)?;
+            if action == "drain" {
+                return crate::lifecycle::drain(tx, agent, false);
+            }
             let state: String = tx
                 .query_row("SELECT state FROM instances WHERE id=?", [agent], |r| {
                     r.get(0)
@@ -198,7 +221,8 @@ impl Store {
                 })
                 .optional()?
                 .ok_or_else(|| fault(404, "instance_not_found"))?;
-            if state != "ready" {
+            let expired: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM instance_deadlines WHERE instance_id=? AND expires_at<=?)",params![agent,now()],|r|r.get(0))?;
+            if state != "ready" || expired {
                 return Err(fault(409, "instance_not_ready"));
             }
             let run = id("run");
@@ -218,6 +242,7 @@ impl Store {
     }
     pub fn claim(&self) -> PResult<Option<Value>> {
         self.transaction(|tx| {
+            crate::lifecycle::reconcile(tx)?;
             let row=tx.query_row("SELECT r.id,r.instance_id,r.input,i.snapshot FROM runs r JOIN instances i ON i.id=r.instance_id WHERE r.state='queued' ORDER BY r.created_at,r.rowid LIMIT 1",[],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).optional()?;
             let Some((run,agent,text,snapshot))=row else{return Ok(None)};
             tx.execute("UPDATE runs SET state='running',started_at=? WHERE id=?",params![now(),run])?;
@@ -244,6 +269,7 @@ impl Store {
                 run,
                 json!({"instance_id":agent,"state":state}),
             )?;
+            crate::lifecycle::reconcile(tx)?;
             Ok(())
         })
     }
@@ -322,7 +348,8 @@ impl Store {
     }
     pub fn active_sessions(&self) -> PResult<Vec<String>> {
         let connection = self.lock()?;
-        let mut stmt = connection.prepare("SELECT id FROM instances WHERE state='busy'")?;
+        let mut stmt =
+            connection.prepare("SELECT id FROM instances WHERE state IN ('busy','draining')")?;
         Ok(stmt
             .query_map([], |r| r.get::<_, String>(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?)
@@ -337,7 +364,7 @@ impl Store {
                 "SELECT json_object('id',id,'version',version,'definition',json(body),'digest',digest,'created_at',created_at) FROM plugins ORDER BY created_at DESC LIMIT 200"
             }
             "instances" => {
-                "SELECT json_object('id',id,'fleet_id',fleet_id,'preset_name',preset_name,'preset_version',preset_version,'state',state,'created_at',created_at,'snapshot',json(snapshot)) FROM instances ORDER BY (state != 'terminated') DESC,created_at DESC,id LIMIT 200"
+                "SELECT json_object('id',id,'fleet_id',fleet_id,'preset_name',preset_name,'preset_version',preset_version,'state',state,'created_at',created_at,'snapshot',json(snapshot),'expires_at',(SELECT expires_at FROM instance_deadlines WHERE instance_id=instances.id)) FROM instances ORDER BY (state != 'terminated') DESC,created_at DESC,id LIMIT 200"
             }
             "runs" => {
                 "SELECT json_object('id',id,'instance_id',instance_id,'state',state,'input',input,'report',json(report),'created_at',created_at,'started_at',started_at,'finished_at',finished_at) FROM runs ORDER BY created_at DESC,rowid DESC LIMIT 100"

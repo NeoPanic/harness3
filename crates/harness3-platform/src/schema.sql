@@ -11,4 +11,6 @@ CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,kind TEX
 CREATE TABLE IF NOT EXISTS goals(id TEXT PRIMARY KEY,title TEXT NOT NULL,objective TEXT NOT NULL,acceptance TEXT NOT NULL,state TEXT NOT NULL,review TEXT,created_at INTEGER NOT NULL,finished_at INTEGER);
 CREATE TABLE IF NOT EXISTS work_items(goal_id TEXT NOT NULL REFERENCES goals(id),key TEXT NOT NULL,position INTEGER NOT NULL,instance_id TEXT NOT NULL REFERENCES instances(id),instructions TEXT NOT NULL,depends_on TEXT NOT NULL,state TEXT NOT NULL,run_id TEXT UNIQUE REFERENCES runs(id),error TEXT,PRIMARY KEY(goal_id,key));
 CREATE INDEX IF NOT EXISTS goals_state ON goals(state,created_at);
-PRAGMA user_version=2;
+CREATE TABLE IF NOT EXISTS instance_deadlines(instance_id TEXT PRIMARY KEY REFERENCES instances(id),expires_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS instance_deadlines_expiry ON instance_deadlines(expires_at);
+PRAGMA user_version=3;

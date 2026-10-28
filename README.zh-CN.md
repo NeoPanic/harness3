@@ -87,7 +87,8 @@ let harness = Harness::new(Registry::default(), Limits::default());
 
 ## 文档与项目状态
 
-- [Managed Agents 目标架构](docs/managed-agents.zh-CN.md)：母体 Presets、N 实例控制面、插件热加载、三类模型接入、完整目录结构与本地体验路线；属于待实现的设计提案。
+- [Managed Agents 目标架构](docs/managed-agents.zh-CN.md)：母体 Presets、N 实例控制面、插件热加载、三类模型接入、完整目录结构与本地体验路线；完整目标以逐项验收为准。
+- [实现进度与目录落点](docs/implementation-status.zh-CN.md)：与 Web 共用清单，区分已实现行为、缺口、验证状态和规划路径。
 - [中文技术导读](GUIDE.zh-CN.md)：时序图、逐文件说明、设计取舍。
 - [运行契约](docs/runtime.md)：恢复、权限、上下文压缩、交付与追踪的详细语义。
 - [可运行示例](examples/quickstart.rs)：从能力注册到工具执行与会话去重。

@@ -699,3 +699,243 @@ async fn recovery_preserves_a_known_cancelled_receipt() {
     runtime::recover(&store).await.unwrap();
     assert_eq!(store.list("runs").unwrap()[0]["state"], "cancelled");
 }
+
+#[test]
+fn drain_preserves_accepted_work_and_rejects_new_work() {
+    let store = seeded();
+    let batch = spawn(&store, 1, "drain");
+    let agent = batch["instance_ids"][0].as_str().unwrap();
+    let queued = store
+        .enqueue(agent, &input("accepted"), "before-drain")
+        .unwrap();
+    assert_eq!(
+        store.transition(agent, "drain").unwrap()["state"],
+        "draining"
+    );
+    assert!(
+        store
+            .enqueue(agent, &input("rejected"), "after-drain")
+            .is_err()
+    );
+    assert_eq!(
+        store.transition(agent, "drain").unwrap()["state"],
+        "draining"
+    );
+    assert_eq!(store.claim().unwrap().unwrap()["id"], queued["id"]);
+    store
+        .finish(
+            queued["id"].as_str().unwrap(),
+            agent,
+            "completed",
+            json!({"output":"retained"}),
+        )
+        .unwrap();
+    assert_eq!(store.list("instances").unwrap()[0]["state"], "terminated");
+    assert_eq!(
+        store.run(queued["id"].as_str().unwrap()).unwrap()["report"]["output"],
+        "retained"
+    );
+    assert!(store.transition(agent, "resume").is_err());
+}
+
+#[test]
+fn ttl_is_idempotent_cancels_queue_and_releases_quota() {
+    let store = seeded();
+    let request = Spawn {
+        preset_name: "inspector".into(),
+        preset_version: "1.0.0".into(),
+        count: 64,
+    };
+    let batch = store.spawn_with_ttl(&request, "ttl", Some(60)).unwrap();
+    assert_eq!(
+        store.spawn_with_ttl(&request, "ttl", Some(60)).unwrap(),
+        batch
+    );
+    assert_eq!(
+        store
+            .spawn_with_ttl(&request, "ttl", Some(61))
+            .unwrap_err()
+            .1,
+        "idempotency_conflict"
+    );
+    let agent = batch["instance_ids"][0].as_str().unwrap();
+    let queued = store.enqueue(agent, &input("queued"), "ttl-run").unwrap();
+    store
+        .transaction(|tx| {
+            tx.execute("UPDATE instance_deadlines SET expires_at=0", [])?;
+            Ok(())
+        })
+        .unwrap();
+    assert!(
+        store
+            .enqueue(
+                batch["instance_ids"][1].as_str().unwrap(),
+                &input("late"),
+                "late"
+            )
+            .is_err()
+    );
+    assert!(store.claim().unwrap().is_none());
+    assert_eq!(
+        store.run(queued["id"].as_str().unwrap()).unwrap()["state"],
+        "cancelled"
+    );
+    assert!(
+        store
+            .list("instances")
+            .unwrap()
+            .iter()
+            .all(|a| a["state"] == "terminated")
+    );
+    assert_eq!(spawn(&store, 64, "replacement")["count"], 64);
+    assert_eq!(
+        store
+            .spawn_with_ttl(&request, "invalid", Some(0))
+            .unwrap_err()
+            .1,
+        "invalid_ttl"
+    );
+}
+
+#[test]
+fn expiry_requests_running_cancellation_without_fabricating_outcome() {
+    let store = seeded();
+    let batch = store
+        .spawn_with_ttl(
+            &Spawn {
+                preset_name: "inspector".into(),
+                preset_version: "1.0.0".into(),
+                count: 1,
+            },
+            "running-ttl",
+            Some(60),
+        )
+        .unwrap();
+    let agent = batch["instance_ids"][0].as_str().unwrap();
+    let run = store.enqueue(agent, &input("running"), "running").unwrap();
+    let id = run["id"].as_str().unwrap();
+    store.claim().unwrap().unwrap();
+    store
+        .transaction(|tx| {
+            tx.execute("UPDATE instance_deadlines SET expires_at=0", [])?;
+            Ok(())
+        })
+        .unwrap();
+    store.reconcile_lifecycle().unwrap();
+    assert!(store.cancel_requested(id).unwrap());
+    assert_eq!(store.run(id).unwrap()["state"], "running");
+    assert_eq!(store.list("instances").unwrap()[0]["state"], "draining");
+    // Completion may win a cancellation race; retain the actual receipt.
+    store
+        .finish(
+            id,
+            agent,
+            "completed",
+            json!({"output":"completed before cancellation"}),
+        )
+        .unwrap();
+    assert_eq!(store.list("instances").unwrap()[0]["state"], "terminated");
+    assert_eq!(store.run(id).unwrap()["state"], "completed");
+}
+
+#[tokio::test]
+async fn durable_expiry_reaches_live_worker_cancellation() {
+    let store = seeded();
+    let batch = store
+        .spawn_with_ttl(
+            &Spawn {
+                preset_name: "inspector".into(),
+                preset_version: "1.0.0".into(),
+                count: 1,
+            },
+            "worker-ttl",
+            Some(60),
+        )
+        .unwrap();
+    let agent = batch["instance_ids"][0].as_str().unwrap();
+    let run = store
+        .enqueue(agent, &input("expire during model call"), "work")
+        .unwrap();
+    let id = run["id"].as_str().unwrap();
+    let stop = CancellationToken::new();
+    let cancellations = Arc::new(Mutex::new(HashMap::new()));
+    let worker = tokio::spawn(runtime::worker_loop(
+        store.clone(),
+        Models::default(),
+        cancellations.clone(),
+        stop.clone(),
+    ));
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !cancellations.lock().await.contains_key(id) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        store
+            .transaction(|tx| {
+                tx.execute("UPDATE instance_deadlines SET expires_at=0", [])?;
+                Ok(())
+            })
+            .unwrap();
+        while store.run(id).unwrap()["state"] == "running" {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    stop.cancel();
+    worker.await.unwrap();
+    assert_eq!(store.run(id).unwrap()["state"], "cancelled");
+    assert_eq!(store.list("instances").unwrap()[0]["state"], "terminated");
+    assert!(store.load(agent).await.unwrap().active_run.is_none());
+}
+
+#[test]
+fn ttl_survives_database_reopen_and_reconciles_overdue_queue() {
+    let path = std::env::temp_dir().join(format!("harness3-ttl-{}.sqlite", uuid::Uuid::new_v4()));
+    let store = Store::open(&path).unwrap();
+    store.publish(preset()).unwrap();
+    let batch = store
+        .spawn_with_ttl(
+            &Spawn {
+                preset_name: "inspector".into(),
+                preset_version: "1.0.0".into(),
+                count: 1,
+            },
+            "persist-ttl",
+            Some(60),
+        )
+        .unwrap();
+    let agent = batch["instance_ids"][0].as_str().unwrap();
+    let run = store
+        .enqueue(agent, &input("survive reopen"), "run")
+        .unwrap();
+    store
+        .transaction(|tx| {
+            tx.execute("UPDATE instance_deadlines SET expires_at=0", [])?;
+            Ok(())
+        })
+        .unwrap();
+    drop(store);
+    let store = Store::open(&path).unwrap();
+    store.reconcile_lifecycle().unwrap();
+    assert_eq!(store.list("instances").unwrap()[0]["state"], "terminated");
+    assert_eq!(
+        store.run(run["id"].as_str().unwrap()).unwrap()["state"],
+        "cancelled"
+    );
+    assert_eq!(
+        store
+            .spawn_with_ttl(
+                &Spawn {
+                    preset_name: "inspector".into(),
+                    preset_version: "1.0.0".into(),
+                    count: 1
+                },
+                "persist-ttl",
+                Some(60)
+            )
+            .unwrap(),
+        batch
+    );
+    drop(store);
+    std::fs::remove_file(path).unwrap();
+}

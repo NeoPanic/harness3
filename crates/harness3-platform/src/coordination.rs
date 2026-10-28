@@ -83,7 +83,7 @@ impl Store {
             if active >= 32 { return Err(fault(409, "goal_quota_exceeded")); }
             for task in &plan.tasks {
                 let state: String = tx.query_row("SELECT state FROM instances WHERE id=?", [&task.instance_id], |r|r.get(0)).optional()?.ok_or_else(||fault(404,"instance_not_found"))?;
-                if state == "terminated" { return Err(fault(409, "goal_instance_terminated")); }
+                if state == "terminated" || state == "draining" { return Err(fault(409, "goal_instance_terminated")); }
             }
             let goal = id("goal");
             tx.execute("INSERT INTO goals(id,title,objective,acceptance,state,created_at) VALUES(?,?,?,?,'running',?)", params![goal,plan.title,plan.objective,plan.acceptance,now()])?;
@@ -214,8 +214,18 @@ fn reconcile(tx: &Transaction<'_>, id: &str, cancelling: bool) -> PResult<()> {
             tx.query_row("SELECT state FROM instances WHERE id=?", [agent], |r| {
                 r.get(0)
             })?;
-        if state == "terminated" {
+        if state == "terminated" || state == "draining" {
             task_state(tx, id, key, "blocked", Some("instance_terminated"))?;
+            tasks[position]["state"] = json!("blocked");
+            continue;
+        }
+        let expired: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM instance_deadlines WHERE instance_id=? AND expires_at<=?)",
+            params![agent, now()],
+            |r| r.get(0),
+        )?;
+        if expired {
+            task_state(tx, id, key, "blocked", Some("instance_expired"))?;
             tasks[position]["state"] = json!("blocked");
             continue;
         }

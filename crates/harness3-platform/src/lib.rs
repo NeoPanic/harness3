@@ -2,6 +2,7 @@
 pub mod api;
 pub mod coordination;
 pub mod domain;
+pub mod lifecycle;
 pub mod models;
 pub mod runtime;
 pub mod store;

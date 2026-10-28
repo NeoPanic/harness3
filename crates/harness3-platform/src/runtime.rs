@@ -210,6 +210,7 @@ pub async fn recover(store: &Store) -> PResult<()> {
         }
     }
     store.recover_startup()?;
+    store.reconcile_lifecycle()?;
     store.reconcile_goals()
 }
 
@@ -223,6 +224,17 @@ pub async fn worker_loop(
     loop {
         if shutdown.is_cancelled() {
             break;
+        }
+        if let Err(error) = store.reconcile_lifecycle() {
+            eprintln!("Lifecycle reconciliation failed: {error}");
+        }
+        {
+            let tokens = cancellations.lock().await;
+            for (run, token) in tokens.iter() {
+                if store.cancel_requested(run).unwrap_or(true) {
+                    token.cancel();
+                }
+            }
         }
         if let Err(error) = store.reconcile_goals() {
             eprintln!("Goal coordination failed: {error}");

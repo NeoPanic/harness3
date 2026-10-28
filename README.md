@@ -102,7 +102,8 @@ Each harness supplies an execution boundary. The host defines how agents share w
 
 ## Documentation
 
-- [Managed Agents architecture proposal (中文)](docs/managed-agents.zh-CN.md): Presets, N-instance control plane, plugin hot loading, three model protocols, target source layout, and local experience; proposed, not implemented.
+- [Managed Agents architecture proposal (中文)](docs/managed-agents.zh-CN.md): Presets, N-instance control plane, plugin hot loading, three model protocols, target source layout, and local experience; the full target is subject to the documented acceptance gates.
+- [Implementation status and module mapping (中文)](docs/implementation-status.zh-CN.md): shared with the Web console; records shipped behavior, gaps, verification, and planned source paths.
 - [中文首页](README.zh-CN.md): positioning, setup, and naming in Chinese.
 - [中文技术导读](GUIDE.zh-CN.md): sequence diagrams, source walkthrough, and design reasoning.
 - [Runtime contracts](docs/runtime.md): recovery, authorization, compaction, delivery, and trace semantics.

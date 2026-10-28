@@ -207,14 +207,31 @@ fn key(headers: &HeaderMap) -> PResult<&str> {
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| fault(400, "idempotency_key_required"))
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FleetRequest {
+    preset_name: String,
+    preset_version: String,
+    count: usize,
+    #[serde(default)]
+    ttl_seconds: Option<u64>,
+}
 async fn spawn(
     State(app): State<App>,
     headers: HeaderMap,
-    Json(input): Json<Spawn>,
+    Json(input): Json<FleetRequest>,
 ) -> PResult<(StatusCode, Json<Value>)> {
     Ok((
         StatusCode::CREATED,
-        Json(app.store.spawn(&input, key(&headers)?)?),
+        Json(app.store.spawn_with_ttl(
+            &Spawn {
+                preset_name: input.preset_name,
+                preset_version: input.preset_version,
+                count: input.count,
+            },
+            key(&headers)?,
+            input.ttl_seconds,
+        )?),
     ))
 }
 #[derive(Deserialize)]
