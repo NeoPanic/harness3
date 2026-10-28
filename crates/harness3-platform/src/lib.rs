@@ -1,9 +1,11 @@
 //! Local control-plane preview around the independent Harness³ runtime.
 pub mod api;
+pub mod client;
 pub mod coordination;
 pub mod domain;
 pub mod fleets;
 pub mod lifecycle;
+pub mod mcp;
 pub mod models;
 pub mod runtime;
 pub mod store;

@@ -20,7 +20,18 @@ for feature in features:
     sources = '<br>'.join(f'`{s}`' for s in feature['source']) or '尚无实现模块'
     targets = '<br>'.join(f'`{s}`' for s in feature['target'])
     lines.append(f"| {feature['name']} | {sources} | {targets} |")
-lines += ['', '维护方式：修改 JSON 后运行 `python3 scripts/render-progress.py`；CI 使用 `--check` 检查文档同步和当前路径存在。验收清单仍以设计文档为准。', '']
+lines += ['', '## 当前源码目录', '', '以下从当前文件生成，供对照第 12 节目标树；只列运行内核、平台和客户端示例，不包含构建产物。', '', '```text']
+def tree(path, prefix=''):
+    children = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name))
+    for index, child in enumerate(children):
+        last = index == len(children) - 1
+        lines.append(prefix + ('└── ' if last else '├── ') + child.name + ('/' if child.is_dir() else ''))
+        if child.is_dir():
+            tree(child, prefix + ('    ' if last else '│   '))
+for directory in ['src', 'crates/harness3-platform', 'examples/clients']:
+    lines.append(directory + '/')
+    tree(root / directory)
+lines += ['```', '', '维护方式：修改 JSON 后运行 `python3 scripts/render-progress.py`；CI 使用 `--check` 检查文档同步、当前源码目录和路径存在。验收清单仍以设计文档为准。', '']
 body = '\n'.join(lines)
 path = root / 'docs/implementation-status.zh-CN.md'
 if '--check' in sys.argv:

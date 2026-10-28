@@ -24,7 +24,7 @@
 | P2 | 可靠协作消息 | 规划中 | 待实现 | 待实现 Inbox/Outbox、消息去重、投递确认、工作认领与 Attempts。 |
 | P2 | 产物、验证与返工 | 规划中 | 待实现 | 现有文本输出可人工验收；版本化产物、结构化贡献、验证规则、返工及重试历史待实现。 |
 | P1 | Web 执行证据检查 | 已实现 | 既有测试；见预览指南边界 | 实例、请求快照、回执、会话、事件和协作目标来自同一后端。 |
-| P2 | API / CLI / MCP 入口 | 部分实现 | 既有测试；见预览指南边界 | HTTP 与 Web 已覆盖当前能力；CLI 只有 up/doctor/goals，通用 client 与对外 MCP 未实现。 |
+| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 23 个工具，默认开放 12 个查询工具，写入需显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
 | P2 | 实时事件与查询 | 部分实现 | 既有测试；见预览指南边界 | 持久事件游标、Web 轮询；待实现 SSE、列表游标和统一查询契约。 |
 | P2 | 预算预留与账本 | 规划中 | 待实现 | 当前只有单 Run 轮次/工具数/超时上限；待实现团队预算、原子预留、结算与费用归属。 |
 | P3 | 身份、授权与审批 | 部分实现 | 既有测试；见预览指南边界 | 当前为 loopback + 本地 token；Principal/Grant、审批等待、租户隔离与插件权限未实现。 |
@@ -54,7 +54,7 @@
 | 可靠协作消息 | 尚无实现模块 | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
 | 产物、验证与返工 | 尚无实现模块 | `crates/harness3-domain/src/artifacts/`<br>`plugins/verification/` |
 | Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/goals.js`<br>`crates/harness3-platform/web/fleets.js` | `web/src/features/` |
-| API / CLI / MCP 入口 | `crates/harness3-platform/src/api.rs`<br>`crates/harness3-platform/src/client.rs`<br>`crates/harness3-platform/src/main.rs` | `crates/harness3-client/src/`<br>`crates/harness3-cli/src/`<br>`crates/harness3-mcp/src/` |
+| API / CLI / MCP 入口 | `crates/harness3-platform/src/api.rs`<br>`crates/harness3-platform/src/client.rs`<br>`crates/harness3-platform/src/main.rs`<br>`crates/harness3-platform/src/cli.rs`<br>`crates/harness3-platform/src/mcp.rs`<br>`crates/harness3-platform/tests/entrances.rs`<br>`examples/clients/mcp.json` | `crates/harness3-client/src/`<br>`crates/harness3-cli/src/`<br>`crates/harness3-mcp/src/` |
 | 实时事件与查询 | `crates/harness3-platform/src/api.rs` | `crates/harness3-server/src/events/` |
 | 预算预留与账本 | 尚无实现模块 | `crates/harness3-platform/src/accounting/`<br>`crates/harness3-domain/src/budgets/` |
 | 身份、授权与审批 | `crates/harness3-platform/src/api.rs` | `crates/harness3-platform/src/authorization/`<br>`crates/harness3-domain/src/identity/` |
@@ -62,4 +62,57 @@
 | 远程控制面与 PostgreSQL | 尚无实现模块 | `crates/harness3-storage/src/`<br>`crates/harness3-worker/src/backends/` |
 | 发行、生态与验收套件 | `.github/workflows/check.yml`<br>`docs/kernel-preview.zh-CN.md` | `deploy/`<br>`examples/`<br>`tests/`<br>`docs/` |
 
-维护方式：修改 JSON 后运行 `python3 scripts/render-progress.py`；CI 使用 `--check` 检查文档同步和当前路径存在。验收清单仍以设计文档为准。
+## 当前源码目录
+
+以下从当前文件生成，供对照第 12 节目标树；只列运行内核、平台和客户端示例，不包含构建产物。
+
+```text
+src/
+├── context.rs
+├── driver.rs
+├── engine.rs
+├── interaction.md
+├── lib.rs
+├── policy.rs
+├── prompt.rs
+├── registry.rs
+├── session.rs
+├── skills.rs
+├── trace.rs
+├── transport.rs
+└── work.rs
+crates/harness3-platform/
+├── src/
+│   ├── api.rs
+│   ├── cli.rs
+│   ├── client.rs
+│   ├── coordination.rs
+│   ├── domain.rs
+│   ├── fleets.rs
+│   ├── lib.rs
+│   ├── lifecycle.rs
+│   ├── main.rs
+│   ├── mcp.rs
+│   ├── models.rs
+│   ├── runtime.rs
+│   ├── schema.sql
+│   └── store.rs
+├── tests/
+│   ├── coordination.rs
+│   ├── entrances.rs
+│   ├── fleets.rs
+│   └── platform.rs
+├── web/
+│   ├── app.css
+│   ├── app.js
+│   ├── fleets.js
+│   ├── goals.js
+│   └── index.html
+└── Cargo.toml
+examples/clients/
+├── README.md
+├── fleet.json
+└── mcp.json
+```
+
+维护方式：修改 JSON 后运行 `python3 scripts/render-progress.py`；CI 使用 `--check` 检查文档同步、当前源码目录和路径存在。验收清单仍以设计文档为准。

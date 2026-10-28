@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "harness3": {
+      "command": "/ABSOLUTE/PATH/TO/harness3/target/debug/harness3",
+      "args": [
+        "mcp", "serve", "--transport", "stdio",
+        "--port", "7333",
+        "--data-dir", "/ABSOLUTE/PATH/TO/harness3/.harness3"
+      ]
+    }
+  }
+}

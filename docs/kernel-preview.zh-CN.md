@@ -103,7 +103,43 @@ CLI 只连接指定端口的本地 daemon，从 `--data-dir` 读取平台 token�
 # 可在 goals 后指定 --port 7333 --data-dir .harness3
 ```
 
-创建命令要求显式 `--key`，网络失败后使用相同计划和 key 可取回原接纳回执；内容改变需要新的 key。CLI 输出 JSON，HTTP 失败时以非零状态退出。MCP 入口仍待实现。
+创建命令要求显式 `--key`，网络失败后使用相同计划和 key 可取回原接纳回执；内容改变需要新的 key。CLI 输出 JSON，HTTP 失败时以非零状态退出。以下命令同样通过共享客户端调用 HTTP：
+
+```sh
+./target/debug/harness3 snapshot
+./target/debug/harness3 presets list
+./target/debug/harness3 presets publish --file preset.json
+./target/debug/harness3 plugins list
+./target/debug/harness3 plugins install --file bundle.json
+./target/debug/harness3 fleets create --file examples/clients/fleet.json --key local-demo-1
+./target/debug/harness3 fleets list
+./target/debug/harness3 fleets show fleet_REPLACE
+./target/debug/harness3 fleets scale fleet_REPLACE --count 3 --expected-revision 1 --key scale-1
+./target/debug/harness3 fleets terminate fleet_REPLACE --expected-revision 2 --key terminate-1
+./target/debug/harness3 operations show operation_REPLACE
+./target/debug/harness3 instances list
+./target/debug/harness3 instances action agent_REPLACE pause
+./target/debug/harness3 instances session agent_REPLACE
+./target/debug/harness3 runs submit agent_REPLACE --file input.txt --key input-1
+./target/debug/harness3 runs show run_REPLACE
+./target/debug/harness3 runs cancel run_REPLACE
+./target/debug/harness3 events --after 0
+```
+
+每组命令都可指定 `--port` 和 `--data-dir`。`runs submit` 读取 UTF-8 原文，其余发布/创建命令读取 JSON；文件读取上限 128 KiB，序列化后的 HTTP 请求仍受同一上限约束，服务端额外限制用户输入为 64,000 字节。CLI 不自动重试写入，也没有 `--wait`；通过 Operation / Run / Goal ID 查询真实终态。
+
+### 对外 MCP stdio
+
+```sh
+./target/debug/harness3 mcp serve --transport stdio --data-dir /absolute/path/to/.harness3
+# 给该客户端启用本地操作者写权限时，显式追加 --allow-write
+```
+
+可复制配置见 [examples/clients/mcp.json](../examples/clients/mcp.json)，替换二进制与数据目录的绝对路径。适配器只读取本地平台 token，不读取模型密钥，不启动 daemon。连接固定 loopback，禁用代理与 HTTP 重定向。stdout 只输出逐行 JSON-RPC，诊断使用 stderr。
+
+通过 initialize → notifications/initialized → tools/list 完成握手。支持协议版本 2024-11-05 / 2025-03-26 / 2025-06-18 / 2025-11-25；新版本返回 structuredContent 与兼容文本。工具覆盖母体、提示词包、实例组、实例、Run、Goal、Operation 和事件查询；创建、扩缩容与执行返回 HTTP 的原始接纳回执。MCP 使用同一对象 ID、幂等 key 和 revision，不直接操作数据库。
+
+默认只公布和允许查询工具，`--allow-write` 才暴露写操作。此开关授予该进程本地操作者权限，尚无按工具/对象限制的 Grant；带真实模型的 runs/goals 可能产生调用费用。对外 MCP 与未来外部 MCP 插件 loader 属于两个独立方向。当前没有 resources、Streamable HTTP、并发调用和协议级请求取消；取消 Run/Goal 使用显式工具。HTTP 请求超时 10 秒，单条 MCP 输入限制 1 MiB。
 
 本轮验证中，新建的三个 `gpt-6-luna` Responses 实例分别产生 `Harness³ = 8/1/9` 与 `Agents = 6/1/6` 的字符/行/字节回执，汇总任务引用了两个真实 Run ID。另一次复用历史实例的执行者统计错了对象，汇总者如实指出缺失证据，目标保留待验收。这说明协作链路可用，执行成功仍不能替代验收，也不能据此推断多 Agent 效果优于单 Agent。
 
@@ -154,9 +190,9 @@ CLI 只连接指定端口的本地 daemon，从 `--data-dir` 读取平台 token�
 
 ## 首版边界
 
-- 已有：单机 SQLite 控制面、不可变母体和提示词绑定、独立实例/会话、有界 Worker 队列、核心工具循环、幂等与取消、显式协作任务图/贡献传递/人工验收、原始请求/回执/事件检查、三类协议适配、Web 与目标 CLI。
+- 已有：单机 SQLite 控制面、不可变母体和提示词绑定、独立实例/会话、有界 Worker 队列、核心工具循环、幂等与取消、显式协作任务图/贡献传递/人工验收、原始请求/回执/事件检查、三类协议适配、Web、通用 CLI 和对外 MCP stdio。
 - 尚无：自主任务拆解与动态委派、可靠组织消息、自动派生、自动验收/返工、外部进程/MCP 插件、代码热切换、费用账本、审批、工作区/容器沙箱、多租户与远程 Worker。
-- SQLite schema 已由 v1 升为 v2，首次打开旧数据目录自动以增量建表保留原实例、运行、会话与事件。旧版二进制会拒绝 v2 数据目录，回退前需恢复自行备份的旧数据库；当前没有降级工具。
+- SQLite schema 当前为 v4，首次打开 v1–v3 数据目录自动增量迁移，保留原实例、运行、会话与事件。旧版二进制会拒绝较新 schema 数据目录，回退前需恢复自行备份的旧数据库；当前没有降级工具。
 - 本地 token 给予整个本地平台访问权，尚无细粒度角色授权。会话和工具结果可能含用户数据，token 与数据库不能公开分享。
 - 单 daemon 独占锁与 SQLite 修订控制适用于此本机执行模式，不构成多机租约/fencing。诊断事件已持久化，但不是防篡改的合规审计系统。
 - 工具侧外部幂等仍然必要。本版内置只读工具没有外部写效果；扩展可执行工具前必须实现其权限、取消与未知结果契约。
@@ -210,3 +246,9 @@ Web 联调从 Demo 母体创建一个 60 秒 TTL 实例，确认截止时间可�
 实例组 Web 联调记录：`fleet_563f2100fe6147e19c49c07ea6d0e89a` 从 2 成员扩至 3，终止槽位 0 的成员后补建为 generation 2，再缩容到零并整体终止。全部操作和历史身份保留在本地数据中。自动化测试另外覆盖预留容量、并发协调、缩容保留运行回执、旧数据/旧幂等键迁移及重启续作。
 
 实例组阶段原生 check/clippy 与全工作区 50 项集成测试通过；其中 15 项覆盖实例组和 Operation。测试与本地 Web 演示不依赖付费模型。
+
+## 共享客户端与入口验证
+
+入口阶段新增 9 项集成测试，连同既有 50 项均通过原生 Cargo 验证；check、clippy（`-D warnings`）、rustdoc、quickstart、三个 Web 脚本语法和进度生成检查通过。测试启动真实 loopback HTTP 服务和 CLI/MCP 子进程，覆盖同一实例组及 Goal 的跨入口幂等、revision 冲突、提前验收拒绝、取消、默认只读、未知参数、路径逃逸拒绝、协议协商、逐行 framing、超大输入拒绝、EOF 退出与响应 flush。
+
+重启本地 daemon 后，CLI 与 MCP 读取历史 `fleet_563f2100fe6147e19c49c07ea6d0e89a`，返回相同的 revision 4 终态、槽位和 Operation 历史；默认 tools/list 只返回 12 个查询工具。Web 能力页确认显示新的入口范围和当前源码 → 目标目录映射，1280 px 下无横向溢出。没有新增付费模型调用；尚未验证第三方 MCP 客户端的配置与交互，协议兼容结论限于本仓库测试及本地 stdio 实测。

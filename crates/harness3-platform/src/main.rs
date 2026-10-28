@@ -10,7 +10,7 @@ use harness3_platform::{
 };
 use std::{collections::HashMap, fs::OpenOptions, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
-mod client;
+mod cli;
 
 #[derive(Parser)]
 #[command(name = "harness3", about = "Harness³ local kernel control plane")]
@@ -21,7 +21,34 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Manage shared goals through the running daemon's authenticated HTTP API.
-    Goals(client::GoalArgs),
+    Goals(cli::GoalArgs),
+    /// Manage durable fleets and asynchronous operation receipts.
+    Fleets(cli::FleetArgs),
+    /// Inspect instances, manage lifecycle, and read durable sessions.
+    Instances(cli::InstanceArgs),
+    /// Submit UTF-8 input, inspect execution evidence, or cancel a Run.
+    Runs(cli::RunArgs),
+    /// List or publish immutable mother-agent Presets from JSON.
+    Presets(cli::PresetArgs),
+    /// Manage prompt bundles (executable plugins are not supported yet).
+    Plugins(cli::PluginArgs),
+    /// Inspect asynchronous operation completion.
+    Operations(cli::OperationArgs),
+    /// Inspect bounded state through the authenticated HTTP API.
+    Snapshot(cli::Connection),
+    /// Read up to 200 persisted events after a sequence cursor.
+    Events {
+        #[command(flatten)]
+        connection: cli::Connection,
+        #[arg(long, default_value = "0")]
+        after: u64,
+    },
+    /// Serve outward MCP over newline-delimited stdio; read-only by default.
+    Mcp {
+        #[command(subcommand)]
+        command: McpCommand,
+    },
+    /// Start the local daemon, persistent workers and embedded Web console.
     Up {
         #[arg(long, default_value = "7333")]
         port: u16,
@@ -34,15 +61,61 @@ enum Command {
         #[arg(long)]
         demo: bool,
     },
+    /// Check the running daemon's public health endpoint.
     Doctor {
         #[arg(long, default_value = "7333")]
         port: u16,
     },
 }
+#[derive(Subcommand)]
+enum McpCommand {
+    Serve {
+        #[command(flatten)]
+        connection: cli::Connection,
+        /// Expose state-changing tools to this MCP client using the local operator token.
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long, default_value = "stdio", value_parser = ["stdio"])]
+        transport: String,
+    },
+}
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> harness3_platform::client::ClientResult<()> {
     match Cli::parse().command {
-        Command::Goals(args) => client::goals(args).await?,
+        Command::Goals(args) => cli::goals(args).await?,
+        Command::Fleets(args) => cli::fleets(args).await?,
+        Command::Instances(args) => cli::instances(args).await?,
+        Command::Runs(args) => cli::runs(args).await?,
+        Command::Presets(args) => cli::presets(args).await?,
+        Command::Plugins(args) => cli::plugins(args).await?,
+        Command::Operations(args) => cli::operations(args).await?,
+        Command::Snapshot(connection) => cli::print(
+            connection
+                .client()?
+                .execute(harness3_platform::client::Command::Snapshot)
+                .await?,
+        )?,
+        Command::Events { connection, after } => cli::print(
+            connection
+                .client()?
+                .execute(harness3_platform::client::Command::EventsList { after })
+                .await?,
+        )?,
+        Command::Mcp {
+            command:
+                McpCommand::Serve {
+                    connection,
+                    allow_write,
+                    ..
+                },
+        } => {
+            harness3_platform::mcp::McpServer::new(connection.client()?, allow_write)
+                .serve(
+                    tokio::io::BufReader::new(tokio::io::stdin()),
+                    tokio::io::stdout(),
+                )
+                .await?;
+        }
         Command::Doctor { port } => {
             let response = reqwest::get(format!("http://127.0.0.1:{port}/health")).await?;
             println!("{}", response.error_for_status()?.text().await?);

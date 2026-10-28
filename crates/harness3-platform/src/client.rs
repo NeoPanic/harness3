@@ -1,100 +1,279 @@
-use clap::{Args, Subcommand};
-use harness3_platform::domain::{GoalPlan, valid_name};
+//! Authenticated loopback HTTP client shared by CLI and outward MCP adapters.
+use crate::domain::valid_name;
+use reqwest::{Method, redirect::Policy};
+use serde::Deserialize;
 use serde_json::{Value, json};
-use std::{path::PathBuf, time::Duration};
+use std::{path::Path, time::Duration};
 
-#[derive(Args)]
-pub struct GoalArgs {
-    #[arg(long, default_value = "7333", global = true)]
-    port: u16,
-    #[arg(long, default_value = ".harness3", global = true)]
-    data_dir: PathBuf,
-    #[command(subcommand)]
-    action: GoalCommand,
+pub type ClientResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+#[derive(Clone)]
+pub struct PlatformClient {
+    http: reqwest::Client,
+    base: String,
+    token: String,
 }
-#[derive(Subcommand)]
-enum GoalCommand {
-    /// List the latest 100 shared goals.
-    List,
-    /// Submit an explicit task graph; reuse the key to safely retry.
-    Create {
-        #[arg(long)]
-        file: PathBuf,
-        #[arg(long)]
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "tool", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Command {
+    Snapshot,
+    PresetsList,
+    PresetsPublish {
+        preset: crate::domain::Preset,
+    },
+    PluginsList,
+    PluginsInstall {
+        bundle: crate::domain::Bundle,
+    },
+    FleetsList,
+    FleetsCreate {
+        plan: crate::fleets::FleetPlan,
         key: String,
     },
-    /// Inspect tasks, dependency contributions, runs and review state.
-    Show { id: String },
-    /// Cancel pending work and cooperatively drain started runs.
-    Cancel { id: String },
-    /// Record human acceptance after all tasks have completed.
-    Accept {
+    FleetsShow {
         id: String,
-        #[arg(long)]
+    },
+    FleetsScale {
+        id: String,
+        expected_revision: i64,
+        count: usize,
+        key: String,
+    },
+    FleetsTerminate {
+        id: String,
+        expected_revision: i64,
+        key: String,
+    },
+    OperationsShow {
+        id: String,
+    },
+    InstancesList,
+    InstancesAction {
+        id: String,
+        action: String,
+    },
+    InstancesSession {
+        id: String,
+    },
+    RunsCreate {
+        id: String,
+        text: String,
+        key: String,
+    },
+    RunsShow {
+        id: String,
+    },
+    RunsCancel {
+        id: String,
+    },
+    GoalsList,
+    GoalsCreate {
+        plan: crate::domain::GoalPlan,
+        key: String,
+    },
+    GoalsShow {
+        id: String,
+    },
+    GoalsCancel {
+        id: String,
+    },
+    GoalsAccept {
+        id: String,
         review: String,
     },
+    EventsList {
+        #[serde(default)]
+        after: u64,
+    },
 }
-pub async fn goals(args: GoalArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let token = std::fs::read_to_string(args.data_dir.join("token"))?;
-    let token = token.trim();
-    if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) {
-        return Err("invalid local token file".into());
-    }
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()?;
-    let base = format!("http://127.0.0.1:{}/api/v1/goals", args.port);
-    let request = match args.action {
-        GoalCommand::List => client.get(&base),
-        GoalCommand::Create { file, key } => {
-            let mut file = std::fs::File::open(file)?;
-            // Bound the actual read as files can grow after a metadata check.
-            let mut bytes = Vec::new();
-            std::io::Read::read_to_end(
-                &mut std::io::Read::take(&mut file, 128 * 1024 + 1),
-                &mut bytes,
-            )?;
-            if bytes.len() > 128 * 1024 {
-                return Err("goal plan exceeds 128 KiB".into());
-            }
-            let plan: GoalPlan = serde_json::from_slice(&bytes)?;
-            plan.validate()?;
-            client
-                .post(&base)
-                .header("Idempotency-Key", key)
-                .json(&plan)
-        }
-        GoalCommand::Show { id } => {
-            validate_id(&id)?;
-            client.get(format!("{base}/{id}"))
-        }
-        GoalCommand::Cancel { id } => {
-            validate_id(&id)?;
-            client.post(format!("{base}/{id}/cancel")).json(&json!({}))
-        }
-        GoalCommand::Accept { id, review } => {
-            validate_id(&id)?;
-            client
-                .post(format!("{base}/{id}/accept"))
-                .json(&json!({"review":review}))
-        }
-    };
-    let response = request.bearer_auth(token).send().await?;
-    let status = response.status();
-    let body: Value = response.json().await?;
-    if !status.is_success() {
-        return Err(format!(
-            "HTTP {status}: {}",
-            body["error"]["code"].as_str().unwrap_or("request_failed")
+impl Command {
+    pub fn read_only(&self) -> bool {
+        matches!(
+            self,
+            Self::Snapshot
+                | Self::PresetsList
+                | Self::PluginsList
+                | Self::FleetsList
+                | Self::FleetsShow { .. }
+                | Self::OperationsShow { .. }
+                | Self::InstancesList
+                | Self::InstancesSession { .. }
+                | Self::RunsShow { .. }
+                | Self::GoalsList
+                | Self::GoalsShow { .. }
+                | Self::EventsList { .. }
         )
-        .into());
     }
-    println!("{}", serde_json::to_string_pretty(&body)?);
-    Ok(())
 }
-fn validate_id(id: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if !valid_name(id) {
-        return Err("invalid goal ID".into());
+impl PlatformClient {
+    pub fn local(port: u16, data_dir: &Path) -> ClientResult<Self> {
+        let token = std::fs::read_to_string(data_dir.join("token"))?;
+        let token = token.trim().to_owned();
+        if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("invalid local token file".into());
+        }
+        Ok(Self {
+            http: reqwest::Client::builder()
+                .timeout(Duration::from_secs(10))
+                .redirect(Policy::none())
+                .no_proxy()
+                .build()?,
+            base: format!("http://127.0.0.1:{port}/api/v1"),
+            token,
+        })
     }
-    Ok(())
+    async fn request(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        key: Option<&str>,
+    ) -> ClientResult<Value> {
+        let mut request = self
+            .http
+            .request(method, format!("{}{path}", self.base))
+            .bearer_auth(&self.token);
+        if let Some(key) = key {
+            if key.is_empty() || key.len() > 160 || !key.bytes().all(|b| (0x20..=0x7e).contains(&b))
+            {
+                return Err(
+                    "invalid idempotency key (1–160 printable ASCII characters required)".into(),
+                );
+            }
+            request = request.header("Idempotency-Key", key);
+        }
+        if let Some(body) = body {
+            let bytes = serde_json::to_vec(&body)?;
+            if bytes.len() > 128 * 1024 {
+                return Err("request exceeds 128 KiB".into());
+            }
+            request = request
+                .header("Content-Type", "application/json")
+                .body(bytes);
+        }
+        // A timeout can follow a committed command. Never retry a write with a new key.
+        let response = request.send().await.map_err(|_| "daemon connection failed or timed out; inspect state or retry the same content with the same key")?;
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.json::<Value>().await.unwrap_or(Value::Null);
+            return Err(format!(
+                "HTTP {}: {}",
+                status.as_u16(),
+                body["error"]["code"].as_str().unwrap_or("request_failed")
+            )
+            .into());
+        }
+        Ok(response.json().await?)
+    }
+    pub async fn execute(&self, command: Command) -> ClientResult<Value> {
+        use Command::*;
+        let (method, path, body, key) = match command {
+            Snapshot => (Method::GET, "/snapshot".into(), None, None),
+            PresetsList | PluginsList | InstancesList => {
+                let collection = match command {
+                    PresetsList => "presets",
+                    PluginsList => "plugins",
+                    _ => "instances",
+                };
+                let snapshot = self.request(Method::GET, "/snapshot", None, None).await?;
+                return Ok(json!({collection: snapshot[collection]}));
+            }
+            PresetsPublish { preset } => (
+                Method::POST,
+                "/presets".into(),
+                Some(serde_json::to_value(preset)?),
+                None,
+            ),
+            PluginsInstall { bundle } => (
+                Method::POST,
+                "/plugins".into(),
+                Some(serde_json::to_value(bundle)?),
+                None,
+            ),
+            FleetsList => (Method::GET, "/agent-fleets".into(), None, None),
+            FleetsCreate { plan, key } => (
+                Method::POST,
+                "/agent-fleets".into(),
+                Some(serde_json::to_value(plan)?),
+                Some(key),
+            ),
+            FleetsShow { id } => (Method::GET, object("agent-fleets", &id, "")?, None, None),
+            FleetsScale {
+                id,
+                expected_revision,
+                count,
+                key,
+            } => (
+                Method::POST,
+                object("agent-fleets", &id, "/actions")?,
+                Some(json!({"action":"scale","expected_revision":expected_revision,"count":count})),
+                Some(key),
+            ),
+            FleetsTerminate {
+                id,
+                expected_revision,
+                key,
+            } => (
+                Method::POST,
+                object("agent-fleets", &id, "/actions")?,
+                Some(json!({"action":"terminate","expected_revision":expected_revision})),
+                Some(key),
+            ),
+            OperationsShow { id } => (Method::GET, object("operations", &id, "")?, None, None),
+            InstancesAction { id, action } => (
+                Method::POST,
+                object("agent-instances", &id, "/actions")?,
+                Some(json!({"action":action})),
+                None,
+            ),
+            InstancesSession { id } => (
+                Method::GET,
+                object("agent-instances", &id, "/session")?,
+                None,
+                None,
+            ),
+            RunsCreate { id, text, key } => (
+                Method::POST,
+                object("agent-instances", &id, "/runs")?,
+                Some(json!({"text":text})),
+                Some(key),
+            ),
+            RunsShow { id } => (Method::GET, object("runs", &id, "")?, None, None),
+            RunsCancel { id } => (
+                Method::POST,
+                object("runs", &id, "/cancel")?,
+                Some(json!({})),
+                None,
+            ),
+            GoalsList => (Method::GET, "/goals".into(), None, None),
+            GoalsCreate { plan, key } => (
+                Method::POST,
+                "/goals".into(),
+                Some(serde_json::to_value(plan)?),
+                Some(key),
+            ),
+            GoalsShow { id } => (Method::GET, object("goals", &id, "")?, None, None),
+            GoalsCancel { id } => (
+                Method::POST,
+                object("goals", &id, "/cancel")?,
+                Some(json!({})),
+                None,
+            ),
+            GoalsAccept { id, review } => (
+                Method::POST,
+                object("goals", &id, "/accept")?,
+                Some(json!({"review":review})),
+                None,
+            ),
+            EventsList { after } => (Method::GET, format!("/events?after={after}"), None, None),
+        };
+        self.request(method, &path, body, key.as_deref()).await
+    }
+}
+fn object(collection: &str, id: &str, suffix: &str) -> ClientResult<String> {
+    if !valid_name(id) || matches!(id, "." | "..") {
+        return Err("invalid object ID".into());
+    }
+    Ok(format!("/{collection}/{id}{suffix}"))
 }

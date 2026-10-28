@@ -260,18 +260,22 @@
     "name": "API / CLI / MCP 入口",
     "phase": "P2",
     "status": "partial",
-    "detail": "HTTP 与 Web 已覆盖当前能力；CLI 只有 up/doctor/goals，通用 client 与对外 MCP 未实现。",
+    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 23 个工具，默认开放 12 个查询工具，写入需显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
     "source": [
       "crates/harness3-platform/src/api.rs",
       "crates/harness3-platform/src/client.rs",
-      "crates/harness3-platform/src/main.rs"
+      "crates/harness3-platform/src/main.rs",
+      "crates/harness3-platform/src/cli.rs",
+      "crates/harness3-platform/src/mcp.rs",
+      "crates/harness3-platform/tests/entrances.rs",
+      "examples/clients/mcp.json"
     ],
     "target": [
       "crates/harness3-client/src/",
       "crates/harness3-cli/src/",
       "crates/harness3-mcp/src/"
     ],
-    "verification": "existing-tests"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "events",
