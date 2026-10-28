@@ -10,6 +10,12 @@ Define an Agent with a Preset, launch independent instances, and give a team a s
 
 [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) · [Architecture](docs/managed-agents.zh-CN.md) · [Current status](docs/status.zh-CN.md) · [Contributing](CONTRIBUTING.md)
 
+## See your Agents at work
+
+![Harness³ live workstation with animal-eared Agent crew, neon terminals, and a central scheduler](docs/images/agent-workstation.png)
+
+Crew animations follow real execution state: typing, waiting, or sleeping. Select a crew member to inspect its task; switch views to see task dependencies and system structure. Open **Agent 工作现场** in the local console.
+
 ## Start locally
 
 Requires **Rust 1.89+**. The deterministic Demo needs no model account or API key; Cargo downloads dependencies on the first build.

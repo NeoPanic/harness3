@@ -392,9 +392,11 @@
     "name": "Web 执行证据检查",
     "phase": "P1",
     "status": "implemented",
-    "detail": "桌面导航按场景、协作、运行、配置分层；展示团队任务、频道、共享区、文件产物、验证返工，以及实例、Run、请求快照、回执和事件。详情、下载、候选认领与自主操作共用后端状态。",
+    "detail": "桌面导航按场景、协作、运行、配置分层；独立赛博工作站以卡通队员姿态展示实例状态、消息光点、任务依赖与委派和系统设备岛，详情点击展开，支持全屏、暂停与轮询同步。展示团队任务、频道、共享区、文件产物、验证返工，以及实例、Run、请求快照、回执和事件。详情、下载、候选认领与自主操作共用后端状态。",
     "source": [
       "crates/harness3-platform/web/app.js",
+      "crates/harness3-platform/web/studio.js",
+      "crates/harness3-platform/web/studio.css",
       "crates/harness3-platform/web/goals.js",
       "crates/harness3-platform/web/fleets.js",
       "crates/harness3-platform/web/messages.js",

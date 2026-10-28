@@ -11,6 +11,7 @@ let toastTimer;
 
 // Repository-native icons: shared geometry, no icon font or network dependency.
 const iconPaths = {
+  studio:'<circle cx="6" cy="7" r="3"/><circle cx="18" cy="7" r="3"/><circle cx="12" cy="18" r="3"/><path d="m6 10 4 6m8-6-4 6M9 7h6"/>',
   overview:'<path d="m12 3 9 5v8l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5"/>',
   agents:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   fleets:'<path d="M4 5h16v14H4zM8 2v6m8-6v6M8 12h8m-8 4h4"/>',
@@ -70,7 +71,7 @@ async function api(path, body, method = 'POST', key = null) {
   }
   return value;
 }
-function page() { return channelId()?'channels':researchId()?'research':fleetId()?'fleets':goalId()?'goals':['overview','channels','workspaces','research','agents','fleets','goals','artifacts','messages','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
+function page() { return channelId()?'channels':researchId()?'research':fleetId()?'fleets':goalId()?'goals':['studio','overview','channels','workspaces','research','agents','fleets','goals','artifacts','messages','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
 function head(eyebrow, title, description, buttons = '') { return `<div class="page-head"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p>${description}</p></div><div class="head-actions">${buttons}</div></div>`; }
 function button(label, action, primary = false, extra = '') { return `<button type="button" class="button ${primary ? 'primary' : ''}" data-action="${action}" ${extra}>${label}</button>`; }
 function empty(title, text, action = '') { return `<div class="empty"><b>${title}</b>${text}${action ? `<br>${action}` : ''}</div>`; }
@@ -110,11 +111,13 @@ function progressPage() {
 function render() {
   if (!data || composing) return;
   const p=page(), names={overview:'总览',artifacts:'协作产物',research:'自主调研',agents:'Agent 实例',fleets:'Agent 池',channels:'协作频道',workspaces:'文件工作区',goals:'协作目标',messages:'协作消息',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
-  $('#page-group').textContent=({research:'场景',agents:'运行',fleets:'运行',runs:'运行',presets:'配置',plugins:'配置',capabilities:'开发',events:'开发'})[p]||'协作';
+  names.studio='Agent 工作现场';
+  $('#page-group').textContent=({studio:'场景',research:'场景',agents:'运行',fleets:'运行',runs:'运行',presets:'配置',plugins:'配置',capabilities:'开发',events:'开发'})[p]||'协作';
   $('#page-title').textContent=names[p]; $('#nav-count').textContent=data.instances.filter(a=>a.state!=='terminated').length;
   document.querySelectorAll('nav a').forEach(a=>{a.classList.toggle('active',a.dataset.page===p);if(a.dataset.page===p)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.title=`${names[p]} · Harness³`;
   let html='';
+  if(p==='studio') html=studioPage();
   if(p==='overview') html=overview();
   if(p==='research') html=researchPage();
   if(p==='channels') html=channelsPage();
@@ -134,17 +137,19 @@ function render() {
   if(renderedMarkup!==html) {
     const focused=document.activeElement, focusId=focused?.id, action=focused?.dataset.action, itemId=focused?.dataset.id;
     const range=focused instanceof HTMLInputElement && ['search','text'].includes(focused.type)?[focused.selectionStart,focused.selectionEnd]:null;
-    const scrolls=[...document.querySelectorAll('.table-wrap')].map(el=>el.scrollLeft);
+    const scrollSelector='.table-wrap, .studio-map-scroll, .studio-task-scroll, .studio-inspect, .studio-full-text';
+    const scrolls=[...document.querySelectorAll(scrollSelector)].map(el=>[el.scrollLeft,el.scrollTop]);
     const openDetails=new Set([...$('#content').querySelectorAll('details[open][id]')].map(el=>el.id));
     $('#content').innerHTML=html;
     if(renderedPage===p)$('#content').querySelectorAll('details[id]').forEach(el=>{el.open=openDetails.has(el.id);});
-    document.querySelectorAll('.table-wrap').forEach((el,i)=>{el.scrollLeft=scrolls[i]||0;});
+    document.querySelectorAll(scrollSelector).forEach((el,i)=>{el.scrollLeft=scrolls[i]?.[0]||0;el.scrollTop=scrolls[i]?.[1]||0;});
     if(renderedPage===p && !$('#modal').open) {
       const restore=focusId?document.getElementById(focusId):action?[...$('#content').querySelectorAll('[data-action]')].find(el=>el.dataset.action===action&&el.dataset.id===itemId):null;
       if(restore){restore.focus({preventScroll:true});if(range)restore.setSelectionRange(...range);}
     }
   }
   renderedPage=p; renderedMarkup=html;
+  studioSyncLabel();
 }
 async function refresh(force=false) {
   if(refreshTask){await refreshTask;if(!force)return;}
@@ -154,6 +159,7 @@ async function refresh(force=false) {
 async function readState() {
   try {
     data=await api('/api/v1/snapshot'); authenticated=true;
+    if(page()==='studio') await studioReadGoal();
     if(researchId()) {
       try {selectedResearch=await api(`/api/v1/research-jobs/${encodeURIComponent(researchId())}`);}
       catch(error){selectedResearch={id:researchId(),loadError:error.message};}
@@ -170,9 +176,11 @@ async function readState() {
     // Drain a bounded page per tick; the cursor always advances only after a successful read.
     const chunk=await api(`/api/v1/events?after=${cursor}`);
     if(chunk.events.length){events=events.concat(chunk.events).slice(-500);cursor=chunk.events.at(-1).seq;}
+    studio.syncedAt=Date.now();studio.disconnected=false;
     $('#connection').className='connection-indicator connected'; $('#connection').setAttribute('aria-label','内核已连接'); $('#connection').title='内核已连接'; $('#app-version').textContent=`v${data.version}`; $('#notice').textContent='';
     render();
   } catch(error) {
+    studio.disconnected=true;studioSyncLabel();
     $('#connection').className='connection-indicator disconnected'; $('#connection').setAttribute('aria-label','连接未就绪'); $('#connection').title='连接未就绪，将自动重连';
     if(authenticated) $('#notice').textContent=`刷新失败：${error.message}。页面保留上次成功读取的状态。`;
   }
@@ -274,6 +282,7 @@ function runOutput(r) {
   return `<div class="output-section"><h3>执行结果</h3>${result}</div>${r.shared_context?`<details class="raw-data" id="run-context"><summary>派发时共享上下文 · 版本 ${r.shared_context.revision}</summary>${contextView(r.shared_context)}</details>`:''}<details class="raw-data" ${pending?'open':''}><summary>用户输入</summary><div class="output">${esc(r.task_input??r.input)}</div></details>`;
 }
 async function handleAction(action, element) {
+  if(await studioAction(action,element))return;
   if(await collaborationAction(action,element))return;
   if(await artifactAction(action,element))return;
   if(await processAction(action,element))return;

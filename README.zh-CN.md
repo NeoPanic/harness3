@@ -10,6 +10,12 @@
 
 [English](README.md) · [文档导航](docs/README.md) · [架构设计](docs/managed-agents.zh-CN.md) · [当前状态](docs/status.zh-CN.md) · [参与贡献](CONTRIBUTING.md)
 
+## 看见 Agent 在工作
+
+![Harness³ 实时工作站：猫耳、兔耳小队员围绕调度核心，操作霓虹终端](docs/images/agent-workstation.png)
+
+打字、待命、休眠，队员动作由真实执行状态驱动。点击角色检查任务，切换视图查看任务接力和系统架构。在本地控制台进入 **Agent 工作现场** 即可查看。
+
 ## 本地启动
 
 需要 **Rust 1.89+**。确定性 Demo 无需模型账号或 API Key；首次编译由 Cargo 下载依赖。
