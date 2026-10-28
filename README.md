@@ -24,7 +24,7 @@ This repository contains the independent **runtime core** and a **local control-
 cargo run --locked -p harness3-platform -- up --demo
 ```
 
-Open [http://127.0.0.1:7333](http://127.0.0.1:7333) and sign in with the local `.harness3/token` file. Publish Presets, create independent instances, run the real Harness loop, and inspect requests, receipts, sessions, events, and implementation status. The platform supports non-streaming OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages adapters. See the [platform guide (中文)](docs/kernel-preview.zh-CN.md) for model configuration, API endpoints, and current limits. Shared goals support explicit task dependencies, contribution handoff, and human review through Web, API, and the goals CLI. Autonomous agent messaging and external code plugins remain planned.
+Open [http://127.0.0.1:7333](http://127.0.0.1:7333) and sign in with the local `.harness3/token` file. Publish Presets, create independent instances, run the real Harness loop, and inspect requests, receipts, sessions, events, and implementation status. The platform supports non-streaming OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages adapters. See the [platform guide (中文)](docs/kernel-preview.zh-CN.md) for model configuration, API endpoints, and current limits. Fleets support finite/maintain policies, asynchronous provisioning and scaling, graceful retirement, and TTL. Shared goals support explicit task dependencies, contribution handoff, and human review through Web, API, and the goals CLI. Autonomous agent messaging and external code plugins remain planned.
 
 ## Why the cube?
 

@@ -47,7 +47,7 @@ cargo run --locked -p harness3-platform -- up \
 ## 从 UI 验证功能
 
 1. **母体 Presets**：发布名称、版本、用途、目标、指令与已配置的模型协议；修改已有版本会冲突。尚无继承、参数模板或自动派生。
-2. **创建实例**：选择母体版本和数量，一次最多 64 个，且非终结实例总量不超过 64。实例拥有独立 ID、配置快照和会话。当前只支持有限批次；创建后待命，不会自动生成任务或互相协作。
+2. **创建实例**：选择母体版本和数量，一次最多 64 个；非终结实例加上等待创建/补足的预留容量不超过 64。实例拥有独立 ID、配置快照和会话。支持有限批次与持续维持；创建以 Operation 异步接纳，每轮最多创建 8 个实例。创建后待命，不会自动生成任务或互相协作。
 3. **Agent 实例 → 检查**：查看母体/插件快照、所属批次和会话修订；就绪实例可暂停，暂停后可恢复；空闲实例可终止，历史仍保留。可从检查面板“排空并终止”：停止接收新任务，等待已接纳的运行结算后终止。创建时可设置 TTL，过期取消排队并协作取消运行。
 4. **提交运行**：提交用户输入，Worker 从持久队列取出任务，真实调用 Harness。当前四个 Worker slot，每个实例同时最多一个已接纳运行；超出容量的实例在队列中等待。
 5. **执行记录 → 检查**：查看输出、失败原因、工具参数与回执、用量、模型请求快照、完整会话和运行事件。平台 queue Run ID 与内核 Report.run_id 分开保存，详情按 Report.run_id 关联请求快照。
@@ -117,7 +117,7 @@ CLI 只连接指定端口的本地 daemon，从 `--data-dir` 读取平台 token�
 | `GET /api/v1/snapshot` | Presets、实例、最近运行、提示词插件、模型可用配置与能力清单 |
 | `POST /api/v1/presets` | 发布不可变 Preset 版本；非 demo 模型必须已配置 |
 | `POST /api/v1/plugins` | 安装不可变声明式提示词包 |
-| `POST /api/v1/agent-fleets` | 原子创建有限批次，返回实例 ID；需要 Idempotency-Key，成功返回 201 |
+| `POST /api/v1/agent-fleets` | 异步接纳 finite/maintain 实例组，返回 operation_id / fleet_id；需要 Idempotency-Key，成功返回 202 |
 | `POST /api/v1/agent-instances/{id}/actions` | `suspend` / `resume` / `terminate` |
 | `POST /api/v1/agent-instances/{id}/runs` | 持久化执行请求，返回 202；需要 Idempotency-Key |
 | `GET /api/v1/agent-instances/{id}/session` | 完整会话、checkpoint deltas、请求、回执 |
@@ -133,10 +133,10 @@ CLI 只连接指定端口的本地 daemon，从 `--data-dir` 读取平台 token�
 批量创建 body：
 
 ```json
-{"preset_name":"demo-inspector","preset_version":"1.0.0","count":3,"ttl_seconds":3600}
+{"preset_name":"demo-inspector","preset_version":"1.0.0","count":3,"mode":"finite","ttl_seconds":3600}
 ```
 
-`ttl_seconds` 可省略或为 null；有效范围 1–2,592,000 秒（30 天），从创建时计时。截止时间与实例事务写入 SQLite，重启后继续协调；同一幂等键不会刷新截止时间。旧数据库迁移至 schema v3，旧实例保持无期限。
+`ttl_seconds` 可省略或为 null；有效范围 1–2,592,000 秒（30 天），从创建时计时。截止时间与实例事务写入 SQLite，重启后继续协调；同一幂等键不会刷新截止时间。旧数据库迁移至 schema v4（包含 v3 截止时间表），旧实例保持无期限。
 
 `POST /api/v1/agent-instances/{id}/actions` 接受 `{"action":"drain"}`：有已接纳工作时进入 `draining`，结算后终止；没有工作时立即终止。排空不可撤回，历史会话与回执保留。TTL 到期会取消尚未开始的 Run，并持久标记正在执行的 Run 取消请求；最终结果仍以真实回执为准，取消竞态中已经完成的结果不会改写为失败。
 
@@ -155,7 +155,7 @@ CLI 只连接指定端口的本地 daemon，从 `--data-dir` 读取平台 token�
 ## 首版边界
 
 - 已有：单机 SQLite 控制面、不可变母体和提示词绑定、独立实例/会话、有界 Worker 队列、核心工具循环、幂等与取消、显式协作任务图/贡献传递/人工验收、原始请求/回执/事件检查、三类协议适配、Web 与目标 CLI。
-- 尚无：自主任务拆解与动态委派、可靠组织消息、自动派生、自动验收/返工、维持型实例组扩缩容、外部进程/MCP 插件、代码热切换、费用账本、审批、工作区/容器沙箱、多租户与远程 Worker。
+- 尚无：自主任务拆解与动态委派、可靠组织消息、自动派生、自动验收/返工、外部进程/MCP 插件、代码热切换、费用账本、审批、工作区/容器沙箱、多租户与远程 Worker。
 - SQLite schema 已由 v1 升为 v2，首次打开旧数据目录自动以增量建表保留原实例、运行、会话与事件。旧版二进制会拒绝 v2 数据目录，回退前需恢复自行备份的旧数据库；当前没有降级工具。
 - 本地 token 给予整个本地平台访问权，尚无细粒度角色授权。会话和工具结果可能含用户数据，token 与数据库不能公开分享。
 - 单 daemon 独占锁与 SQLite 修订控制适用于此本机执行模式，不构成多机租约/fencing。诊断事件已持久化，但不是防篡改的合规审计系统。
@@ -177,6 +177,36 @@ node --check crates/harness3-platform/web/goals.js
 
 ## TTL / 排空实现验证
 
-本轮原生 `cargo check --workspace --all-targets --locked`、`cargo clippy --workspace --all-targets --locked -- -D warnings` 与 35 项集成测试通过；quickstart 和 rustdoc 构建通过。新增测试覆盖排空后的拒绝与已接纳工作、TTL 幂等与配额释放、运行取消竞态、持久取消传播至 Worker、数据库重开后的过期结算。
+TTL/排空阶段的原生 `cargo check --workspace --all-targets --locked`、`cargo clippy --workspace --all-targets --locked -- -D warnings` 与 35 项集成测试通过；quickstart 和 rustdoc 构建通过。新增测试覆盖排空后的拒绝与已接纳工作、TTL 幂等与配额释放、运行取消竞态、持久取消传播至 Worker、数据库重开后的过期结算。
 
 Web 联调从 Demo 母体创建一个 60 秒 TTL 实例，确认截止时间可见、到期自动终止、历史记录保留。进度页在 1024 / 1920 px 检查了展开目录和长路径，没有发现横向内容溢出。本次没有重新调用付费模型，也未验证 Safari / Firefox 或屏幕阅读器。
+
+## 持久实例组与异步 Operation
+
+创建 API 返回 HTTP 202 与 `operation_id`、`fleet_id`、`desired_count`、`revision` 和查询链接。接纳回执表示意图与容量已持久化，实例在协调循环中分批就绪；客户端需查询实例组获取成员列表。原有 Rust `Store.spawn` 保留同步有限批次接口，也会注册槽位并遵守全局预留容量。
+
+| API | 语义 |
+| --- | --- |
+| `GET /api/v1/agent-fleets` | 最近 200 个实例组摘要，含目标、当前、就绪、执行和排空数 |
+| `GET /api/v1/agent-fleets/{id}` | 当前槽位、generation、实例身份与最近 20 次操作 |
+| `POST /api/v1/agent-fleets/{id}/actions` | scale 或 terminate，要求 Idempotency-Key 和 expected_revision，成功 202 |
+| `GET /api/v1/operations/{id}` | 当前操作状态和该 revision 的 target_count，不受列表上限影响 |
+
+扩缩容请求示例：`{"action":"scale","expected_revision":1,"count":5}`。终止请求：`{"action":"terminate","expected_revision":2}`。revision 冲突返回 409；未完成操作期间拒绝再次扩缩容，终止可以将旧操作标记为 superseded。幂等重试会在 revision 校验前返回原接纳回执。
+
+- maintain 持续维持启用槽位；成员终止后使用新身份、独立会话和递增 generation 补足。暂停成员仍占有槽位。
+- finite 成员终止后不自动补足；显式扩缩容按该次请求填足启用槽位，之后继续遵循不自动补足策略。
+- 缩容从大槽位号开始排空，即刻拒绝新任务，保留已经接纳的排队/运行任务，结算后退休；未结算成员仍占容量。缩到零后可再次扩容。
+- 终止整个组会停止补建并排空全部成员；终态无法恢复，历史实例和回执保留。
+- TTL 按每个实例实际创建时间开始计时；maintain 成员到期后会补建并重新计时。Web 默认 finite。
+- 配额为所有非终结实例，加上启用槽位中等待首次创建或 maintain 补足的空缺预留。并发创建尚未就绪的组也不能绕过 64 上限。
+- 每轮最多创建 8 个实例；创建 Operation 完成表示该批实例已创建，模型连通性或业务目标达成仍需独立 Run/Goal 验收。
+- v1–v3 旧批次迁移成 finite 实例组和 generation 1 槽位；保留原实例、队列、会话、TTL、幂等回执，不伪造历史 Operation。
+
+当前未实现排空超时策略、Operation 单独取消、stop/start、实例配置升级、空闲回收、远程 Worker 和跨组公平调度。
+
+旧同步创建的幂等键在升级后仍被识别：同键同内容返回原 completed 回执，可能没有 operation_id；不同模式或内容返回 409，不会创建第二个实例组。
+
+实例组 Web 联调记录：`fleet_563f2100fe6147e19c49c07ea6d0e89a` 从 2 成员扩至 3，终止槽位 0 的成员后补建为 generation 2，再缩容到零并整体终止。全部操作和历史身份保留在本地数据中。自动化测试另外覆盖预留容量、并发协调、缩容保留运行回执、旧数据/旧幂等键迁移及重启续作。
+
+实例组阶段原生 check/clippy 与全工作区 50 项集成测试通过；其中 15 项覆盖实例组和 Operation。测试与本地 Web 演示不依赖付费模型。

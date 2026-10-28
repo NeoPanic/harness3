@@ -9,9 +9,9 @@
 | P1 | Harness 执行循环 | 已实现 | 既有测试；见预览指南边界 | 模型→工具→模型、会话与回执；领域中立内核保留在根包。 |
 | P1 | 不可变母体发布 | 已实现 | 既有测试；见预览指南边界 | 用途、目标、指令、模型协议和单个提示词包按版本锁定。 |
 | P2 | 母体继承与参数化 | 规划中 | 待实现 | 待实现继承解析、参数 schema、多个能力绑定锁和发布校验。 |
-| P1 | 有限批量实例化 | 已实现 | 既有测试；见预览指南边界 | 事务创建最多 64 个实例、配额与幂等；当前 fleet 仅为批次标识。 |
-| P1 | 实例生命周期与 TTL | 部分实现 | 原生测试 + Web 联调 | 暂停/恢复/终止；新增排空与可选 TTL，过期取消排队、协作取消运行、保留历史。维持型扩缩容与空闲策略待实现。 |
-| P2 | 维持型实例组与异步 Operation | 规划中 | 待实现 | 待实现 desired/observed、持久操作、槽位代际、扩缩容与补足。 |
+| P1 | 有限批量实例化 | 已实现 | 原生测试 + Web 联调 | HTTP 以 202 接纳创建 Operation，每轮最多创建 8 个实例；全局 64 容量包含未创建的预留槽位，幂等重试返回原回执。 |
+| P1 | 实例生命周期与 TTL | 部分实现 | 原生测试 + Web 联调 | 暂停/恢复/终止、排空与 TTL；实例组支持 finite/maintain 扩缩容。空闲策略、stop/start、配置升级和单实例 Operation 尚未实现。 |
+| P2 | 维持型实例组与异步 Operation | 部分实现 | 原生测试 + Web 联调 | finite/maintain、异步创建/扩缩容/终止、持久槽位与代际、容量预留、分批协调、重启续作已落地；尚无排空期限、Operation 单独取消与远程执行配置。 |
 | P2 | 受限 Agent 派生 | 规划中 | 待实现 | 待实现父子谱系、深度/数量限制和子 Agent 生命周期授权。 |
 | P1 | 持久队列与取消 | 已实现 | 既有测试；见预览指南边界 | 4 个本地并发槽、单实例串行、幂等提交、协作取消。 |
 | P1 | SQLite 与恢复 | 部分实现 | 既有测试；见预览指南边界 | 事务、检查点、事件、daemon 锁；已知回执保留，未知结果中断。待补迁移运维、对账与事件分页。 |
@@ -39,9 +39,9 @@
 | Harness 执行循环 | `src/engine.rs`<br>`src/session.rs` | `crates/harness3-core/src/` |
 | 不可变母体发布 | `crates/harness3-platform/src/domain.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-domain/src/presets/` |
 | 母体继承与参数化 | 尚无实现模块 | `crates/harness3-domain/src/presets/` |
-| 有限批量实例化 | `crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/` |
+| 有限批量实例化 | `crates/harness3-platform/src/fleets.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/` |
 | 实例生命周期与 TTL | `crates/harness3-platform/src/lifecycle.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/`<br>`crates/harness3-domain/src/agents/` |
-| 维持型实例组与异步 Operation | 尚无实现模块 | `crates/harness3-domain/src/operations/`<br>`crates/harness3-platform/src/control/` |
+| 维持型实例组与异步 Operation | `crates/harness3-platform/src/fleets.rs`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/tests/fleets.rs` | `crates/harness3-domain/src/operations/`<br>`crates/harness3-platform/src/control/` |
 | 受限 Agent 派生 | 尚无实现模块 | `crates/harness3-domain/src/agents/` |
 | 持久队列与取消 | `crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/runtime.rs` | `crates/harness3-platform/src/scheduling/` |
 | SQLite 与恢复 | `crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/schema.sql` | `crates/harness3-storage/src/` |
@@ -53,7 +53,7 @@
 | 自主规划与动态委派 | 尚无实现模块 | `plugins/organization/`<br>`crates/harness3-platform/src/collaboration/` |
 | 可靠协作消息 | 尚无实现模块 | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
 | 产物、验证与返工 | 尚无实现模块 | `crates/harness3-domain/src/artifacts/`<br>`plugins/verification/` |
-| Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/goals.js` | `web/src/features/` |
+| Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/goals.js`<br>`crates/harness3-platform/web/fleets.js` | `web/src/features/` |
 | API / CLI / MCP 入口 | `crates/harness3-platform/src/api.rs`<br>`crates/harness3-platform/src/client.rs`<br>`crates/harness3-platform/src/main.rs` | `crates/harness3-client/src/`<br>`crates/harness3-cli/src/`<br>`crates/harness3-mcp/src/` |
 | 实时事件与查询 | `crates/harness3-platform/src/api.rs` | `crates/harness3-server/src/events/` |
 | 预算预留与账本 | 尚无实现模块 | `crates/harness3-platform/src/accounting/`<br>`crates/harness3-domain/src/budgets/` |

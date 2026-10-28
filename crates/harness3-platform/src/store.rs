@@ -18,10 +18,21 @@ impl Store {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 3 {
+        if version > 4 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
+        if version < 4 {
+            connection.execute_batch("BEGIN IMMEDIATE;
+                INSERT OR IGNORE INTO fleets(id,preset_name,preset_version,snapshot,mode,desired_count,state,revision,created_at)
+                SELECT fleet_id,preset_name,preset_version,snapshot,'finite',count(*),CASE WHEN sum(state!='terminated')=0 THEN 'completed' ELSE 'active' END,1,min(created_at) FROM instances GROUP BY fleet_id;
+                INSERT OR IGNORE INTO instance_allocations(instance_id,fleet_id,slot,generation)
+                SELECT id,fleet_id,row_number() OVER (PARTITION BY fleet_id ORDER BY created_at,id)-1,1 FROM instances;
+                INSERT OR IGNORE INTO fleet_slots(fleet_id,slot,generation,enabled,fulfilled,instance_id)
+                SELECT fleet_id,slot,generation,1,1,instance_id FROM instance_allocations;
+                COMMIT;")?;
+        }
+        connection.execute_batch("PRAGMA user_version=4;")?;
         Ok(Self(Arc::new(Mutex::new(connection))))
     }
     pub fn memory() -> PResult<Self> {
@@ -137,18 +148,21 @@ impl Store {
                 return Ok(serde_json::from_str(&response)?);
             }
             crate::lifecycle::reconcile(tx)?;
-            let current: usize = tx.query_row("SELECT count(*) FROM instances WHERE state != 'terminated'",[],|r|r.get(0))?;
+            let current = crate::fleets::quota_used(tx)?;
             if current + input.count > 64 { return Err(fault(409,"instance_quota_exceeded")); }
             let snapshot: String = tx.query_row("SELECT body FROM presets WHERE name=? AND version=?",params![input.preset_name,input.preset_version],|r|r.get(0)).optional()?.ok_or_else(||fault(404,"preset_not_found"))?;
             let fleet = id("fleet");
             let expires_at = ttl_seconds.map(|ttl| now() + (ttl * 1000) as i64);
+            tx.execute("INSERT INTO fleets(id,preset_name,preset_version,snapshot,mode,desired_count,state,revision,ttl_seconds,created_at) VALUES(?,?,?,?,'finite',?,'active',1,?,?)",params![fleet,input.preset_name,input.preset_version,snapshot,input.count,ttl_seconds,now()])?;
             let mut ids=vec![];
-            for _ in 0..input.count {
+            for slot in 0..input.count {
                 let agent=id("agent");
                 tx.execute("INSERT INTO instances(id,fleet_id,preset_name,preset_version,state,snapshot,created_at) VALUES(?,?,?,?,'ready',?,?)",params![agent,fleet,input.preset_name,input.preset_version,snapshot,now()])?;
                 if let Some(expires_at) = expires_at {
                     tx.execute("INSERT INTO instance_deadlines(instance_id,expires_at) VALUES(?,?)",params![agent,expires_at])?;
                 }
+                tx.execute("INSERT INTO fleet_slots(fleet_id,slot,generation,enabled,fulfilled,instance_id) VALUES(?,?,1,1,1,?)",params![fleet,slot,agent])?;
+                tx.execute("INSERT INTO instance_allocations(instance_id,fleet_id,slot,generation) VALUES(?,?,?,1)",params![agent,fleet,slot])?;
                 event(tx,"instance.created",&agent,json!({"fleet_id":fleet}))?;
                 ids.push(agent);
             }
@@ -364,7 +378,7 @@ impl Store {
                 "SELECT json_object('id',id,'version',version,'definition',json(body),'digest',digest,'created_at',created_at) FROM plugins ORDER BY created_at DESC LIMIT 200"
             }
             "instances" => {
-                "SELECT json_object('id',id,'fleet_id',fleet_id,'preset_name',preset_name,'preset_version',preset_version,'state',state,'created_at',created_at,'snapshot',json(snapshot),'expires_at',(SELECT expires_at FROM instance_deadlines WHERE instance_id=instances.id)) FROM instances ORDER BY (state != 'terminated') DESC,created_at DESC,id LIMIT 200"
+                "SELECT json_object('id',id,'fleet_id',fleet_id,'preset_name',preset_name,'preset_version',preset_version,'state',state,'created_at',created_at,'snapshot',json(snapshot),'expires_at',(SELECT expires_at FROM instance_deadlines WHERE instance_id=instances.id),'slot',(SELECT slot FROM instance_allocations WHERE instance_id=instances.id),'generation',(SELECT generation FROM instance_allocations WHERE instance_id=instances.id)) FROM instances ORDER BY (state != 'terminated') DESC,created_at DESC,id LIMIT 200"
             }
             "runs" => {
                 "SELECT json_object('id',id,'instance_id',instance_id,'state',state,'input',input,'report',json(report),'created_at',created_at,'started_at',started_at,'finished_at',finished_at) FROM runs ORDER BY created_at DESC,rowid DESC LIMIT 100"

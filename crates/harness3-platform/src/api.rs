@@ -1,4 +1,10 @@
-use crate::{domain::*, models::Models, runtime::Cancellations, store::Store};
+use crate::{
+    domain::*,
+    fleets::{FleetAction, FleetPlan},
+    models::Models,
+    runtime::Cancellations,
+    store::Store,
+};
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Path, Query, Request, State},
@@ -113,6 +119,15 @@ pub fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/fleets.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/fleets.js"),
+                )
+            }),
+        )
+        .route(
             "/goals.js",
             get(|| async {
                 (
@@ -141,7 +156,10 @@ pub fn router(app: App) -> Router {
         .route("/api/v1/snapshot", get(snapshot))
         .route("/api/v1/presets", post(publish))
         .route("/api/v1/plugins", post(install))
-        .route("/api/v1/agent-fleets", post(spawn))
+        .route("/api/v1/agent-fleets", get(fleets).post(spawn))
+        .route("/api/v1/agent-fleets/{id}", get(fleet))
+        .route("/api/v1/agent-fleets/{id}/actions", post(fleet_action))
+        .route("/api/v1/operations/{id}", get(operation))
         .route("/api/v1/agent-instances/{id}/actions", post(transition))
         .route("/api/v1/agent-instances/{id}/runs", post(enqueue))
         .route("/api/v1/agent-instances/{id}/session", get(session))
@@ -189,7 +207,7 @@ async fn logout() -> Response {
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
+        json!({"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Preset>) -> PResult<Json<Value>> {
@@ -207,31 +225,34 @@ fn key(headers: &HeaderMap) -> PResult<&str> {
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| fault(400, "idempotency_key_required"))
 }
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct FleetRequest {
-    preset_name: String,
-    preset_version: String,
-    count: usize,
-    #[serde(default)]
-    ttl_seconds: Option<u64>,
+async fn fleets(State(app): State<App>) -> PResult<Json<Value>> {
+    Ok(Json(json!({"fleets":app.store.fleets()?})))
+}
+async fn fleet(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.fleet(&id)?))
+}
+async fn operation(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.operation(&id)?))
+}
+async fn fleet_action(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<FleetAction>,
+) -> PResult<(StatusCode, Json<Value>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(app.store.fleet_action(&id, &input, key(&headers)?)?),
+    ))
 }
 async fn spawn(
     State(app): State<App>,
     headers: HeaderMap,
-    Json(input): Json<FleetRequest>,
+    Json(input): Json<FleetPlan>,
 ) -> PResult<(StatusCode, Json<Value>)> {
     Ok((
-        StatusCode::CREATED,
-        Json(app.store.spawn_with_ttl(
-            &Spawn {
-                preset_name: input.preset_name,
-                preset_version: input.preset_version,
-                count: input.count,
-            },
-            key(&headers)?,
-            input.ttl_seconds,
-        )?),
+        StatusCode::ACCEPTED,
+        Json(app.store.create_fleet(&input, key(&headers)?)?),
     ))
 }
 #[derive(Deserialize)]

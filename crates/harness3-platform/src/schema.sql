@@ -13,4 +13,12 @@ CREATE TABLE IF NOT EXISTS work_items(goal_id TEXT NOT NULL REFERENCES goals(id)
 CREATE INDEX IF NOT EXISTS goals_state ON goals(state,created_at);
 CREATE TABLE IF NOT EXISTS instance_deadlines(instance_id TEXT PRIMARY KEY REFERENCES instances(id),expires_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS instance_deadlines_expiry ON instance_deadlines(expires_at);
-PRAGMA user_version=3;
+CREATE TABLE IF NOT EXISTS fleets(id TEXT PRIMARY KEY,preset_name TEXT NOT NULL,preset_version TEXT NOT NULL,snapshot TEXT NOT NULL,mode TEXT NOT NULL,desired_count INTEGER NOT NULL,state TEXT NOT NULL,revision INTEGER NOT NULL,ttl_seconds INTEGER,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS fleet_slots(fleet_id TEXT NOT NULL REFERENCES fleets(id),slot INTEGER NOT NULL,generation INTEGER NOT NULL,enabled INTEGER NOT NULL,fulfilled INTEGER NOT NULL,instance_id TEXT REFERENCES instances(id),PRIMARY KEY(fleet_id,slot));
+CREATE TABLE IF NOT EXISTS instance_allocations(instance_id TEXT PRIMARY KEY REFERENCES instances(id),fleet_id TEXT NOT NULL REFERENCES fleets(id),slot INTEGER NOT NULL,generation INTEGER NOT NULL,UNIQUE(fleet_id,slot,generation));
+CREATE TABLE IF NOT EXISTS operations(id TEXT PRIMARY KEY,fleet_id TEXT NOT NULL REFERENCES fleets(id),kind TEXT NOT NULL,revision INTEGER NOT NULL,target_count INTEGER NOT NULL,state TEXT NOT NULL,created_at INTEGER NOT NULL,started_at INTEGER,finished_at INTEGER);
+CREATE INDEX IF NOT EXISTS operations_fleet ON operations(fleet_id,created_at);
+CREATE INDEX IF NOT EXISTS instances_fleet_state ON instances(fleet_id,state);
+CREATE INDEX IF NOT EXISTS runs_instance_state ON runs(instance_id,state);
+CREATE UNIQUE INDEX IF NOT EXISTS fleet_slots_instance ON fleet_slots(instance_id) WHERE instance_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS operations_active ON operations(fleet_id) WHERE state IN ('pending','running');

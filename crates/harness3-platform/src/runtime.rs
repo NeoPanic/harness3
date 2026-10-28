@@ -210,7 +210,7 @@ pub async fn recover(store: &Store) -> PResult<()> {
         }
     }
     store.recover_startup()?;
-    store.reconcile_lifecycle()?;
+    store.reconcile_fleets()?;
     store.reconcile_goals()
 }
 
@@ -225,8 +225,8 @@ pub async fn worker_loop(
         if shutdown.is_cancelled() {
             break;
         }
-        if let Err(error) = store.reconcile_lifecycle() {
-            eprintln!("Lifecycle reconciliation failed: {error}");
+        if let Err(error) = store.reconcile_fleets() {
+            eprintln!("Fleet reconciliation failed: {error}");
         }
         {
             let tokens = cancellations.lock().await;

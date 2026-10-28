@@ -46,21 +46,22 @@
     "name": "有限批量实例化",
     "phase": "P1",
     "status": "implemented",
-    "detail": "事务创建最多 64 个实例、配额与幂等；当前 fleet 仅为批次标识。",
+    "detail": "HTTP 以 202 接纳创建 Operation，每轮最多创建 8 个实例；全局 64 容量包含未创建的预留槽位，幂等重试返回原回执。",
     "source": [
+      "crates/harness3-platform/src/fleets.rs",
       "crates/harness3-platform/src/store.rs"
     ],
     "target": [
       "crates/harness3-platform/src/control/"
     ],
-    "verification": "existing-tests"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "lifecycle",
     "name": "实例生命周期与 TTL",
     "phase": "P1",
     "status": "partial",
-    "detail": "暂停/恢复/终止；新增排空与可选 TTL，过期取消排队、协作取消运行、保留历史。维持型扩缩容与空闲策略待实现。",
+    "detail": "暂停/恢复/终止、排空与 TTL；实例组支持 finite/maintain 扩缩容。空闲策略、stop/start、配置升级和单实例 Operation 尚未实现。",
     "source": [
       "crates/harness3-platform/src/lifecycle.rs",
       "crates/harness3-platform/src/store.rs"
@@ -75,14 +76,18 @@
     "id": "fleet",
     "name": "维持型实例组与异步 Operation",
     "phase": "P2",
-    "status": "planned",
-    "detail": "待实现 desired/observed、持久操作、槽位代际、扩缩容与补足。",
-    "source": [],
+    "status": "partial",
+    "detail": "finite/maintain、异步创建/扩缩容/终止、持久槽位与代际、容量预留、分批协调、重启续作已落地；尚无排空期限、Operation 单独取消与远程执行配置。",
+    "source": [
+      "crates/harness3-platform/src/fleets.rs",
+      "crates/harness3-platform/web/fleets.js",
+      "crates/harness3-platform/tests/fleets.rs"
+    ],
     "target": [
       "crates/harness3-domain/src/operations/",
       "crates/harness3-platform/src/control/"
     ],
-    "verification": "not-implemented"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "lineage",
@@ -242,7 +247,8 @@
     "detail": "实例、请求快照、回执、会话、事件和协作目标来自同一后端。",
     "source": [
       "crates/harness3-platform/web/app.js",
-      "crates/harness3-platform/web/goals.js"
+      "crates/harness3-platform/web/goals.js",
+      "crates/harness3-platform/web/fleets.js"
     ],
     "target": [
       "web/src/features/"

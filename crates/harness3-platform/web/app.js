@@ -5,7 +5,7 @@ const short = s => String(s ?? '').slice(0, 15);
 const time = value => value ? new Date(value).toLocaleTimeString('zh-CN', {hour12:false}) : '—';
 const labels = {ready:'就绪',draining:'排空中',busy:'执行中',suspended:'已暂停',terminated:'已终止',queued:'排队中',running:'运行中',completed:'已完成',failed:'失败',interrupted:'中断 · 结果未知',cancelled:'已取消',implemented:'已实现',partial:'部分实现',planned:'规划中'};
 const badge = (s, text) => `<span class="badge ${esc(s)}">${esc(text || labels[s] || s)}</span>`;
-Object.assign(labels,{pending:'等待派发',blocked:'依赖阻断','awaiting-review':'待验收',accepted:'已验收',cancelling:'正在取消'});
+Object.assign(labels,{active:'已协调',provisioning:'协调中',superseded:'已被替代',pending:'等待派发',blocked:'依赖阻断','awaiting-review':'待验收',accepted:'已验收',cancelling:'正在取消'});
 let data = null, events = [], cursor = 0, authenticated = false, modalContext = null, refreshTask = null;
 let toastTimer;
 
@@ -13,6 +13,7 @@ let toastTimer;
 const iconPaths = {
   overview:'<path d="m12 3 9 5v8l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5"/>',
   agents:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  fleets:'<path d="M4 5h16v14H4zM8 2v6m8-6v6M8 12h8m-8 4h4"/>',
   goals:'<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4H5v4m7-4h7v4"/>',
   presets:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   runs:'<path d="m9 5 11 7-11 7Z"/><path d="M4 5v14"/>',
@@ -54,13 +55,13 @@ async function api(path, body, method = 'POST', key = null) {
   if (response.status === 401) { authenticated = false; if (!$('#login-dialog').open) $('#login-dialog').showModal(); }
   if (!response.ok) {
     const code=value.error?.code || value.rejection || `HTTP ${response.status}`;
-    const messages={invalid_ttl:'TTL 须为 1 秒至 30 天之间的整数。',unauthorized:'访问令牌无效或会话已过期，请重新登录。',preset_version_immutable:'这个母体版本已发布，请更换版本号。',plugin_version_immutable:'这个插件版本已安装，请更换版本号。',instance_not_ready:'实例当前无法接收任务，请刷新并选择就绪实例。',instance_quota_exceeded:'实例配额已满，请减少数量或终止闲置实例。',invalid_transition_or_instance_busy:'实例状态已变化或仍在执行，请刷新后重试。',idempotency_conflict:'上次请求的内容已更改，请关闭后重新打开表单提交。',invalid_preset:'请检查名称、版本号和必填内容；文本长度按 UTF-8 字节计算。',invalid_prompt_bundle:'请检查插件 ID、版本号和必填内容。'};
+    const messages={invalid_fleet_plan:'请检查实例组数量、策略与 TTL。',fleet_revision_conflict:'实例组已被其他操作修改，请关闭表单并刷新后重试。',fleet_operation_in_progress:'已有操作正在协调，完成后可再次扩缩容。',fleet_terminal:'实例组已进入终止流程，无法恢复或扩缩容。',invalid_fleet_action:'请检查目标数量与操作参数。',invalid_ttl:'TTL 须为 1 秒至 30 天之间的整数。',unauthorized:'访问令牌无效或会话已过期，请重新登录。',preset_version_immutable:'这个母体版本已发布，请更换版本号。',plugin_version_immutable:'这个插件版本已安装，请更换版本号。',instance_not_ready:'实例当前无法接收任务，请刷新并选择就绪实例。',instance_quota_exceeded:'容量已满，请减少数量，或缩容/终止实例组以释放预留。',invalid_transition_or_instance_busy:'实例状态已变化或仍在执行，请刷新后重试。',idempotency_conflict:'上次请求的内容已更改，请关闭后重新打开表单提交。',invalid_preset:'请检查名称、版本号和必填内容；文本长度按 UTF-8 字节计算。',invalid_prompt_bundle:'请检查插件 ID、版本号和必填内容。'};
     Object.assign(messages,{invalid_goal:'请填写目标名称、共同目标、验收标准及 1–16 项任务；检查 UTF-8 字节上限。',invalid_task_graph:'任务 key 必须唯一，依赖只能引用前面的任务，且不能重复。',goal_quota_exceeded:'运行中或待验收目标已达 32 个，请先验收或取消已有目标。',goal_instance_terminated:'计划包含已终止的实例，请重新选择执行实例。',goal_not_reviewable:'目标尚未完成或已经结算，请刷新后核对状态。',goal_not_cancellable:'目标已经结算，无法再取消。',invalid_goal_review:'请填写验收结论，最多 8,000 个 UTF-8 字节。',goal_not_found:'没有找到该目标，请返回目标列表。'});
     throw new Error(messages[code] || `操作未完成（${code}），请检查配置后重试。`);
   }
   return value;
 }
-function page() { return goalId()?'goals':['overview','agents','goals','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
+function page() { return fleetId()?'fleets':goalId()?'goals':['overview','agents','fleets','goals','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
 function head(eyebrow, title, description, buttons = '') { return `<div class="page-head"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p>${description}</p></div><div class="head-actions">${buttons}</div></div>`; }
 function button(label, action, primary = false, extra = '') { return `<button type="button" class="button ${primary ? 'primary' : ''}" data-action="${action}" ${extra}>${label}</button>`; }
 function empty(title, text, action = '') { return `<div class="empty"><b>${title}</b>${text}${action ? `<br>${action}` : ''}</div>`; }
@@ -99,14 +100,15 @@ function progressPage() {
 }
 function render() {
   if (!data || composing) return;
-  const p=page(), names={overview:'总览',agents:'Agent 实例',goals:'协作目标',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
+  const p=page(), names={overview:'总览',agents:'Agent 实例',fleets:'实例组',goals:'协作目标',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
   $('#page-title').textContent=names[p]; $('#nav-count').textContent=data.instances.filter(a=>a.state!=='terminated').length;
   document.querySelectorAll('nav a').forEach(a=>{a.classList.toggle('active',a.dataset.page===p);if(a.dataset.page===p)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.title=`${names[p]} · Harness³`;
   let html='';
   if(p==='overview') html=overview();
   if(p==='goals') html=goalsPage();
-  if(p==='agents') html=head('MANAGED INSTANCES','Agent 实例','同一母体可创建多个独立实例；支持有限批次、TTL 和排空；可在协作目标中编排分工。维持型扩缩容尚未实现。',button('＋ 批量创建','spawn',true))+filterBar('agents')+panel('实例目录',`<div id="directory-results">${directory('agents')}</div>`,badge('neutral',`共 ${data.instances.length} 个实例`));
+  if(p==='fleets') html=fleetsPage();
+  if(p==='agents') html=head('MANAGED INSTANCES','Agent 实例','同一母体可创建多个独立实例；支持有限批次、TTL 和排空；可在协作目标中编排分工。可在实例组页选择持续维持、扩缩容与整体终止。',button('＋ 批量创建','spawn',true))+filterBar('agents')+panel('实例目录',`<div id="directory-results">${directory('agents')}</div>`,badge('neutral',`共 ${data.instances.length} 个实例`));
   if(p==='presets') html=head('AGENT DEFINITIONS','母体 Presets','定义用途、目标、指令、模型协议与提示词插件，发布后按版本固定。',button('＋ 发布母体','preset-form',true))+`<div class="cards">${data.presets.map(p=>`<article class="card"><div class="card-top"><span class="agent-glyph">${icon('presets')}</span><span class="mono">${esc(p.version)}</span>${badge('good','已发布')}</div><h3>${esc(p.name)}</h3><p>${esc(p.definition.purpose)}</p><p>${esc(p.definition.objective)}</p><div class="card-bottom"><span class="protocol">${esc(p.definition.protocol)}</span><span><button class="text-button" data-action="preset-detail" data-id="${esc(p.name)}" data-version="${esc(p.version)}">定义 ↗</button><button class="text-button" data-action="spawn" data-id="${esc(p.name)}" data-version="${esc(p.version)}">创建实例</button></span></div></article>`).join('')}</div>`;
   if(p==='runs') html=head('DURABLE EXECUTION','执行记录','展示最近 100 条运行；检查模型请求、工具回执、用量与失败原因。')+filterBar('runs')+panel('运行历史',`<div id="directory-results">${directory('runs')}</div>`,badge('neutral',`${data.runs.length} 条`));
   if(p==='plugins') html=head('CAPABILITIES & BINDINGS','插件与能力','第一版支持内置只读工具与不可变提示词包，新包可在运行时安装并绑定新母体。',button('＋ 安装提示词包','plugin-form',true))+`<div class="callout">外部进程、远程 MCP、代码热替换尚未实现。安装提示词包不会改变已发布母体或既有实例；使用新版本需发布新母体并创建实例。</div><div class="cards"><article class="card"><div class="card-top"><span class="agent-glyph">${icon('plugins')}</span>${badge('implemented','内置工具')}</div><h3>text.inspect</h3><p>统计输入文本的 Unicode 标量、行数和 UTF-8 字节数。只读，不访问文件、不执行代码。</p><div class="card-bottom"><span class="protocol">builtin / v1</span>${badge('good','可调用')}</div></article>${data.plugins.map(p=>`<article class="card"><div class="card-top"><span class="agent-glyph">${icon('presets')}</span>${badge('good','提示词包')}</div><h3>${esc(p.id)}</h3><p>${esc(p.definition.description)}</p><span class="mono wrap">${esc(p.digest)}</span><div class="card-bottom"><span class="protocol">${esc(p.version)}</span><button class="text-button" data-action="plugin-detail" data-id="${esc(p.id)}" data-version="${esc(p.version)}">检查定义 ↗</button></div></article>`).join('')}</div>`;
@@ -141,6 +143,10 @@ async function readState() {
       try {selectedGoal=await api(`/api/v1/goals/${encodeURIComponent(goalId())}`);}
       catch(error) {selectedGoal={id:goalId(),loadError:error.message};}
     }
+    if(fleetId()) {
+      try {selectedFleet=await api(`/api/v1/agent-fleets/${encodeURIComponent(fleetId())}`);}
+      catch(error) {selectedFleet={id:fleetId(),loadError:error.message};}
+    }
     // Drain a bounded page per tick; the cursor always advances only after a successful read.
     const chunk=await api(`/api/v1/events?after=${cursor}`);
     if(chunk.events.length){events=events.concat(chunk.events).slice(-500);cursor=chunk.events.at(-1).seq;}
@@ -171,8 +177,8 @@ function formEnd(label) { return `<div class="error" id="form-error" role="alert
 function spawnForm(name,version) {
   const selected=data.presets.find(p=>p.name===name&&p.version===version)||data.presets.find(p=>p.name==='researcher')||data.presets[0];
   if(!selected) return toast('请先发布一个母体');
-  const limit=data.limits.instances,used=data.instances.filter(a=>a.state!=='terminated').length,available=Math.max(0,limit-used);
-  openModal('从母体创建实例',`<form data-form="spawn"><p class="form-intro">选择固定版本的母体，创建拥有独立身份与会话的 Agent。</p><label>母体版本<select name="preset">${data.presets.map(p=>`<option value="${esc(JSON.stringify({name:p.name,version:p.version}))}" ${p===selected?'selected':''}>${esc(p.name)} @ ${esc(p.version)} · ${esc(p.definition.protocol)}</option>`).join('')}</select></label><div class="quota-summary"><span>实例配额</span><strong>${used} <span>/ ${limit} 已使用</span></strong><span>还可创建 ${available} 个</span></div><label>实例数量<input name="count" type="number" min="1" max="${Math.max(1,available)}" value="${Math.min(3,available)||1}" ${available?'':'disabled'} required aria-describedby="spawn-hint"></label><label>实例 TTL（分钟，可选）<input name="ttl_minutes" type="number" min="1" max="43200" step="1" placeholder="不填则持续保留" aria-describedby="ttl-hint"></label><p class="hint" id="ttl-hint">从创建时开始计时，最多 30 天。到期停止接收任务、取消排队并协作取消运行；历史记录保留。</p><p class="hint" id="spawn-hint">${available?'创建后处于就绪状态；提交任务后开始执行。':'当前配额已满。终止闲置实例后可释放配额。'} Worker 最多并发 ${data.limits.workers} 个运行。</p>${formEnd('创建实例')}</form>`,'批量实例化');
+  const limit=data.capacity.limit,used=data.capacity.reserved,available=data.capacity.available;
+  openModal('从母体创建实例',`<form data-form="spawn"><p class="form-intro">选择固定版本的母体，创建拥有独立身份与会话的 Agent。</p><label>母体版本<select name="preset">${data.presets.map(p=>`<option value="${esc(JSON.stringify({name:p.name,version:p.version}))}" ${p===selected?'selected':''}>${esc(p.name)} @ ${esc(p.version)} · ${esc(p.definition.protocol)}</option>`).join('')}</select></label><div class="quota-summary"><span>实例配额</span><strong>${used} <span>/ ${limit} 已占用或预留</span></strong><span>还可创建 ${available} 个</span></div><label>实例组策略<select name="mode"><option value="finite">有限批次 · 终止后不补建</option><option value="maintain">持续维持 · 自动补足目标数量</option></select></label><p class="hint">持续维持会补建单独终止的成员；TTL 会在每个新实例创建时重新计时。停止补建请缩容或终止整个实例组。</p><label>实例数量<input name="count" type="number" min="1" max="${Math.max(1,available)}" value="${Math.min(3,available)||1}" ${available?'':'disabled'} required aria-describedby="spawn-hint"></label><label>实例 TTL（分钟，可选）<input name="ttl_minutes" type="number" min="1" max="43200" step="1" placeholder="不填则持续保留" aria-describedby="ttl-hint"></label><p class="hint" id="ttl-hint">从创建时开始计时，最多 30 天。到期停止接收任务、取消排队并协作取消运行；历史记录保留。</p><p class="hint" id="spawn-hint">${available?'接纳后分批创建；实例就绪后可提交任务。':'当前容量已满。缩容或终止实例组可释放预留；finite 的闲置成员也可单独终止。'} Worker 最多并发 ${data.limits.workers} 个运行。</p>${formEnd('创建实例')}</form>`,'批量实例化');
   if(!available)$('#modal [type="submit"]').disabled=true;
 }
 function presetForm() {
@@ -191,7 +197,7 @@ async function agentDetail(id) {
   if(request!==inspectionRequest)return;
   modalContext={type:'agent',id,session};
   const actions=a.state==='ready'?button('提交运行','run-form',true,`data-id="${esc(id)}"`)+button('暂停','suspend',false,`data-id="${esc(id)}"`):a.state==='suspended'?button('恢复','resume',true,`data-id="${esc(id)}"`):'';
-  openModal(a.preset_name,`<div class="inspector-summary"><div><span>生命周期</span>${badge(a.state)}</div><div><span>母体版本</span><strong class="mono">${esc(a.preset_version)}</strong></div><div><span>持久会话</span><strong>${session.turns.length} <small>个历史项 · r${session.revision}</small></strong></div></div>${identity('实例 ID',id)}${a.expires_at?`<p class="hint">TTL 截止：${esc(new Date(a.expires_at).toLocaleString('zh-CN'))} · 到期将停止接收任务并请求取消活动运行。</p>`:''}<div class="inspector-actions">${actions}${['ready','busy','suspended'].includes(a.state)?`<button class="text-button" data-action="drain" data-id="${esc(id)}">排空并终止</button>`:''}${['ready','suspended'].includes(a.state)?`<button class="text-button danger-action" data-action="terminate" data-id="${esc(id)}">终止实例</button>`:''}</div><div class="tabs"><button data-action="agent-tab" data-tab="snapshot" aria-pressed="true" class="active">配置与目标</button><button data-action="agent-tab" data-tab="session" aria-pressed="false">持久会话</button></div><div id="detail-view">${definitionView(a.snapshot)}</div><details class="raw-data"><summary>实例组与存储信息</summary><dl class="detail-kv"><dt>实例组</dt><dd class="mono">${esc(a.fleet_id)}</dd><dt>截止时间</dt><dd>${a.expires_at?esc(new Date(a.expires_at).toLocaleString('zh-CN')):'未设置 TTL'}</dd><dt>检查点</dt><dd>${session.events.length}</dd><dt>模型协议</dt><dd>${esc(a.snapshot.protocol)}</dd></dl></details>`,'Agent 实例');
+  openModal(a.preset_name,`<div class="inspector-summary"><div><span>生命周期</span>${badge(a.state)}</div><div><span>母体版本</span><strong class="mono">${esc(a.preset_version)}</strong></div><div><span>持久会话</span><strong>${session.turns.length} <small>个历史项 · r${session.revision}</small></strong></div></div>${identity('实例 ID',id)}${a.expires_at?`<p class="hint">TTL 截止：${esc(new Date(a.expires_at).toLocaleString('zh-CN'))} · 到期将停止接收任务并请求取消活动运行。</p>`:''}<div class="inspector-actions">${button('所属实例组','fleet-nav',false,`data-id="${esc(a.fleet_id)}"`)}${actions}${['ready','busy','suspended'].includes(a.state)?`<button class="text-button" data-action="drain" data-id="${esc(id)}">排空并终止</button>`:''}${['ready','suspended'].includes(a.state)?`<button class="text-button danger-action" data-action="terminate" data-id="${esc(id)}">终止实例</button>`:''}</div><div class="tabs"><button data-action="agent-tab" data-tab="snapshot" aria-pressed="true" class="active">配置与目标</button><button data-action="agent-tab" data-tab="session" aria-pressed="false">持久会话</button></div><div id="detail-view">${definitionView(a.snapshot)}</div><details class="raw-data"><summary>实例组与存储信息</summary><dl class="detail-kv"><dt>实例组</dt><dd class="mono">${esc(a.fleet_id)}</dd><dt>槽位 / 代际</dt><dd>${a.slot??'—'} / ${a.generation??'—'}</dd><dt>截止时间</dt><dd>${a.expires_at?esc(new Date(a.expires_at).toLocaleString('zh-CN')):'未设置 TTL'}</dd><dt>检查点</dt><dd>${session.events.length}</dd><dt>模型协议</dt><dd>${esc(a.snapshot.protocol)}</dd></dl></details>`,'Agent 实例');
 }
 function definitionView(definition) {
   return `<dl class="definition"><dt>主要功能</dt><dd>${esc(definition.purpose)}</dd><dt>预期目标</dt><dd>${esc(definition.objective)}</dd><dt>模型协议</dt><dd class="mono">${esc(definition.protocol)}</dd><dt>系统指令</dt><dd class="instructions">${esc(definition.instructions)}</dd></dl>${rawView(definition,'完整配置 JSON')}`;
@@ -227,6 +233,8 @@ function runOutput(r) {
 }
 async function handleAction(action, element) {
   const id=element.dataset.id;
+  if(action==='fleet-nav') {$('#modal').close();location.hash=`fleet/${id}`;return;}
+  if(action==='fleet-scale'||action==='fleet-stop')return fleetActionForm(id,action==='fleet-stop');
   if(action==='goal-form')return goalForm();
   if(action==='goal-review')return goalReview(id);
   if(action==='goal-cancel')return goalCancel(id);
@@ -259,8 +267,8 @@ async function handleAction(action, element) {
   if(action==='event-detail') return openModal('事件载荷',jsonView(events.find(e=>String(e.seq)===id)),'PERSISTENT EVENT');
   if(action==='help') return openModal('本地内核预览',`<div class="steps"><div class="step">从母体页发布用途、目标与模型配置。新版本不可覆盖旧定义。</div><div class="step">创建一组独立实例，选择就绪实例提交任务。</div><div class="step">打开执行记录，查看输出、工具回执、请求快照和完整会话。</div><div class="step">在实现进度页确认当前已交付能力与尚未实现的功能。</div></div><p class="hint">所有数据来自同一 SQLite。平台仅监听 loopback，登录使用本地 token；模型密钥仅由服务端读取。</p><div class="form-actions">${button('退出工作区','logout')}</div>`);
   if(['suspend','resume','terminate','drain'].includes(action)) {
-    if(action==='drain')return openModal('排空并终止实例？',`<form data-form="drain" data-id="${esc(id)}"><p class="form-intro">立即停止接收新任务，等待已接纳的排队或运行任务结算后终止。没有活动任务时立即终止。历史记录保留；此操作无法恢复。</p>${identity('实例 ID',id)}${formEnd('确认排空')}</form>`,'生命周期操作');
-    if(action==='terminate')return openModal('终止这个实例？',`<form data-form="terminate" data-id="${esc(id)}"><p class="form-intro">终止后，此实例将无法接收任务，也无法恢复。历史会话与执行回执会继续保留。</p>${identity('实例 ID',id)}${formEnd('确认终止实例')}</form>`,'生命周期操作');
+    if(action==='drain')return openModal('排空并终止实例？',`<form data-form="drain" data-id="${esc(id)}"><p class="form-intro">立即停止接收新任务，等待已接纳的排队或运行任务结算后终止。没有活动任务时立即终止。历史记录保留；此操作无法恢复。若属于持续维持组，退休后会创建新成员补足目标数量。</p>${identity('实例 ID',id)}${formEnd('确认排空')}</form>`,'生命周期操作');
+    if(action==='terminate')return openModal('终止这个实例？',`<form data-form="terminate" data-id="${esc(id)}"><p class="form-intro">终止后，此实例无法恢复，历史记录保留。若属于持续维持组，平台会创建新实例补足目标数量；停止补建请终止整个实例组或缩容。</p>${identity('实例 ID',id)}${formEnd('确认终止实例')}</form>`,'生命周期操作');
     await api(`/api/v1/agent-instances/${encodeURIComponent(id)}/actions`,{action});$('#modal').close();await refresh();return toast('实例状态已更新');
   }
   if(action==='cancel-run') {await api(`/api/v1/runs/${encodeURIComponent(id)}/cancel`,{});await refresh();await runDetail(id);return toast('取消请求已提交，运行将协作收尾');}
@@ -316,13 +324,14 @@ document.addEventListener('submit',async event=>{
     if(form.dataset.form==='goal-cancel') {result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/cancel`,{});}
     if(form.dataset.form==='drain') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/actions`,{action:'drain'});}
     if(form.dataset.form==='terminate') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/actions`,{action:'terminate'});}
-    if(form.dataset.form==='spawn') {const preset=JSON.parse(values.preset);result=await api('/api/v1/agent-fleets',{preset_name:preset.name,preset_version:preset.version,count:Number(values.count),ttl_seconds:values.ttl_minutes?Number(values.ttl_minutes)*60:null},'POST',form.dataset.commandKey);location.hash='agents';}
+    if(form.dataset.form==='spawn') {const preset=JSON.parse(values.preset);result=await api('/api/v1/agent-fleets',{preset_name:preset.name,preset_version:preset.version,count:Number(values.count),mode:values.mode,ttl_seconds:values.ttl_minutes?Number(values.ttl_minutes)*60:null},'POST',form.dataset.commandKey);location.hash=`fleet/${result.fleet_id}`;}
+    if(form.dataset.form==='fleet-action') {result=await api(`/api/v1/agent-fleets/${encodeURIComponent(form.dataset.id)}/actions`,{action:form.dataset.operation,expected_revision:Number(form.dataset.revision),...(form.dataset.operation==='scale'?{count:Number(values.count)}:{})},'POST',form.dataset.commandKey);}
     if(form.dataset.form==='preset') {const plugin=values.plugin===''?null:JSON.parse(values.plugin);result=await api('/api/v1/presets',{name:values.name,version:values.version,purpose:values.purpose,objective:values.objective,instructions:values.instructions,protocol:values.protocol,plugin:plugin?{id:plugin.id,version:plugin.version}:null});location.hash='presets';}
     if(form.dataset.form==='plugin') {result=await api('/api/v1/plugins',values);location.hash='plugins';}
     if(form.dataset.form==='run') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/runs`,{text:values.text},'POST',form.dataset.commandKey);location.hash='runs';}
     $('#modal').close();await refresh(true);
     if(form.dataset.form==='run'&&data.runs.some(r=>r.id===result.id)){await runDetail(result.id);}
-    toast(result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='drain'?'排空请求已保存，活动任务结算后终止。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
+    toast(result?.operation_id ? '操作已接纳，协调进度见实例组详情。' : result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='drain'?'排空请求已保存，活动任务结算后终止。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
   }catch(error){const target=form.querySelector('#form-error');if(target){target.textContent=error.message;target.tabIndex=-1;target.focus();}}
   finally {submit.disabled=false;submit.textContent=label;form.removeAttribute('aria-busy');}
 });
@@ -346,6 +355,6 @@ $('#modal').addEventListener('close',()=>{
 });
 $('#modal').addEventListener('cancel',event=>{if($('#modal form[aria-busy="true"]'))event.preventDefault();});
 $('.skip-link').addEventListener('click',event=>{event.preventDefault();$('#content').focus();});
-window.addEventListener('hashchange',()=>{render();if(goalId())refresh(true);$('#content').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});});
+window.addEventListener('hashchange',()=>{render();if(goalId()||fleetId())refresh(true);$('#content').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});});
 refresh();setInterval(()=>{if(authenticated&&!document.hidden)refresh();},1500);
 window.addEventListener('focus',()=>{if(authenticated)refresh();});
