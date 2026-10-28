@@ -4,8 +4,9 @@
 
 ## 启动与使用
 
-- [入门指南](getting-started.zh-CN.md)：本地启动、模型配置、团队任务和 Web / API / CLI / MCP 入口。
-- [自主调研](research.zh-CN.md)：从目标规划到团队执行、汇总与验收。
+- [入门指南](getting-started.zh-CN.md)：本地启动、模型配置、任务发布与兼容流程入口。
+- [共享任务板](task-board.zh-CN.md)：任务先发布，控制面动态选型，Agent 认领、拆分与回投。
+- [固定调研模板](research.zh-CN.md)：显式使用规划、研究、汇总和验收的兼容流程。
 - [客户端示例](../examples/clients/)：CLI 计划文件与 MCP 配置。
 
 ## 当前状态
@@ -26,8 +27,9 @@
 | 主题 | 内容 |
 | --- | --- |
 | [母体组合](presets.zh-CN.md) | 固定版本继承、参数和插件绑定 |
-| [任务领取](task-claims.zh-CN.md) | 候选池、所有权和执行尝试 |
-| [自主协作](autonomy.zh-CN.md) | 任务板、后续工作追加和调度约束 |
+| [共享任务板](task-board.zh-CN.md) | 无实例绑定发布、Preset 选型、原子认领与拆分 |
+| [Goal 任务领取](task-claims.zh-CN.md) | 兼容候选池、所有权和执行尝试 |
+| [Goal 自主协作](autonomy.zh-CN.md) | 兼容后续工作追加和接续约束 |
 | [动态委派](dynamic-delegation.zh-CN.md) | 角色、父子任务和续作 |
 | [共享上下文](shared-context.zh-CN.md) | 发现、决策、来源与修订 |
 | [协作频道](channels.zh-CN.md) | 成员可见性、订阅与唤醒 |

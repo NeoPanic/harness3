@@ -398,6 +398,7 @@ impl Model for Provider {
 
 #[derive(Clone, Default)]
 pub struct Models {
+    pub demo_only: bool,
     pub compatible: Option<std::sync::Arc<Provider>>,
     pub responses: Option<std::sync::Arc<Provider>>,
     pub anthropic: Option<std::sync::Arc<Provider>>,
@@ -405,6 +406,7 @@ pub struct Models {
 impl Models {
     pub fn from_env() -> Self {
         Self {
+            demo_only: false,
             compatible: Provider::from_env(Protocol::OpenaiCompatible)
                 .ok()
                 .map(std::sync::Arc::new),

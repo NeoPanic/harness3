@@ -114,3 +114,36 @@ test('角色名称和提示中的用户文本按 HTML 转义',()=>{
   assert(!html.includes('<img'));
   assert(html.includes('&lt;img'));
 });
+
+test('实例注册不会虚构连向中央设施的主从连线',()=>{
+  context.input=sceneFixture();
+  const html=vm.runInContext('studioNetwork(input)',context);
+  assert(!html.includes('station-conduit'));
+  assert(!html.includes('调度核心'));
+  assert(html.includes('共享任务板'));
+});
+
+test('只有实际认领中的任务连接任务板与执行实例',()=>{
+  context.input=sceneFixture();
+  context.input.board={tasks:[
+    {id:'t1',root_id:'t1',title:'等待选型',state:'pending'},
+    {id:'t2',root_id:'t2',title:'检查数据',state:'running',instance_id:'agent-b'},
+    {id:'t3',root_id:'t3',title:'过去任务',state:'completed',instance_id:'agent-a'},
+  ]};
+  const html=vm.runInContext('studioNetwork(input)',context);
+  assert.equal((html.match(/class="station-conduit /g)||[]).length,1);
+  assert(html.includes('已认领任务：检查数据'));
+});
+
+test('任务拆分图来自任务板父子记录，无固定规划或汇总身份',()=>{
+  context.input=sceneFixture();
+  context.input.board={tasks:[
+    {id:'root',root_id:'root',title:'任务目标',state:'waiting'},
+    {id:'child',root_id:'root',parent_id:'root',title:'细分任务',state:'pending'},
+  ]};
+  const html=vm.runInContext('studioTasks(input)',context);
+  assert(html.includes('拆分来源'));
+  assert(html.includes('细分任务'));
+  assert(!html.includes('执行依赖'));
+  assert(!html.includes('#research'));
+});

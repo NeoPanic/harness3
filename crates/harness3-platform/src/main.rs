@@ -20,6 +20,8 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Publish and inspect shared tasks; the control plane selects Presets dynamically.
+    Board(cli::BoardArgs),
     /// Manage shared goals through the running daemon's authenticated HTTP API.
     Goals(cli::GoalArgs),
     Artifacts(cli::ArtifactArgs),
@@ -90,6 +92,7 @@ enum McpCommand {
 #[tokio::main]
 async fn main() -> harness3_platform::client::ClientResult<()> {
     match Cli::parse().command {
+        Command::Board(args) => cli::board(args).await?,
         Command::Research(args) => cli::research(args).await?,
         Command::Messages(args) => cli::messages(args).await?,
         Command::Goals(args) => cli::goals(args).await?,
@@ -183,9 +186,33 @@ async fn main() -> harness3_platform::client::ClientResult<()> {
             }
             let store = Store::open(&data_dir.join("platform.sqlite"))?;
             store.set_workspace_root(&data_dir.join("workspaces"))?;
-            let mut models = Models::from_env();
-            if let Some(root) = codex_config_dir {
+            let mut models = if demo {
+                Models {
+                    demo_only: true,
+                    ..Default::default()
+                }
+            } else {
+                Models::from_env()
+            };
+            if !demo && let Some(root) = codex_config_dir {
                 models.load_codex_responses(&root, &model)?;
+            }
+            // Reject incomplete classifier configuration before accepting work.
+            harness3_platform::routing::Router::from_env(&models)?;
+            for (suffix, protocol) in [
+                ("responses", Protocol::OpenaiResponses),
+                ("compatible", Protocol::OpenaiCompatible),
+                ("anthropic", Protocol::Anthropic),
+            ] {
+                if models.get(&protocol).is_ok() {
+                    store.publish(Preset {
+                        name:format!("board-generalist-{suffix}"),version:"1.0.0".into(),
+                        purpose:"共享任务板上的通用分析、独立子任务拆解与结果整合".into(),
+                        objective:"分析给定材料，必要时把独立工作拆成子任务回投任务板；读取已完成的子任务贡献并整合为验收结果".into(),
+                        instructions:"You are a peer worker on a shared task board. Read and claim work before acting. Analyze supplied material, compare evidence, and clearly distinguish inference from facts. When useful, split independent subtasks through platform.board.split and finish the current Run so peers can work. On continuation, read completed child results and integrate them without splitting again. Never invent unavailable tools or external evidence. Reply in the user's language.".into(),
+                        protocol,plugin:None,
+                    })?;
+                }
             }
             store.publish(Preset {
                 name: "demo-inspector".into(),

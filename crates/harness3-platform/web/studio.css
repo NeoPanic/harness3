@@ -213,3 +213,4 @@ body:has(.studio) .breadcrumb,body:has(.studio) .slash { color:#a2b4ca; }
   .studio-bottom-hud { padding:12px 15px; }
 }
 @media (prefers-reduced-motion:reduce) { .studio * { animation:none!important; } }
+.board-note{fill:#c4dfdc;stroke:#7bc7c4;stroke-width:1.5}.board-note.note-active{fill:#8be4dc}

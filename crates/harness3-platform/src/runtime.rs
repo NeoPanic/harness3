@@ -34,6 +34,9 @@ impl Model for DemoModel {
     ) -> Result<ModelReply> {
         // A small interruptible delay makes the real execution phases inspectable.
         tokio::select! {_=cancel.cancelled()=>return Err(Error::new("cancelled")),_=tokio::time::sleep(Duration::from_millis(500))=>{}}
+        if input.tools.iter().any(|s| s.name == "platform.board.claim") {
+            return demo_board(&input);
+        }
         if let Some(spec) = input
             .tools
             .iter()
@@ -486,6 +489,133 @@ fn demo_team(input: &ModelInput) -> Result<ModelReply> {
         reasoning: None,
     })
 }
+fn demo_board(input: &ModelInput) -> Result<ModelReply> {
+    let observations: Vec<_> = input
+        .turns
+        .iter()
+        .filter_map(|turn| match turn {
+            Turn::Tools(items) => Some(items),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    let read = observations
+        .iter()
+        .rev()
+        .find(|o| o.call.name == "platform.board.read")
+        .map(|o| &o.output.content);
+    let claimed = observations
+        .iter()
+        .rev()
+        .find(|o| o.call.name == "platform.board.claim")
+        .map(|o| &o.output.content);
+    let mut text = String::new();
+    let next = if let Some(task) = claimed {
+        let children: Vec<_> = read
+            .and_then(|b| b["tasks"].as_array())
+            .into_iter()
+            .flatten()
+            .filter(|t| t["parent_id"] == task["id"])
+            .collect();
+        if observations
+            .iter()
+            .any(|o| o.call.name == "platform.board.split")
+        {
+            text = "[确定性演示] 子任务已回投任务板，等待控制面选型和同级实例认领。".into();
+            None
+        } else if task["depth"] == 0 && children.is_empty() {
+            Some((
+                "platform.board.split",
+                json!({"command_key":"demo-split","tasks":[
+                    {"title":"输入结构检查","instructions":format!("统计以下输入的字符、行和字节：{}",task["instructions"].as_str().unwrap_or_default()),"acceptance":"给出 text.inspect 的实际回执"},
+                    {"title":"验收文本检查","instructions":format!("统计以下验收描述的字符、行和字节：{}",task["acceptance"].as_str().unwrap_or_default()),"acceptance":"给出 text.inspect 的实际回执"}
+                ]}),
+            ))
+        } else if let Some(inspect) = observations.iter().find(|o| o.call.name == "text.inspect") {
+            text = format!(
+                "[确定性演示] 工具统计：{}；已读取 {} 个子任务贡献。演示验证任务板闭环，不代表完成语义研究。",
+                inspect.output.content,
+                children.len()
+            );
+            None
+        } else {
+            Some((
+                "text.inspect",
+                json!({"text":if children.is_empty(){task["instructions"].as_str().unwrap_or_default().to_owned()}else{serde_json::to_string(&children).unwrap_or_default()}}),
+            ))
+        }
+    } else if let Some(board) = read {
+        let scope = &board["scope"];
+        let eligible = board["tasks"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|t| {
+                t["state"] == "pending"
+                    && t["route_state"] == "provisioned"
+                    && t["preset_name"] == scope["preset_name"]
+                    && t["preset_version"] == scope["preset_version"]
+            })
+            .collect::<Vec<_>>();
+        let task = eligible
+            .iter()
+            .find(|t| t["id"] == scope["target_task_id"])
+            .or_else(|| eligible.first());
+        match task {
+            Some(task) => Some(("platform.board.claim", json!({"task_id":task["id"]}))),
+            None => {
+                text = "[确定性演示] 当前无可认领任务。".into();
+                None
+            }
+        }
+    } else {
+        Some(("platform.board.read", json!({})))
+    };
+    Ok(ModelReply {
+        text,
+        calls: next
+            .into_iter()
+            .map(|(name, arguments)| Call {
+                id: format!("demo-board-{}", observations.len()),
+                name: name.into(),
+                arguments,
+            })
+            .collect(),
+        usage: None,
+        continuation: Value::Null,
+        reasoning: None,
+    })
+}
+
+struct ClaimedTool {
+    inner: Arc<dyn Tool>,
+    store: Store,
+    run: String,
+}
+#[async_trait::async_trait]
+impl Tool for ClaimedTool {
+    fn spec(&self) -> ToolSpec {
+        self.inner.spec()
+    }
+    fn parallel_safe(&self) -> bool {
+        self.inner.parallel_safe()
+    }
+    async fn execute(
+        &self,
+        context: &Context,
+        args: Value,
+        cancel: CancellationToken,
+    ) -> Result<ToolOutput> {
+        let board = self
+            .store
+            .read_board(&self.run)
+            .map_err(|e| Error::new(e.1))?;
+        if board["scope"]["claimed_task_id"].as_str().is_none() {
+            return Err(Error::new("board_claim_required"));
+        }
+        self.inner.execute(context, args, cancel).await
+    }
+}
 struct InspectText;
 #[async_trait::async_trait]
 impl Tool for InspectText {
@@ -550,6 +680,7 @@ async fn execute(
     let bound = crate::presets::bindings(snapshot);
     let planning = store.planner_job(run)?;
     let verification = store.verification_job(run)?;
+    let board = store.board_run(run)?;
     let mut instructions = format!(
         "{}\nPurpose: {}\nObjective: {}",
         preset.instructions, preset.purpose, preset.objective
@@ -562,6 +693,9 @@ async fn execute(
                 .or_else(|| plugin["manifest"]["instructions"].as_str())
                 .unwrap_or_default()
         ));
+    }
+    if board.is_some() {
+        instructions.push_str("\nShared task board protocol: you are a peer Agent. Read platform.board.read, then claim a compatible pending task with platform.board.claim before using work tools. Follow the claimed task's instructions and acceptance criteria. Every peer can read, claim and split; no peer controls other identities. Split only when independent work is useful; publish task descriptions without choosing Presets or Agents, then finish this Run. A continuation has completed children: inspect their results and finish the parent, do not split it again. Your final output is the durable task contribution. Do not claim success beyond available evidence.");
     }
     if let Some(job) = &planning {
         let mut worker_tools = vec![
@@ -628,18 +762,40 @@ async fn execute(
         tools.push(tool.spec().name);
         registry.tool(tool).map_err(core_error)?;
     } else {
-        registry.tool(Arc::new(InspectText)).map_err(core_error)?;
+        let work_tool = |inner: Arc<dyn Tool>| -> Arc<dyn Tool> {
+            if board.is_some() {
+                Arc::new(ClaimedTool {
+                    inner,
+                    store: store.clone(),
+                    run: run.into(),
+                })
+            } else {
+                inner
+            }
+        };
+        registry
+            .tool(work_tool(Arc::new(InspectText)))
+            .map_err(core_error)?;
         tools.push("text.inspect".to_owned());
-        for snapshot in bound.iter().filter(|p| p["kind"] == "organization") {
-            for tool in crate::organization::tools(snapshot, store.clone(), run)? {
+        if board.is_some() {
+            for tool in crate::board::tools(store.clone(), run) {
                 tools.push(tool.spec().name);
                 registry.tool(tool).map_err(core_error)?;
+            }
+        }
+        for snapshot in bound
+            .iter()
+            .filter(|p| board.is_none() && p["kind"] == "organization")
+        {
+            for tool in crate::organization::tools(snapshot, store.clone(), run)? {
+                tools.push(tool.spec().name);
+                registry.tool(work_tool(tool)).map_err(core_error)?;
             }
         }
         for snapshot in bound.into_iter().filter(|p| p["kind"] == "process") {
             for tool in plugins.tools(serde_json::from_value(snapshot)?)? {
                 tools.push(tool.spec().name);
-                registry.tool(tool).map_err(core_error)?;
+                registry.tool(work_tool(tool)).map_err(core_error)?;
             }
         }
     }
@@ -655,7 +811,8 @@ async fn execute(
             required_tool: verification
                 .as_ref()
                 .map(|_| "platform.verification.report".into())
-                .or_else(|| planning.as_ref().map(|_| "platform.research.plan".into())),
+                .or_else(|| planning.as_ref().map(|_| "platform.research.plan".into()))
+                .or_else(|| board.as_ref().map(|_| "platform.board.claim".into())),
             skills: vec![],
         })
         .map_err(core_error)?;
@@ -703,6 +860,7 @@ pub async fn recover(store: &Store) -> PResult<()> {
     store.reconcile_channels()?;
     store.reconcile_messages()?;
     store.reconcile_autonomy()?;
+    store.reconcile_board()?;
     store.reconcile_goals()
 }
 
@@ -723,7 +881,43 @@ pub async fn worker_loop_with_plugins(
     shutdown: CancellationToken,
     plugins: crate::plugins::ProcessHost,
 ) {
+    let router = match crate::routing::Router::from_env(&models) {
+        Ok(router) => router,
+        Err(error) => {
+            eprintln!("Task routing unavailable: {error}");
+            return;
+        }
+    };
+    worker_loop_with_router(store, models, cancellations, shutdown, plugins, router).await;
+}
+
+pub async fn worker_loop_with_router(
+    store: Store,
+    models: Models,
+    cancellations: Cancellations,
+    shutdown: CancellationToken,
+    plugins: crate::plugins::ProcessHost,
+    router: crate::routing::Router,
+) {
     let mut tasks = tokio::task::JoinSet::new();
+    let route_store = store.clone();
+    let route_models = models.clone();
+    let route_stop = shutdown.clone();
+    let processes = plugins.is_enabled();
+    let routing = tokio::spawn(async move {
+        loop {
+            if route_stop.is_cancelled() {
+                break;
+            }
+            if let Err(error) = router
+                .route_pending(&route_store, &route_models, processes, route_stop.clone())
+                .await
+            {
+                eprintln!("Task routing failed: {error}");
+            }
+            tokio::select! {_=route_stop.cancelled()=>break,_=tokio::time::sleep(Duration::from_millis(300))=>{}}
+        }
+    });
     loop {
         if shutdown.is_cancelled() {
             break;
@@ -753,6 +947,9 @@ pub async fn worker_loop_with_plugins(
         }
         if let Err(error) = store.reconcile_goals() {
             eprintln!("Goal coordination failed: {error}");
+        }
+        if let Err(error) = store.reconcile_board() {
+            eprintln!("Task board reconciliation failed: {error}");
         }
         if tasks.len() < crate::limits::WORKERS {
             match store.claim() {
@@ -801,9 +998,15 @@ pub async fn worker_loop_with_plugins(
     }
     // Cancellation is cooperative; drain all started Harness calls before releasing the lock.
     shutdown.cancel();
+    if let Err(error) = routing.await {
+        eprintln!("Task router failed: {error}");
+    }
     while let Some(result) = tasks.join_next().await {
         if let Err(error) = result {
             eprintln!("Worker failed: {error}");
         }
+    }
+    if let Err(error) = store.reconcile_board() {
+        eprintln!("Task board settlement failed: {error}");
     }
 }

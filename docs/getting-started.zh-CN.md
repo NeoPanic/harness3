@@ -1,6 +1,6 @@
 # Harness³ 本地平台使用指南
 
-Harness³ 在本地管理 Agent 母体、实例、协作任务和工具执行。用户可以从一个调研目标启动团队，也可以创建 Agent 池、提交单实例运行或显式编排任务图。Web、HTTP API、CLI 和 MCP 共用同一个 daemon 与持久状态；运行时 crate `harness3` 也可独立使用。
+Harness³ 在本地管理 Preset、实例、任务和工具执行。默认流程从共享任务板发布工作开始：控制面动态选择 Preset 并启动实例，Agent 自行认领、执行或拆分。已有 Agent 池、单实例 Run、显式 Goal 和固定调研模板继续可用。入口共用同一个 daemon 与持久状态；运行时 crate `harness3` 也可独立使用。
 
 ## 启动与登录
 
@@ -48,7 +48,15 @@ cargo run --locked -p harness3-platform -- up \
 
 适配器支持非流式文本、函数工具调用、回传、用量和错误状态。Responses 保留必要 output items 与 encrypted reasoning continuation。流式、多模态、供应商内置搜索和通用自动重试不在当前适配范围。
 
-## 先体验团队协作
+## 先发布一个任务
+
+1. 打开“任务板”，填写标题、工作要求和验收标准并发布；无需先创建实例或选择 Preset。
+2. 查看控制面的选型记录、启动实例和 Agent 认领。进入“Agent 工作现场”观察实际执行与任务关系。
+3. Agent 拆分工作后，子任务进入同一任务板；控制面为它们继续选型和启动实例。子任务完成后，普通实例可重新认领原任务进行整合。
+
+`--demo` 强制使用本地确定性选型和执行，覆盖两项子任务及整合，不执行语义调研；环境中已经配置的真实模型与选型服务也不会被调用。真实执行需要配置模型并发布适合任务的 Preset。选型可以独立使用低延迟模型，详见[共享任务板](task-board.zh-CN.md)。新任务板当前提供 Web、HTTP 和 `board` CLI；MCP 继续提供其已支持的兼容流程。
+
+## 可选：固定调研模板
 
 1. 打开侧栏“场景 → 自主调研”，填写目标和验收标准，选择 2–6 位研究者。
 2. 无账号体验选择 `demo-team@1.0.0`；配置 Responses 后使用 `research-team@1.1.0`。平台创建规划、研究和汇总实例，规划完成后并行派发研究任务。
@@ -67,13 +75,14 @@ cargo run --locked -p harness3-platform -- up \
 | Preset（母体） | 不可变版本，定义用途、目标、模型协议、指令、参数和插件绑定 |
 | Agent 池（API/CLI 名称 Fleet） | 管理同一 Preset 配置下的实例数量、创建和回收，不代表协作分工 |
 | Agent 实例 | 独立身份、配置快照和持久会话，同一时刻最多一个已接纳 Run |
+| 任务板任务 | 发布时无实例绑定，控制面选型后由 Agent 认领，记录拆分来源与结果 |
 | Run | 一次输入及其模型/工具循环，保存请求、回执、事件、输出和用量 |
 | Goal / WorkItem / Attempt | 共同目标、依赖任务，以及任务每次认领与执行的身份记录 |
 | Artifact / 工作区 | 不可变文本与文件/JSON 交付，以及实例自己的可变文件目录 |
 | 频道 / 共享上下文 | 团队讨论与订阅唤醒，以及可修订、可追溯的发现与决策 |
 | Operation | Agent 池创建、扩缩容等异步操作的接纳与完成状态 |
 
-普通 Run 只执行单个 Agent。团队协作由 Goal、调研场景或显式消息交接建立；批量创建 Agent 池本身不会产生任务。
+普通 Run 只执行单个 Agent。任务板按任务按需启动实例；兼容团队协作使用 Goal、调研模板或显式消息交接。批量创建 Agent 池本身不会产生任务。
 
 ## Agent 池与单实例运行
 
@@ -109,12 +118,15 @@ cargo run --locked -p harness3-platform -- up \
 
 ## HTTP、CLI 与 MCP
 
-需要认证的 HTTP 请求使用 `Authorization: Bearer <平台 token>`，路径前缀为 `/api/v1`。创建与其他幂等写操作使用 `Idempotency-Key`：同作用域、同键、同内容返回原接纳回执，改内容返回 409。接纳后通过对象 ID 查询状态；超时重试保持原键与原内容。
+需要认证的 HTTP 请求使用 `Authorization: Bearer <平台 token>`。新任务板入口为 `/api/board`，已有平台资源路径前缀为 `/api/v1`。创建与其他幂等写操作使用 `Idempotency-Key`：同作用域、同键、同内容返回原接纳回执，改内容返回 409。接纳后通过对象 ID 查询状态；超时重试保持原键与原内容。
 
 CLI 从 `--data-dir` 读取平台 token，只调用 loopback HTTP，不直接写数据库。各命令支持 `--port` 和 `--data-dir`，输出 JSON：
 
 ```sh
 ./target/debug/harness3 snapshot
+./target/debug/harness3 board publish --file examples/clients/board-task.json --key study-1
+./target/debug/harness3 board list
+./target/debug/harness3 board show TASK_ID
 ./target/debug/harness3 presets list
 ./target/debug/harness3 research create --file examples/clients/research.json --key research-1
 ./target/debug/harness3 research show RESEARCH_ID
@@ -138,11 +150,12 @@ HTTP JSON 请求和 CLI 文件上限为 128 KiB，用户输入上限为 64,000 U
 
 | 需要完成的工作 | 文档 |
 | --- | --- |
-| 从一个目标启动、规划和回收团队 | [自主调研](research.zh-CN.md) |
+| 发布任务，动态选型、认领、拆分与回投 | [共享任务板](task-board.zh-CN.md) |
+| 显式使用固定规划 / 研究 / 汇总团队 | [固定调研模板](research.zh-CN.md) |
 | 定义母体、继承、多个插件和实例参数 | [母体与参数](presets.zh-CN.md) |
 | 安装自定义本地工具 | [进程插件](process-plugins.zh-CN.md) |
 | 理解候选池、人工领取与执行尝试 | [任务认领](task-claims.zh-CN.md) |
-| Agent 查看任务板、请求接续或追加工作 | [自主任务板](autonomy.zh-CN.md) |
+| Goal 内 Agent 请求接续或追加工作 | [Goal 自主协作](autonomy.zh-CN.md) |
 | 子 Agent 委派与父 Agent 续作 | [动态委派](dynamic-delegation.zh-CN.md) |
 | 发布发现、修订及处理并发冲突 | [共享上下文](shared-context.zh-CN.md) |
 | 点对点交接、消费及未知结果处置 | [协作消息](messaging.zh-CN.md) |

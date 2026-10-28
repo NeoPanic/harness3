@@ -1,7 +1,7 @@
 'use strict';
 
-const studio={view:'network',selected:null,selectedTask:null,goalId:'',goal:null,goalError:'',paused:null,page:0,scope:'live',syncedAt:null,disconnected:false};
-const studioStates={busy:'工作中',running:'工作中',ready:'待命',queued:'排队',pending:'等待',suspended:'休眠',draining:'收尾',terminated:'离场',completed:'完成',failed:'遇到问题',blocked:'上游阻断',interrupted:'结果未知',cancelled:'取消',delegating:'委派中'};
+const studio={view:'network',selected:null,selectedTask:null,boardRootId:'',goalId:'',goal:null,goalError:'',paused:null,page:0,scope:'live',syncedAt:null,disconnected:false};
+const studioStates={busy:'工作中',running:'工作中',ready:'待命',queued:'排队',pending:'等待',staged:'待结算',waiting:'等待子任务',suspended:'休眠',draining:'收尾',terminated:'离场',completed:'完成',failed:'遇到问题',blocked:'上游阻断',interrupted:'结果未知',cancelled:'取消',delegating:'委派中'};
 const studioSpots=[{x:130,y:270},{x:360,y:210},{x:710,y:210},{x:960,y:275},{x:1040,y:465},{x:830,y:605},{x:535,y:625},{x:250,y:600},{x:50,y:465}];
 
 async function studioReadGoal(){
@@ -69,26 +69,22 @@ function studioBackdrop(){
 }
 
 function studioCore(snapshot){
-  const running=snapshot.runs.filter(r=>r.state==='running').length,slots=snapshot.limits?.workers||8;
-  return `<g class="station-core ${running?'core-working':''}" aria-label="调度核心"><ellipse class="core-shadow" cx="640" cy="575" rx="100" ry="30"/><path class="core-platform" d="M548 550v18c0 45 184 45 184 0v-18"/><ellipse class="core-platform-top" cx="640" cy="550" rx="92" ry="30"/>
-    <g class="core-rotor"><ellipse cx="640" cy="527" rx="113" ry="38"/><path d="M527 527h15m196 0h15M640 489v8m0 60v8"/></g>
-    <path class="core-case" d="M585 442v102c0 30 110 30 110 0V442"/><ellipse class="core-top" cx="640" cy="442" rx="55" ry="20"/>
-    <path class="core-slot" d="M603 469q37 16 74 0m-74 21q37 16 74 0m-74 21q37 16 74 0"/>
-    <rect class="core-display" x="611" y="518" width="58" height="24" rx="7"/>
-    ${Array.from({length:Math.min(slots,16)},(_,i)=>`<rect class="core-worker ${i<running?'worker-busy':''}" x="${615+i*(50/Math.min(slots,16))}" y="525" width="${Math.max(2,40/Math.min(slots,16))}" height="10" rx="1"/>`).join('')}
-    <path class="core-aerial" d="M640 420v-35"/><ellipse class="core-signal" cx="640" cy="378" rx="17" ry="9"/><path class="core-signal-ring" d="M611 375q29-31 58 0"/>
-    <text class="station-core-label" x="640" y="623" text-anchor="middle">调度核心</text></g>`;
+  const tasks=(snapshot.board?.tasks||[]).filter(t=>['pending','running','waiting'].includes(t.state));
+  return `<g class="station-core" aria-label="共享任务板 · ${tasks.length} 项待完成"><ellipse class="core-shadow" cx="640" cy="575" rx="100" ry="30"/><path class="core-platform" d="M548 550v18c0 45 184 45 184 0v-18"/><ellipse class="core-platform-top" cx="640" cy="550" rx="92" ry="30"/>
+    <path class="core-aerial" d="M604 546v-44m72 44v-44"/><rect class="core-case" x="550" y="399" width="180" height="115" rx="12"/><rect class="core-display" x="561" y="410" width="158" height="91" rx="6"/>
+    ${tasks.slice(0,6).map((task,i)=>`<g><rect class="board-note ${task.state==='running'?'note-active':''}" x="${571+i%3*47}" y="${422+Math.floor(i/3)*35}" width="36" height="25" rx="3"/><path class="core-slot" d="M${577+i%3*47} ${430+Math.floor(i/3)*35}h20m-20 7h12"/><title>${esc(task.title)} · ${esc(studioStates[task.state]||task.state)}</title></g>`).join('')}
+    <text class="station-core-label" x="640" y="623" text-anchor="middle">共享任务板</text></g>`;
 }
 
 function studioPage(){
   const snapshot=studio.paused?.data||data,active=snapshot.instances.filter(a=>a.state!=='terminated');
   const busy=snapshot.runs.filter(r=>r.state==='running').length,queued=snapshot.runs.filter(r=>r.state==='queued').length;
   const selected=studio.view==='network'?snapshot.instances.find(a=>a.id===studio.selected):null;
-  const goal=studio.paused?studio.paused.goal:studio.goal,task=studio.view==='tasks'?goal?.tasks.find(t=>t.key===studio.selectedTask):null;
+  const goal=studioBoardGoal(snapshot),task=studio.view==='tasks'?goal?.tasks.find(t=>t.key===studio.selectedTask):null;
   return `<div class="studio ${studio.paused?'studio-paused':''} ${document.hidden?'studio-hidden':''}">
     <header class="studio-hud"><div class="studio-station-name"><span class="studio-station-mark" aria-hidden="true">◉</span><h1>夜航工作站</h1></div><div class="studio-tabs" role="group" aria-label="现场视图">${[['network','工作舱'],['tasks','接力'],['architecture','系统']].map(([key,title])=>`<button id="studio-view-${key}" data-action="studio-view" data-id="${key}" aria-pressed="${studio.view===key}" class="${studio.view===key?'active':''}">${title}</button>`).join('')}</div><div class="studio-live"><span id="studio-sync" role="status"></span><button class="studio-icon-button" data-action="studio-pause" title="${studio.paused?'继续实时同步':'暂停画面'}" aria-label="${studio.paused?'继续实时同步':'暂停画面'}">${studio.paused?'▶':'Ⅱ'}</button><button class="studio-icon-button" data-action="studio-fullscreen" title="全屏 / 退出全屏" aria-label="全屏 / 退出全屏">⛶</button></div></header>
     <div class="studio-scene-wrap">${studio.view==='architecture'?studioArchitecture(snapshot):studio.view==='tasks'?studioTasks(snapshot):studioNetwork(snapshot)}${selected||task?`<aside class="studio-inspect" aria-label="${task?'任务':'Agent'}详情"><button class="studio-inspect-close" data-action="studio-dismiss" aria-label="收起详情">×</button>${task?studioTaskDetail(goal,task,snapshot):studioAgentDetail(snapshot,selected.id)}</aside>`:''}</div>
-    <footer class="studio-bottom-hud"><div class="studio-status-counts"><span><i class="count-busy"></i>${busy} 工作</span><span><i class="count-ready"></i>${active.filter(a=>a.state==='ready').length} 待命</span><span><i class="count-queued"></i>${queued} 排队</span></div><span class="studio-bottom-note">${studio.view==='architecture'?'结构示意':studio.view==='tasks'?'实线 · 依赖　虚线 · 委派':'点选队员'}</span><a href="#events" class="studio-log-link" title="事件日志 · 实例最多 200 个，Run / 消息 / 目标各最近 100 条；连线表示记录关系，动态表示执行状态">${icon('events')}<span class="sr-only">查看事件日志与数据范围</span></a></footer>
+    <footer class="studio-bottom-hud"><div class="studio-status-counts"><span><i class="count-busy"></i>${busy} 工作</span><span><i class="count-ready"></i>${active.filter(a=>a.state==='ready').length} 待命</span><span><i class="count-queued"></i>${queued} 排队</span></div><span class="studio-bottom-note">${studio.view==='architecture'?'结构示意':studio.view==='tasks'?'连线 · 任务拆分':'点选队员'}</span><a href="#board" class="studio-log-link" title="发布任务">${icon('plus')}<span class="sr-only">发布任务</span></a></footer>
   </div>`;
 }
 
@@ -113,7 +109,7 @@ function studioNetwork(snapshot){
     if(!groups.has(key))groups.set(key,[]);groups.get(key).push(m);
   }
   const selected=agents.some(a=>a.id===studio.selected)?studio.selected:null;
-  const wires=agents.map(a=>{const p=positions.get(a.id);return `<path class="station-conduit ${a.state==='busy'?'conduit-active':''}" d="M${p.x+95} ${p.y+165}Q640 ${p.y+165} 640 550"><title>实例注册 · 调度结构关系</title></path>`;}).join('');
+  const wires=(snapshot.board?.tasks||[]).filter(t=>t.state==='running'&&t.instance_id&&positions.has(t.instance_id)).map(t=>{const p=positions.get(t.instance_id);return `<path class="station-conduit conduit-active" d="M640 510Q640 ${p.y+165} ${p.x+95} ${p.y+165}"><title>已认领任务：${esc(t.title)} · ${esc(t.instance_id)}</title></path>`;}).join('');
   const messages=[...groups.values()].map(list=>{
     const m=list[0],a=positions.get(m.sender_instance_id),b=positions.get(m.recipient_id),flowing=list.some(m=>['queued','running'].includes(m.inbox_state));
     const x=a.x+95,y=a.y+170,tx=b.x+95,ty=b.y+170;
@@ -125,7 +121,7 @@ function studioNetwork(snapshot){
       const p=positions.get(a.id),run=snapshot.runs.find(r=>r.instance_id===a.id&&r.state==='running'),visualState=a.state==='busy'&&!run?'queued':a.state,phase=run?studioRunPhase(run):studioStates[visualState]||labels[visualState]||visualState;
       const summary=`${a.preset_name} · ${phase}${a.snapshot?.protocol==='demo'?' · Demo':''}${run?' · '+run.input:''}`;
       return `<foreignObject x="${p.x}" y="${p.y}" width="190" height="235"><div xmlns="http://www.w3.org/1999/xhtml" class="studio-desk-wrap"><button id="studio-agent-${esc(a.id)}" class="studio-desk state-${esc(visualState)} ${selected===a.id?'selected':''}" data-action="studio-select" data-id="${esc(a.id)}" aria-label="${esc(summary)}" title="${esc(summary)}" aria-pressed="${selected===a.id}">${studioPerson(visualState,a.id,phase)}<span class="studio-crew-name">${esc(a.preset_name)}<small>${a.snapshot?.protocol==='demo'?'DEMO · ':''}${esc(a.id.slice(-4))}</small></span></button></div></foreignObject>`;
-    }).join('')}</svg></div>${!agents.length?`<div class="studio-empty-room"><span>等待队员入舱</span><a href="#agents">创建 Agent</a></div>`:''}</section>`;
+    }).join('')}</svg></div>${!agents.length?`<div class="studio-empty-room"><span>等待队员入舱</span><a href="#board">发布任务</a></div>`:''}</section>`;
 }
 
 function studioAgentDetail(snapshot,id){
@@ -151,28 +147,32 @@ function studioTaskLayout(tasks){
   return {positions,width:Math.max(860,(Math.max(0,...depth.values())+1)*285),height:Math.max(520,Math.max(0,...rows.values())*235+45)};
 }
 
+function studioBoardGoal(snapshot){
+  const tasks=snapshot.board?.tasks||[],roots=tasks.filter(t=>!t.parent_id);
+  const root=roots.find(t=>t.id===studio.boardRootId)||roots.find(t=>['pending','running','waiting'].includes(t.state))||roots[0];
+  if(!root)return null;
+  return {...root,tasks:tasks.filter(t=>t.root_id===root.id||t.id===root.id).map(t=>({...t,key:t.id,display_title:t.title,depends_on:t.parent_id?[t.parent_id]:[]}))};
+}
+
 function studioTasks(snapshot){
-  const g=studio.paused?studio.paused.goal:studio.goal;
-  const selector=`<select id="studio-goal" aria-label="选择协作目标" ${studio.paused?'disabled':''}>${snapshot.goals.length?snapshot.goals.map(g=>`<option value="${esc(g.id)}" ${g.id===studio.goalId?'selected':''}>${esc(g.title)}</option>`).join(''):'<option value="">暂无目标</option>'}</select>`;
+  const g=studioBoardGoal(snapshot),roots=(snapshot.board?.tasks||[]).filter(t=>!t.parent_id);
+  const selector=`<select id="studio-board-root" aria-label="选择任务" ${studio.paused?'disabled':''}>${roots.length?roots.map(root=>`<option value="${esc(root.id)}" ${root.id===g?.id?'selected':''}>${esc(root.title)}</option>`).join(''):'<option value="">暂无任务</option>'}</select>`;
   let body='';
-  const error=studio.paused?studio.paused.goalError:studio.goalError;
-  if(error)body=`<div class="studio-scene-error" role="alert">依赖图读取失败${button('重试','studio-retry')}<span class="sr-only">${esc(error)}</span></div>`;
-  else if(studio.goalId&&g?.id!==studio.goalId)body='<div class="studio-scene-empty" role="status">正在接入任务…</div>';
-  else if(!g)body='<div class="studio-scene-empty"><span>暂无接力任务</span><a href="#research">发起调研</a></div>';
+  if(!g)body='<div class="studio-scene-empty"><span>暂无任务</span><a href="#board">发布任务</a></div>';
   else{
     const tasks=g.tasks||[],layout=studioTaskLayout(tasks),point=k=>layout.positions.get(k);
     const path=(a,b)=>`M${a.x+170} ${a.y+155}C${a.x+260} ${a.y+155} ${b.x-25} ${b.y+155} ${b.x+60} ${b.y+155}`;
-    body=`<div class="studio-task-scroll" tabindex="0" role="region" aria-label="任务接力图，可横向滚动"><svg width="${layout.width}" height="${layout.height}" role="group" aria-label="任务按实际依赖从左向右排列"><defs><marker id="studio-task-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="m1 1 8 4-8 4" fill="none" stroke="#72e4df" stroke-width="1.5"/></marker></defs>${tasks.map(t=>(t.depends_on||[]).filter(k=>point(k)).map(k=>`<path class="studio-edge task-dependency" d="${path(point(k),point(t.key))}" marker-end="url(#studio-task-arrow)"><title>${esc(k)} → ${esc(t.key)}：执行依赖</title></path>`).join('')).join('')}${tasks.filter(t=>t.delegation_scope?.parent_task&&point(t.delegation_scope.parent_task)).map(t=>`<path class="studio-edge task-delegation" d="${path(point(t.delegation_scope.parent_task),point(t.key))}"><title>委派：${esc(t.delegation_scope.parent_task)} → ${esc(t.key)}</title></path>`).join('')}${tasks.map(t=>{
+    body=`<div class="studio-task-scroll" tabindex="0" role="region" aria-label="任务拆分图，可横向滚动"><svg width="${layout.width}" height="${layout.height}" role="group" aria-label="任务按拆分来源从左向右排列"><defs><marker id="studio-task-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="m1 1 8 4-8 4" fill="none" stroke="#72e4df" stroke-width="1.5"/></marker></defs>${tasks.map(t=>(t.depends_on||[]).filter(k=>point(k)).map(k=>`<path class="studio-edge task-dependency" d="${path(point(k),point(t.key))}" marker-end="url(#studio-task-arrow)"><title>${esc(k)} → ${esc(t.key)}：拆分来源</title></path>`).join('')).join('')}${tasks.map(t=>{
       const p=point(t.key),a=snapshot.instances.find(a=>a.id===t.instance_id),state=studioStates[t.state]||labels[t.state]||t.state;
       return `<foreignObject x="${p.x}" y="${p.y}" width="240" height="220"><div xmlns="http://www.w3.org/1999/xhtml" class="studio-task-wrap"><button class="studio-task state-${esc(t.state)} ${studio.selectedTask===t.key?'selected':''}" data-action="studio-task-select" data-id="${esc(t.key)}" aria-label="${esc(t.display_title||t.key)} · ${esc(state)} · ${esc(a?.preset_name||'未分配')}" title="${esc(t.display_title||t.key)} · ${esc(state)}" aria-pressed="${studio.selectedTask===t.key}">${studioPerson(t.state,t.instance_id||t.key)}<span class="studio-crew-name">${esc(t.display_title||t.key)}<small>${esc(state)}</small></span></button></div></foreignObject>`;
     }).join('')}</svg></div>`;
   }
-  return `<section class="studio-stage studio-task-stage" aria-label="任务接力"><svg class="studio-stage-background" viewBox="0 0 1280 870" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${studioBackdrop()}</svg><div class="studio-scene-controls">${selector}${g?`<a class="studio-small-button" href="#goal/${esc(g.id)}" title="查看目标与验收">${(g.tasks||[]).filter(t=>t.state==='completed').length} / ${(g.tasks||[]).length} 完成</a>`:''}</div>${body}</section>`;
+  return `<section class="studio-stage studio-task-stage" aria-label="任务拆分"><svg class="studio-stage-background" viewBox="0 0 1280 870" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${studioBackdrop()}</svg><div class="studio-scene-controls">${selector}${g?`<a class="studio-small-button" href="#board/${esc(g.id)}" title="查看任务与验收标准">${(g.tasks||[]).filter(t=>t.state==='completed').length} / ${(g.tasks||[]).length} 完成</a>`:''}</div>${body}</section>`;
 }
 
 function studioTaskDetail(goal,t,snapshot){
-  const a=snapshot.instances.find(a=>a.id===t.instance_id),waiting=t.state==='pending'?(t.delegations?.some(d=>d.state==='expanded')?'等待子任务后续作':t.depends_on.some(k=>goal.tasks.find(x=>x.key===k)?.state!=='completed')?'等待上游任务':t.claim?.mode==='manual'?'等待人工认领':'等待实例 / Worker'):studioStates[t.state]||labels[t.state]||t.state;
-  return `${studioPerson(t.state,t.instance_id||t.key)}<h2>${esc(t.display_title||t.key)}</h2><div class="studio-detail-meta">${esc(waiting)} · ${esc(a?.preset_name||'未分配')}</div><p class="studio-full-text">${esc(t.instructions)}</p><div class="studio-inspect-actions">${t.run_id?button('运行详情','run-detail',false,`data-id="${esc(t.run_id)}"`):''}<a class="button" href="#goal/${esc(goal.id)}">协作目标</a></div>`;
+  const a=snapshot.instances.find(a=>a.id===t.instance_id),waiting=t.state==='pending'?(t.preset_name?'等待认领':'等待选型'):t.state==='waiting'?'等待子任务':studioStates[t.state]||labels[t.state]||t.state;
+  return `${studioPerson(t.state,t.instance_id||t.key)}<h2>${esc(t.display_title||t.key)}</h2><div class="studio-detail-meta">${esc(waiting)} · ${esc(a?.preset_name||t.preset_name||'待选型')}</div><p class="studio-full-text">${esc(t.instructions)}</p><div class="studio-inspect-actions">${t.run_id?button('运行详情','run-detail',false,`data-id="${esc(t.run_id)}"`):''}<a class="button" href="#board/${esc(t.id)}">任务详情</a></div>`;
 }
 
 function studioModule(kind){
@@ -189,8 +189,8 @@ function studioModule(kind){
 }
 
 function studioArchitecture(){
-  const modules=[['target','目标','research',130,270],['scheduler','调度','goals',530,190],['agents','Agent','agents',930,270],['messages','消息','messages',130,565],['storage','存储','artifacts',530,580],['tools','模型 / 工具','plugins',930,565]];
-  return `<section class="studio-stage studio-architecture" aria-label="系统结构示意"><span class="studio-structure-label">系统剖面</span><svg class="studio-map" viewBox="0 0 1280 870" role="group" aria-label="目标、调度、Agent、消息、存储与模型工具的结构关系">${studioBackdrop()}<g class="module-rails"><path d="M240 445 640 365 1040 445M240 445v295l400 15 400-15V445M640 365v390M240 740l800-295"/></g>${modules.map(([kind,title,href,x,y])=>`<foreignObject x="${x}" y="${y}" width="220" height="235"><div xmlns="http://www.w3.org/1999/xhtml" class="studio-machine-wrap"><a class="studio-machine" href="#${href}" title="查看${esc(title)}">${studioModule(kind)}<span>${title}</span></a></div></foreignObject>`).join('')}</svg></section>`;
+  const modules=[['target','任务板','board',130,270],['scheduler','控制面 · 选型 / 生命周期','presets',530,190],['agents','对等 Agent','agents',930,270],['messages','消息','messages',130,565],['storage','存储','artifacts',530,580],['tools','Harness · 模型 / 工具','plugins',930,565]];
+  return `<section class="studio-stage studio-architecture" aria-label="系统结构示意"><span class="studio-structure-label">系统剖面</span><svg class="studio-map" viewBox="0 0 1280 870" role="group" aria-label="任务板、控制面选型、对等 Agent 与标准 Harness 的结构关系">${studioBackdrop()}<g class="module-rails"><path d="M240 445 640 365 1040 445M240 445v295l400 15 400-15V445M640 365v390M240 740l800-295"/></g>${modules.map(([kind,title,href,x,y])=>`<foreignObject x="${x}" y="${y}" width="220" height="235"><div xmlns="http://www.w3.org/1999/xhtml" class="studio-machine-wrap"><a class="studio-machine" href="#${href}" title="查看${esc(title)}">${studioModule(kind)}<span>${title}</span></a></div></foreignObject>`).join('')}</svg></section>`;
 }
 
 async function studioAction(action,element){
@@ -218,6 +218,10 @@ async function studioAction(action,element){
   return true;
 }
 document.addEventListener('change',async event=>{
+  if(event.target.id==='studio-board-root'){
+    if(studio.paused)return;
+    studio.boardRootId=event.target.value;studio.selectedTask=null;render();return;
+  }
   if(event.target.id!=='studio-goal')return;
   if(studio.paused)return;
   studio.goalId=event.target.value;studio.goal=null;studio.goalError='';studio.selectedTask=null;render();

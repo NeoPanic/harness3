@@ -4,15 +4,15 @@
 
 # Harness³
 
-**A local Managed Agents platform, built on a composable Rust runtime.**
+**A shared task board for peer Agents, built on a composable Rust runtime.**
 
-Define an Agent with a Preset, launch independent instances, and give a team a shared objective. Harness³ manages their lifecycle, task dependencies, collaboration channels, workspace artifacts, verification, and human acceptance in one inspectable control plane.
+Publish a task without choosing an Agent. The control plane selects a Preset and starts an independent instance; that Agent claims work, executes it, and can return smaller tasks to the board. The same cycle provisions the next participants. Every Agent uses the same Harness model/tool loop, specialized by its Preset, with no permanent leader.
 
 [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) · [Architecture](docs/managed-agents.zh-CN.md) · [Current status](docs/status.zh-CN.md) · [Contributing](CONTRIBUTING.md)
 
 ## See your Agents at work
 
-![Harness³ live workstation with animal-eared Agent crew, neon terminals, and a central scheduler](docs/images/agent-workstation.png)
+![Harness³ demo workstation with animal-eared Agent crew and neon work terminals](docs/images/agent-workstation.png)
 
 Crew animations follow real execution state: typing, waiting, or sleeping. Select a crew member to inspect its task; switch views to see task dependencies and system structure. Open **Agent 工作现场** in the local console.
 
@@ -28,11 +28,11 @@ cargo run --locked -p harness3-platform -- up --demo
 
 Open [localhost:7333](http://127.0.0.1:7333) and sign in with the contents of `.harness3/token`. Local state is stored in `.harness3/`.
 
-1. Open **自主调研** (Autonomous Research) and create a task using `demo-team@1.0.0`.
-2. Inspect the plan, participating Agents, task dependencies, and individual Runs.
-3. Follow channel posts and file/JSON evidence through synthesis, verification, and acceptance.
+1. Open **任务板** (Task Board) and publish the work and its acceptance criteria.
+2. Follow Preset selection, instance startup, and the Agent's claim and execution.
+3. Inspect any subtasks returned to the board and their results in **Agent 工作现场**.
 
-The Demo exercises the real control plane with deterministic responses; its outputs are explicitly labeled as demonstrations. It does not perform external research or autonomously append tasks. With a configured Responses model, `research-team@1.1.0` also supports Agent-requested follow-up work.
+The Demo exercises the real control plane with deterministic responses; its outputs are explicitly labeled as demonstrations and do not constitute external research. The [task-board guide](docs/task-board.zh-CN.md) describes routing, claiming, splitting, and current limits. The existing **自主调研** screen remains available as an explicit planning/research/synthesis workflow template.
 
 For real models, configure one of **OpenAI-compatible Chat Completions**, **OpenAI Responses**, or **Anthropic Messages**. See the [getting-started guide](docs/getting-started.zh-CN.md) for configuration, CLI/API/MCP usage, and trusted local process plugins.
 
@@ -48,14 +48,15 @@ The local desktop console, shown with Demo data.
 | --- | --- |
 | Agent definitions | Versioned Presets, pinned inheritance, parameters, model and plugin bindings. |
 | Lifecycle | Independent instances; Agent pools for provisioning, scaling, retirement, and TTL. |
-| Team execution | Planning, task dependencies, candidate-based claiming, bounded delegation and follow-up tasks. |
+| Shared task board | Publish unassigned tasks; select Presets, provision instances, claim work atomically, and return subtasks. |
+| Explicit workflows | Existing Goal graphs, candidate-based claiming, bounded delegation, and research templates. |
 | Collaboration | Direct messages, Goal channels, explicit membership, subscribed wake-ups, shared context. |
 | Deliverables | Private workspaces, immutable text/file/JSON snapshots, peer evidence handoffs. |
 | Review | Independent verification, evidence-linked repair, review rounds, human acceptance. |
 | Extension | Prompt packages and local process Tool plugins with pinned versions and health checks. |
 | Access | Desktop Web, HTTP API, CLI, and outward MCP stdio share persistent local state. |
 
-Agent pools manage resources from one Preset; teams coordinate work around a Goal. Creating a pool alone does not start a collaborative task.
+Agent pools manage resources from one Preset. Task-board work starts from a published task and provisions its own participants. Goal workflows provide separate channel, artifact, and review contracts; their capabilities are not automatically implied by a task-board result.
 
 <details>
 <summary>Explore the running Demo: team collaboration and workspace artifacts</summary>
@@ -76,16 +77,17 @@ This is a **pre-1.0 local platform for trusted environments**. Local defaults in
 
 ```mermaid
 flowchart LR
-    Entry[Web / API / CLI / MCP] --> Control[Local control plane]
+    Entry[Publish task] --> Board[Shared task board]
+    Board --> Control[Control plane: select Preset]
     Preset[Versioned Presets] --> Control
-    Control --> Team[Goals / tasks / Agent instances]
-    Team --> Runtime[Harness runtime]
-    Runtime <--> Models[Three model protocols]
-    Runtime <--> Plugins[Tools and plugins]
-    Control <--> State[SQLite / sessions / artifacts]
+    Control -->|start and manage| A[Agent A: independent Harness]
+    Control -->|start and manage| B[Agent B: independent Harness]
+    A -->|claim / results / subtasks| Board
+    B -->|claim / results / subtasks| Board
+    Board <--> State[SQLite: tasks / claims / Runs]
 ```
 
-The control plane owns coordination and lifecycle. The independent runtime owns model/tool execution, policies, session checkpoints, cancellation, and execution receipts. Checkpoints do not guarantee exactly-once external effects: tools must supply their own idempotency or transaction contract. See [runtime contracts](docs/runtime.md) and the [target architecture](docs/managed-agents.zh-CN.md).
+The control plane manages capacity, Preset selection, and lifecycle. Agents share the claim and split protocol; planning and integration are work that ordinary instances can perform. Task ancestry records dependencies and provenance, without giving an Agent authority over its peers. The independent Harness owns model/tool execution, policies, session checkpoints, cancellation, and execution receipts. Checkpoints do not guarantee exactly-once external effects: tools must supply their own idempotency or transaction contract. See [runtime contracts](docs/runtime.md) and the [target architecture](docs/managed-agents.zh-CN.md).
 
 ## Use the runtime independently
 

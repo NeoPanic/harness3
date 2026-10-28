@@ -4,15 +4,15 @@
 
 # Harness³
 
-**为 Agent 集群打造的本地 Managed Agents 平台，基于可组合的 Rust 运行内核。**
+**让对等 Agent 围绕共享任务板协作，基于可组合的 Rust 运行内核。**
 
-用 Preset 定义 Agent 母体，启动独立实例，围绕共同目标组建团队。Harness³ 在统一控制面管理实例生命周期、任务依赖、协作频道、文件产物、独立验证与人工验收，让每次执行都有可检查的过程和证据。
+发布任务时无需选择 Agent。控制面根据任务选择 Preset、启动独立实例，Agent 认领后执行，也可以把细分任务投回任务板，触发下一轮按需启动。每个 Agent 使用同一套 Harness 模型 / 工具循环，由 Preset 注入专业能力，没有固定 leader。
 
 [English](README.md) · [文档导航](docs/README.md) · [架构设计](docs/managed-agents.zh-CN.md) · [当前状态](docs/status.zh-CN.md) · [参与贡献](CONTRIBUTING.md)
 
 ## 看见 Agent 在工作
 
-![Harness³ 实时工作站：猫耳、兔耳小队员围绕调度核心，操作霓虹终端](docs/images/agent-workstation.png)
+![Harness³ 工作站演示场景：猫耳、兔耳小队员操作霓虹工作终端](docs/images/agent-workstation.png)
 
 打字、待命、休眠，队员动作由真实执行状态驱动。点击角色检查任务，切换视图查看任务接力和系统架构。在本地控制台进入 **Agent 工作现场** 即可查看。
 
@@ -28,11 +28,11 @@ cargo run --locked -p harness3-platform -- up --demo
 
 打开 [localhost:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 的内容登录。本地状态保存在 `.harness3/`。
 
-1. 进入 **自主调研**，选择 `demo-team@1.0.0` 创建任务。
-2. 检查规划、参与 Agent、任务依赖与各自的 Run。
-3. 沿着频道讨论与文件 / JSON 证据，查看汇总、验证和验收过程。
+1. 进入 **任务板**，发布工作要求与验收标准。
+2. 查看 Preset 选型、实例启动、Agent 认领与执行状态。
+3. 在 **Agent 工作现场** 检查回投的子任务、参与实例与结果。
 
-Demo 使用确定性响应运行真实控制面，输出明确标记为演示；它不执行外部调研，也不自主追加任务。配置真实 Responses 模型后，可选择 `research-team@1.1.0`，让 Agent 按需要请求追加工作。
+Demo 使用确定性响应运行真实控制面，输出明确标记为演示，不代表外部调研结果。[任务板指南](docs/task-board.zh-CN.md)说明选型、认领、拆分和当前边界。已有的 **自主调研** 页面保留为显式选择的规划 / 研究 / 汇总流程模板。
 
 真实模型支持 **OpenAI-compatible Chat Completions、OpenAI Responses、Anthropic Messages** 三种协议。模型配置、CLI / API / MCP 用法与可信本地进程插件设置见[入门指南](docs/getting-started.zh-CN.md)。
 
@@ -48,14 +48,15 @@ Demo 使用确定性响应运行真实控制面，输出明确标记为演示；
 | --- | --- |
 | Agent 定义 | 版本化母体、固定版本继承、参数、模型与插件绑定。 |
 | 生命周期 | 独立实例；Agent 池统一创建、扩缩容、排空回收与 TTL。 |
-| 团队执行 | 规划、任务依赖、候选实例领取、有限递归委派与后续任务追加。 |
+| 共享任务板 | 发布未绑定实例的任务；控制面选型、启动，Agent 原子认领并回投子任务。 |
+| 显式流程 | 兼容 Goal 依赖图、候选实例领取、有限委派与固定调研模板。 |
 | 协作空间 | 点对点消息、目标频道、显式成员、订阅唤醒与共享上下文。 |
 | 工作成果 | 私有文件工作区、不可变文本 / 文件 / JSON 快照、跨 Agent 证据交接。 |
 | 质量闭环 | 独立验证、证据驱动的局部修复、评审轮次与人工验收。 |
 | 能力扩展 | 提示词包、本地进程工具插件、固定版本绑定与健康检查。 |
 | 使用入口 | 桌面 Web、HTTP API、CLI、对外 MCP stdio 共用本地持久状态。 |
 
-Agent 池管理同一母体的实例资源，团队围绕 Goal 协作。创建池不会自动启动协作任务。
+Agent 池管理同一母体的实例资源；任务板从发布任务开始，按需创建参与实例。Goal 流程另有频道、产物与验收契约，任务板结果不自动继承这些能力。
 
 <details>
 <summary>展开查看当前 Demo：团队协作与文件产物</summary>
@@ -76,16 +77,17 @@ Agent 池管理同一母体的实例资源，团队围绕 Goal 协作。创建�
 
 ```mermaid
 flowchart LR
-    Entry[Web / API / CLI / MCP] --> Control[本地控制面]
+    Entry[发布任务] --> Board[共享任务板]
+    Board --> Control[控制面：选择 Preset]
     Preset[版本化母体] --> Control
-    Control --> Team[目标 / 任务 / Agent 实例]
-    Team --> Runtime[Harness 运行内核]
-    Runtime <--> Models[三种模型协议]
-    Runtime <--> Plugins[工具与插件]
-    Control <--> State[SQLite / 会话 / 产物]
+    Control -->|启动与生命周期管理| A[Agent A：独立 Harness]
+    Control -->|启动与生命周期管理| B[Agent B：独立 Harness]
+    A -->|认领 / 结果 / 子任务| Board
+    B -->|认领 / 结果 / 子任务| Board
+    Board <--> State[SQLite：任务 / 认领 / Run]
 ```
 
-控制面负责协作与生命周期；独立内核负责模型 / 工具执行、策略、会话检查点、取消和执行回执。检查点不能独自保证外部副作用恰好执行一次，工具需提供自己的幂等或事务契约。详见[运行契约](docs/runtime.md)与[目标架构](docs/managed-agents.zh-CN.md)。
+控制面负责容量、Preset 选型与生命周期。Agent 共用认领和拆分协议，规划与整合由普通实例承担；任务父子关系记录依赖和来源，不赋予 Agent 管理同伴的权限。独立 Harness 负责模型 / 工具循环、策略、会话检查点、取消和执行回执。检查点不能独自保证外部副作用恰好执行一次，工具需提供自己的幂等或事务契约。详见[运行契约](docs/runtime.md)与[目标架构](docs/managed-agents.zh-CN.md)。
 
 ## 单独使用 Rust 内核
 

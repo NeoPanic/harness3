@@ -1,4 +1,6 @@
-# 自主任务板、领取与追加
+# Goal 内的任务领取与追加
+
+本文说明兼容 Goal 流程的 `platform.tasks` 协议。发布时无需绑定实例、由控制面动态选择 Preset 的新入口见[共享任务板](task-board.zh-CN.md)，对应工具为 `platform.board`。
 
 母体绑定 `platform.tasks@1.0.0` 后，当前 Goal 的 Agent 可以查看任务板、请求自己下一项工作，以及使用本地已发布母体追加必要任务。宿主从当前 Run 绑定 Goal、任务与实例身份；工具不接受调用者伪造这些身份。
 

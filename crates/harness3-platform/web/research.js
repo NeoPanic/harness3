@@ -5,8 +5,8 @@ function researchId(){return location.hash.startsWith('#research/')?location.has
 function researchPage(){
  const id=researchId();if(id)return selectedResearch?.id===id?selectedResearch.loadError?`<a class="back-link" href="#research">← 全部调研任务</a><div class="callout">${esc(selectedResearch.loadError)}</div>`:researchDetail(selectedResearch):'<div class="loading">正在读取团队与任务进度…</div>';
  const jobs=data.research_jobs||[];
- return head('','自主调研','提交一个目标，由规划 Agent 拆分任务，多个独立实例并行研究，再由汇总 Agent 整合贡献。',button('发起调研任务','research-form',true))+
- `<p class="callout">每项调研派生 1 个规划 Agent、2–6 个研究 Agent 和 1 个汇总 Agent。研究能力来自所选母体的插件；平台不会自动增加联网检索能力。</p>`+
+ return head('','固定调研模板','按预设的规划、研究、汇总阶段执行。',button('使用调研模板','research-form'))+
+ `<p class="callout">此模板预先固定角色和人数。按需选型与对等认领请使用 <a href="#board">共享任务板</a>。</p>`+
  panel('调研任务',jobs.length?table(['目标','研究实例','阶段','创建时间','操作'],jobs.map(j=>`<tr><td><div class="primary-text wrap">${esc(j.title)}</div><div class="secondary-text mono">${esc(short(j.id))}</div></td><td>${j.researchers} + 规划 / 汇总</td><td>${badge(j.state,researchLabels[j.state]||j.state)}</td><td>${time(j.created_at)}</td><td><a class="text-button" href="#research/${esc(j.id)}">查看团队 ↗</a></td></tr>`)):empty('发起第一项协作调研','无需手工创建实例或逐项填写任务图，平台管理分工、运行和回收。'));
 }
 function researchDetail(j){

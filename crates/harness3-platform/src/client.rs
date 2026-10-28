@@ -18,6 +18,17 @@ pub struct PlatformClient {
 #[serde(tag = "tool", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
     Snapshot,
+    BoardList,
+    BoardShow {
+        id: String,
+    },
+    BoardPublish {
+        input: crate::board::PublishInput,
+        key: String,
+    },
+    BoardCancel {
+        id: String,
+    },
     VerificationRetry {
         id: String,
         input: crate::verification::Retry,
@@ -192,6 +203,8 @@ impl Command {
                 | Self::ArtifactsList { .. }
                 | Self::ArtifactsShow { .. }
                 | Self::ResearchList
+                | Self::BoardList
+                | Self::BoardShow { .. }
                 | Self::ResearchShow { .. }
                 | Self::MessagesList { .. }
                 | Self::MessagesShow { .. }
@@ -274,6 +287,25 @@ impl PlatformClient {
     pub async fn execute(&self, command: Command) -> ClientResult<Value> {
         use Command::*;
         let (method, path, body, key) = match command {
+            BoardList => (Method::GET, "/board".into(), None, None),
+            BoardShow { id } => (
+                Method::GET,
+                format!("/board/tasks/{}", segment(&id)?),
+                None,
+                None,
+            ),
+            BoardPublish { input, key } => (
+                Method::POST,
+                "/board/tasks".into(),
+                Some(serde_json::to_value(input)?),
+                Some(key),
+            ),
+            BoardCancel { id } => (
+                Method::POST,
+                format!("/board/tasks/{}/cancel", segment(&id)?),
+                None,
+                None,
+            ),
             VerificationRetry { id, input, key } => (
                 Method::POST,
                 object("goals", &id, "/verification/retry")?,

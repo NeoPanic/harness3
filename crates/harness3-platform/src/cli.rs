@@ -29,6 +29,25 @@ macro_rules! resource {
         enum $action { $($variants)* }
     };
 }
+resource!(BoardArgs, BoardAction {
+    List,
+    Show { id:String },
+    /// Publish work without choosing an Agent or Preset. Routing and execution may call models.
+    Publish { #[arg(long)] file:PathBuf, #[arg(long)] key:String },
+    Cancel { id:String },
+});
+pub async fn board(args: BoardArgs) -> ClientResult<()> {
+    let command = match args.action {
+        BoardAction::List => Command::BoardList,
+        BoardAction::Show { id } => Command::BoardShow { id },
+        BoardAction::Publish { file, key } => Command::BoardPublish {
+            input: read_json(file)?,
+            key,
+        },
+        BoardAction::Cancel { id } => Command::BoardCancel { id },
+    };
+    print(args.connection.client()?.execute(command).await?)
+}
 resource!(ResearchArgs, ResearchAction {
     List,
     Show {id:String},

@@ -223,6 +223,30 @@
     "scope": "extension"
   },
   {
+    "id": "shared-task-board",
+    "name": "对等 Agent 共享任务板",
+    "phase": "P2",
+    "status": "partial",
+    "detail": "任务发布无需绑定 Preset 或实例；控制面模型选型并创建实例，Agent 使用统一工具原子认领、拆分和读取同根结果。来源成功后激活子任务，全部完成后原任务重新选型与认领；支持取消、已知结果结算与回收。独立选型模型支持三类通用协议及百炼 decision-model-preview 的结构化选择、置信度校验和事件记录，失败退避。尚未接入 Goal 频道、文件产物与独立验证，没有分布式租约或费用硬预算。",
+    "source": [
+      "crates/harness3-platform/src/board/mod.rs",
+      "crates/harness3-platform/src/board/tools.rs",
+      "crates/harness3-platform/src/board/schema.sql",
+      "crates/harness3-platform/src/routing.rs",
+      "crates/harness3-platform/src/decision.rs",
+      "crates/harness3-platform/web/board.js",
+      "crates/harness3-platform/tests/board.rs",
+      "crates/harness3-platform/tests/routing.rs",
+      "crates/harness3-platform/tests/decision.rs"
+    ],
+    "target": [
+      "crates/harness3-platform/src/collaboration/",
+      "crates/harness3-platform/src/scheduling/"
+    ],
+    "verification": "native-tests-and-browser",
+    "scope": "current"
+  },
+  {
     "id": "goal-graph",
     "name": "显式目标与任务依赖",
     "phase": "P2",
@@ -239,10 +263,10 @@
   },
   {
     "id": "planning",
-    "name": "自主规划与动态委派",
+    "name": "固定调研模板与动态委派",
     "phase": "P2",
     "status": "partial",
-    "detail": "自动规划、并行研究/汇总、递归委派、原实例续作与独立验证；Agent 可查看任务板，来源成功后追加任务或领取下一项，验证器按失败证据选择局部返工。没有已运行节点重写、任意子树迁移或通用自主修复。",
+    "detail": "兼容调研模板固定规划、研究和汇总分工，支持递归委派、原实例续作与独立验证；Goal 内 Agent 可读取任务、来源成功后追加或请求接续，验证器按证据选择局部返工。该模板与对等任务板独立。没有已运行节点重写、任意子树迁移或通用自主修复。",
     "source": [
       "crates/harness3-platform/src/research/mod.rs",
       "crates/harness3-platform/src/research/tools.rs",

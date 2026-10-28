@@ -98,6 +98,23 @@ async fn guard(State(app): State<App>, request: Request, next: Next) -> Response
 pub fn router(app: App) -> Router {
     Router::new()
         .route(
+            "/board.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/board.js"),
+                )
+            }),
+        )
+        .route("/api/board", get(board_list))
+        .route("/api/board/tasks", post(board_create))
+        .route("/api/board/tasks/{id}", get(board_show))
+        .route("/api/board/tasks/{id}/cancel", post(board_cancel))
+        .route("/api/v1/board", get(board_list))
+        .route("/api/v1/board/tasks", post(board_create))
+        .route("/api/v1/board/tasks/{id}", get(board_show))
+        .route("/api/v1/board/tasks/{id}/cancel", post(board_cancel))
+        .route(
             "/studio.css",
             get(|| async {
                 (
@@ -384,9 +401,37 @@ async fn logout() -> Response {
         .into_response()
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
-    Ok(Json(
-        json!({"channels":app.store.channels(None)?["channels"],"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":crate::organization::packages(),"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":crate::limits::INSTANCES,"workers":crate::limits::WORKERS,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":crate::limits::TASKS_PER_GOAL},"version":env!("CARGO_PKG_VERSION")}),
+    let mut value = json!({"channels":app.store.channels(None)?["channels"],"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":crate::organization::packages(),"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":crate::limits::INSTANCES,"workers":crate::limits::WORKERS,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":crate::limits::TASKS_PER_GOAL},"version":env!("CARGO_PKG_VERSION")});
+    value["board"] = board_value(&app)?;
+    Ok(Json(value))
+}
+fn board_value(app: &App) -> PResult<Value> {
+    let mut board = app.store.board_snapshot()?;
+    board["router"] = match crate::routing::Router::from_env(&app.models) {
+        Ok(router) => router.describe(),
+        Err(error) => json!({"mode":"unavailable","error":error.1}),
+    };
+    board["routing"] = json!(app.store.board_routing_status()?);
+    Ok(board)
+}
+async fn board_list(State(app): State<App>) -> PResult<Json<Value>> {
+    Ok(Json(board_value(&app)?))
+}
+async fn board_create(
+    State(app): State<App>,
+    headers: HeaderMap,
+    Json(input): Json<crate::board::PublishInput>,
+) -> PResult<(StatusCode, Json<Value>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(app.store.publish_board_task(&input, key(&headers)?)?),
     ))
+}
+async fn board_show(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.board_task(&id)?))
+}
+async fn board_cancel(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.cancel_board_task(&id)?))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Value>) -> PResult<Json<Value>> {
     Ok(Json(app.store.publish_checked(preset, |protocol| {
