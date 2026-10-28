@@ -13,6 +13,8 @@ pub use tools::tool;
 #[serde(deny_unknown_fields)]
 pub struct ResearchInput {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<crate::verification::Policy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delegation: Option<crate::delegation::Policy>,
     pub title: String,
     pub objective: String,
@@ -51,6 +53,17 @@ fn detail(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
         )
         .optional()?;
     result["delegation"] = delegation
+        .map(|s| serde_json::from_str::<Value>(&s))
+        .transpose()?
+        .unwrap_or(Value::Null);
+    let verification: Option<String> = tx
+        .query_row(
+            "SELECT body FROM research_verification_policies WHERE research_id=?",
+            [id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    result["verification_policy"] = verification
         .map(|s| serde_json::from_str::<Value>(&s))
         .transpose()?
         .unwrap_or(Value::Null);
@@ -95,8 +108,14 @@ fn retire(tx: &Transaction<'_>, job: &Value) -> PResult<()> {
 }
 fn cancel(tx: &Transaction<'_>, job: &Value) -> PResult<()> {
     let id = job["id"].as_str().unwrap();
-    if !["provisioning", "planning", "running", "cancelling"]
-        .contains(&job["state"].as_str().unwrap_or_default())
+    if ![
+        "provisioning",
+        "planning",
+        "running",
+        "verifying",
+        "cancelling",
+    ]
+    .contains(&job["state"].as_str().unwrap_or_default())
     {
         return Err(fault(409, "research_not_cancellable"));
     }
@@ -131,7 +150,7 @@ impl Store {
         self.transaction(|tx| {
    let command=format!("research:{key}");let fingerprint=serde_json::to_string(input)?;
    if let Some((old,response))=tx.query_row("SELECT fingerprint,response FROM commands WHERE key=?",[&command],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()? {return if old==fingerprint {Ok(serde_json::from_str(&response)?)}else{Err(fault(409,"idempotency_conflict"))};}
-   let active:i64=tx.query_row("SELECT count(*) FROM research_jobs WHERE state IN ('provisioning','planning','running','cancelling')",[],|r|r.get(0))?;
+   let active:i64=tx.query_row("SELECT count(*) FROM research_jobs WHERE state IN ('provisioning','planning','running','verifying','cancelling')",[],|r|r.get(0))?;
    if active>=8 {return Err(fault(409,"research_quota_exceeded"));}
    let fleet=crate::fleets::create_in(tx,&FleetPlan{preset_name:input.preset_name.clone(),preset_version:input.preset_version.clone(),count:input.researchers+2,mode:"finite".into(),ttl_seconds:Some(1800),parameters:input.parameters.clone()},&format!("research-{}",id("allocation")))?;
    let job=id("research");
@@ -142,6 +161,7 @@ impl Store {
        if !crate::presets::bindings(&serde_json::from_str(&snapshot)?).iter().any(|p|p==&crate::delegation::package()){return Err(fault(400,"delegation_capability_required"));}
        tx.execute("INSERT INTO research_delegation_policies(research_id,policy) VALUES(?,?)",params![job,serde_json::to_string(policy)?])?;
    }
+   if let Some(p)=&input.verification {p.validate(tx)?;tx.execute("INSERT INTO research_verification_policies(research_id,body) VALUES(?,?)",params![job,serde_json::to_string(p)?])?;}
    let response=json!({"id":job,"state":"provisioning","fleet_id":fleet["fleet_id"],"researchers":input.researchers,"instance_count":input.researchers+2});
    tx.execute("INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",params![command,fingerprint,response.to_string()])?;
    event(tx,"research.created",&job,json!({"fleet_id":fleet["fleet_id"],"researchers":input.researchers}))?;Ok(response)
@@ -206,11 +226,11 @@ impl Store {
     }
     pub fn reconcile_research(&self) -> PResult<()> {
         self.transaction(|tx| {
-  let mut stmt=tx.prepare("SELECT id FROM research_jobs WHERE state IN ('provisioning','planning','running','cancelling') OR (state='awaiting-review' AND EXISTS(SELECT 1 FROM goals g WHERE g.id=research_jobs.goal_id AND g.state!=research_jobs.state)) ORDER BY created_at LIMIT 32")?;
+  let mut stmt=tx.prepare("SELECT id FROM research_jobs WHERE state IN ('provisioning','planning','running','verifying','cancelling') OR (state='awaiting-review' AND EXISTS(SELECT 1 FROM goals g WHERE g.id=research_jobs.goal_id AND g.state!=research_jobs.state)) ORDER BY created_at LIMIT 32")?;
   let ids=stmt.query_map([],|r|r.get::<_,String>(0))?.collect::<Result<Vec<_>,_>>()?;drop(stmt);
   for id in ids {let job=detail(tx,&id)?;
    let state=job["state"].as_str().unwrap();
-   if ["provisioning","planning","running"].contains(&state)&&now()>=job["expires_at"].as_i64().unwrap(){cancel(tx,&job)?;transition(tx,&id,"cancelling",Some("research_deadline_exceeded"))?;continue;}
+   if ["provisioning","planning","running","verifying"].contains(&state)&&now()>=job["expires_at"].as_i64().unwrap(){cancel(tx,&job)?;transition(tx,&id,"cancelling",Some("research_deadline_exceeded"))?;continue;}
    match state {
     "provisioning"=> {
      let mut stmt=tx.prepare("SELECT s.instance_id,i.state FROM fleet_slots s LEFT JOIN instances i ON i.id=s.instance_id WHERE s.fleet_id=? ORDER BY s.slot")?;
@@ -231,16 +251,17 @@ impl Store {
      let delegation:Option<crate::delegation::Policy>=serde_json::from_value(job["delegation"].clone())?;
      let mut tasks:Vec<TaskPlan>=plan.tasks.iter().enumerate().map(|(i,t)|TaskPlan{key:format!("research-{}",i+1),instance_id:members[i+1]["instance_id"].as_str().unwrap().into(),instructions:format!("Research assignment: {}\n{}\nWork independently on this dimension. Use only tools actually available to you. Separate sourced evidence, inference and unknowns. If retrieval tools are absent, explicitly say that this is analysis of supplied material or model knowledge, not live research.",t.title,t.instructions),depends_on:vec![], delegation:delegation.clone(), ..Default::default() }).collect();
      tasks.push(TaskPlan{key:"synthesis".into(),instance_id:members.last().unwrap()["instance_id"].as_str().unwrap().into(),instructions:format!("{}\nSynthesize all upstream contributions, cite their Run IDs, reconcile disagreements, preserve evidence gaps, and check the user's acceptance criteria. Do not invent references or claim access to tools you did not use.",plan.synthesis),depends_on:tasks.iter().map(|t|t.key.clone()).collect(), ..Default::default() });
-     let result=crate::coordination::create_in(tx,&GoalPlan{title:job["title"].as_str().unwrap().into(),objective:job["objective"].as_str().unwrap().into(),acceptance:job["acceptance"].as_str().unwrap().into(),tasks},&format!("research:{id}"));
+     let result=crate::coordination::create_in(tx,&GoalPlan{verification:serde_json::from_value(job["verification_policy"].clone())?,title:job["title"].as_str().unwrap().into(),objective:job["objective"].as_str().unwrap().into(),acceptance:job["acceptance"].as_str().unwrap().into(),tasks},&format!("research:{id}"));
      match result {Ok(goal)=>{tx.execute("UPDATE research_jobs SET goal_id=? WHERE id=?",params![goal["id"].as_str().unwrap(),id])?;transition(tx,&id,"running",None)?;},Err(error) if error.0<500=>{transition(tx,&id,"failed",Some(&error.1))?;retire(tx,&job)?;},Err(error)=>return Err(error)}
     },
-    "running"|"awaiting-review"=> {
+    "running"|"verifying"|"awaiting-review"=> {
      let goal=job["goal_id"].as_str().unwrap();let next:String=tx.query_row("SELECT state FROM goals WHERE id=?",[goal],|r|r.get(0))?;
-     if next!=state {transition(tx,&id,&next,None)?;if ["awaiting-review","accepted","failed","cancelled"].contains(&next.as_str()){retire(tx,&job)?;}}
+     if next!=state {transition(tx,&id,&next,None)?;if ["verifying","awaiting-review","accepted","failed","cancelled"].contains(&next.as_str()){retire(tx,&job)?;}}
     },
     "cancelling"=> {
      let active:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM runs r JOIN instances i ON i.id=r.instance_id WHERE i.fleet_id=? AND r.state IN ('queued','running'))",[job["fleet_id"].as_str().unwrap()],|r|r.get(0))?;
-     if !active {transition(tx,&id,"cancelled",job["error"].as_str())?;retire(tx,&job)?;}
+     let goal_active=if let Some(g)=job["goal_id"].as_str(){tx.query_row("SELECT state IN ('running','verifying','cancelling') FROM goals WHERE id=?",[g],|r|r.get::<_,bool>(0))?}else{false};
+     if !active && !goal_active {transition(tx,&id,"cancelled",job["error"].as_str())?;retire(tx,&job)?;}
     },_=>{}
    }
   }

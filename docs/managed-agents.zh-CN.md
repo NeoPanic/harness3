@@ -20,7 +20,9 @@ Harness³ 的目标是让用户在本地启动一套可管理的 Agent 协作平
 
 本地消息的已实现契约见[持久消息 v1](messaging.zh-CN.md)，完整目标中的频道、认领与远程传递仍未落地。
 
-逐项实现状态、验证边界与当前模块 → 目标目录映射维护在 [实现进度](implementation-status.zh-CN.md)，与 Web 的能力页共享机器可读清单。本文的 P0–P4 和第 12 节目录为完整目标；已有代码不等于整个阶段验收通过。当前已经落地显式任务图、依赖证据传递和人工验收，已有有界自主调研规划，候选认领与 Attempts、受控动态展开与递归委派已有实现；仍需补任意图修改、Agent 自主认领、频道、结构化产物与自主验证返工、远程插件和治理。
+独立验证与授权整图自动返工的实现见[验证指南](verification.zh-CN.md)，当前验证范围限于固定产物和共享上下文；本轮验证状态以能力清单为准。
+
+逐项实现状态、验证边界与当前模块 → 目标目录映射维护在 [实现进度](implementation-status.zh-CN.md)，与 Web 的能力页共享机器可读清单。本文的 P0–P4 和第 12 节目录为完整目标；已有代码不等于整个阶段验收通过。当前已经落地显式任务图、依赖证据传递和人工验收，已有有界自主调研规划，候选认领与 Attempts、受控动态展开与递归委派已有实现；仍需补任意图修改、Agent 自主认领、频道、结构化/文件产物、局部返工、远程插件和治理。
 
 | 目标能力 | 当前依据 | 还缺什么 |
 | --- | --- | --- |
@@ -34,7 +36,7 @@ Harness³ 的目标是让用户在本地启动一套可管理的 Agent 协作平
 | 私有工作区 | 尚无平台 workspace 实现 | 根目录授权、产物寻址、路径逃逸防护、OS/容器沙箱 |
 | Agent 间消息与频道 | 任务依赖证据传递、本地 Inbox/Outbox、确认/消费分离、幂等消息、受限发送工具和人工处置 | 频道、跨机器投递、按主体授权与子树作用域；候选认领与 Attempt 台账已作为独立任务能力落地 |
 | 任务认领与组织上下文 | 持久 Goal/WorkItem、显式依赖、取消传播；Goal 内版本化共享区、来源/证据引用、派发与验收快照 | 已有批准候选池、自动/人工认领、generation 与跨轮 Attempt 历史；分布式租约、Agent 自主认领、执行后安全重试、频道/分组可见性、订阅唤醒与自动冲突裁决待补；认领契约见[指南](task-claims.zh-CN.md)，共享区契约见[指南](shared-context.zh-CN.md) |
-| 贡献整合与验证 | 不可变文本 Artifact、内容摘要、格式检查、人工验收清单、最多 3 轮新团队返工 | 结构化 Contribution、文件产物、自动质量验证与局部/自主返工 |
+| 贡献整合与验证 | 不可变文本 Artifact、内容摘要、格式检查、人工验收清单、独立验证 Agent、固定证据与结论、有界自动返工及最多 3 轮新团队 | 结构化 Contribution、文件产物、外部事实核验与局部返工 |
 | 预算与配额 | 单 Run Limits、TokenUsage、上下文预算、64 实例配额 | 跨 Agent 原子预算预留、费用账本、速率限制与未知用量对账 |
 | 运行身份与审计 | loopback/token、持久平台事件、内核 Policy | Principal/Grant、委派链、凭证范围、审批、撤权与租户隔离 |
 | API / MCP / CLI / Web | 单二进制 daemon、HTTP/Web、共享 client、通用 CLI、对外 MCP stdio tools | MCP resources/Streamable HTTP、细粒度授权、CLI --wait、SSE/分页、发行物与容器 |
@@ -457,6 +459,8 @@ harness3/
 │   │       │   ├── messaging.rs / inbox.rs / outbox.rs
 │   │       │   ├── context.rs / snapshots.rs # 共享发现、修订、派发与验收固定版本
 │   │       │   ├── claims.rs / attempts.rs # 候选池、认领代次、执行尝试与未开始释放
+│   │       │   ├── verification/       # 独立会话、冻结证据、结构化结论与有界返工
+│   │       │   │   ├── mod.rs / tools.rs
 │   │       │   ├── delegation/         # 批准角色、递归额度、计划接纳、展开与原实例续作
 │   │       │   │   ├── policy.rs / plans.rs / lineage.rs
 │   │       │   │   └── expansion.rs / continuation.rs

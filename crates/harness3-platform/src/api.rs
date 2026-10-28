@@ -227,6 +227,15 @@ pub fn router(app: App) -> Router {
         .route("/api/v1/goals", get(goals).post(create_goal))
         .route("/api/v1/goals/{id}", get(goal))
         .route(
+            "/verification.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/verification.js"),
+                )
+            }),
+        )
+        .route(
             "/tasks.js",
             get(|| async {
                 (
@@ -243,6 +252,10 @@ pub fn router(app: App) -> Router {
         )
         .route("/api/v1/goals/{id}/cancel", post(cancel_goal))
         .route("/api/v1/goals/{id}/accept", post(accept_goal))
+        .route(
+            "/api/v1/goals/{id}/verification/retry",
+            post(retry_verification),
+        )
         .route(
             "/api/v1/goals/{id}/context",
             get(goal_context).post(context_publish),
@@ -638,4 +651,16 @@ async fn task_release(
         &input,
         key(&headers)?,
     )?))
+}
+
+async fn retry_verification(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::verification::Retry>,
+) -> PResult<(StatusCode, Json<Value>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(app.store.retry_verification(&id, &input, key(&headers)?)?),
+    ))
 }

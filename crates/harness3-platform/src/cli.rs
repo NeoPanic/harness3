@@ -98,6 +98,7 @@ pub async fn messages(args: MessageArgs) -> ClientResult<()> {
     print(args.connection.client()?.execute(command).await?)
 }
 resource!(GoalArgs, GoalAction {
+    Verify {id:String,#[arg(long)] expected_round:i64,#[arg(long)] expected_verification_id:String,#[arg(long)] key:String},
     List,
     Show { id: String },
     Create { #[arg(long)] file: PathBuf, #[arg(long)] key: String },
@@ -162,6 +163,19 @@ impl InstanceAction {
 pub async fn goals(args: GoalArgs) -> ClientResult<()> {
     use GoalAction::*;
     let command = match args.action {
+        Verify {
+            id,
+            expected_round,
+            expected_verification_id,
+            key,
+        } => Command::VerificationRetry {
+            id,
+            input: harness3_platform::verification::Retry {
+                expected_round,
+                expected_verification_id,
+            },
+            key,
+        },
         List => Command::GoalsList,
         Show { id } => Command::GoalsShow { id },
         Create { file, key } => Command::GoalsCreate {

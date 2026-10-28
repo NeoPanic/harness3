@@ -50,6 +50,7 @@ fn setup() -> (Store, GoalPlan) {
     (
         store,
         GoalPlan {
+            verification: None,
             title: "test goal".into(),
             objective: "collect and combine evidence".into(),
             acceptance: "human checks the evidence".into(),
@@ -283,9 +284,9 @@ fn legacy_schema_migrates_without_losing_instances_or_sessions() {
         connection
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        11
+        12
     );
-    connection.execute_batch("PRAGMA user_version=12;").unwrap();
+    connection.execute_batch("PRAGMA user_version=13;").unwrap();
     drop(connection);
     assert!(Store::open(&path).is_err());
     std::fs::remove_file(path).unwrap();

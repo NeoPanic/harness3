@@ -10,12 +10,12 @@ function goalsPage() {
     panel('最近目标',goals.length?table(['目标 / GOAL','任务进度','状态','创建时间','操作'],goals.map(g=>`<tr><td><div class="primary-text wrap">${esc(g.title)}</div><div class="secondary-text mono">${esc(short(g.id))}</div></td><td>${g.completed_count} / ${g.task_count}</td><td>${badge(g.state)}</td><td>${time(g.created_at)}</td><td><a class="text-button" href="#goal/${esc(g.id)}">查看目标 ↗</a></td></tr>`)):empty('还没有协作目标','为已有实例分配任务，并指定哪些任务需要等待上游结果。'),badge('neutral',`${goals.length} 条`));
 }
 function goalPage(g) {
-  const active=['running','cancelling'].includes(g.state),actions=(g.state==='awaiting-review'&&g.round<3?button('要求修改','goal-rework',false,`data-id="${esc(g.id)}"`):'')+(g.state==='awaiting-review'?button('验收目标','goal-review',true,`data-id="${esc(g.id)}"`):'')+(['running','awaiting-review'].includes(g.state)?button('取消目标','goal-cancel',false,`data-id="${esc(g.id)}"`):'');
+  const active=['running','verifying','cancelling'].includes(g.state),actions=(g.state==='awaiting-review'&&g.round<3?button('要求修改','goal-rework',false,`data-id="${esc(g.id)}"`):'')+(g.state==='awaiting-review'&&verificationReady(g)?button('验收目标','goal-review',true,`data-id="${esc(g.id)}"`):'')+(['running','verifying','awaiting-review'].includes(g.state)?button('取消目标','goal-cancel',false,`data-id="${esc(g.id)}"`):'');
   const complete=g.tasks.filter(t=>t.state==='completed').length;
   return `<a class="back-link" href="#goals">← 全部协作目标</a>`+head('SHARED GOAL',esc(g.title),'任务成功只表示执行已结算，目标是否达成需要按验收标准核对。',actions)+
     `<div class="goal-summary"><div><span>目标状态</span>${badge(g.state)}</div><div><span>任务完成</span><strong>${complete} / ${g.tasks.length}</strong></div><div><span>同步方式</span><strong>${active?'每 1.5 秒同步':'已结算 · 持久保存'}</strong></div></div>`+
     panel('共同目标与验收',`<div class="panel-body"><dl class="definition"><dt>共同目标</dt><dd>${esc(g.objective)}</dd><dt>验收标准</dt><dd>${esc(g.acceptance)}</dd>${g.review?`<dt>验收记录</dt><dd>${esc(g.review)}</dd>`:''}</dl><details class="raw-data" id="goal-identity"><summary>目标身份与计划</summary>${identity('Goal ID',g.id)}${dataView({title:g.title,objective:g.objective,acceptance:g.acceptance,tasks:g.tasks.map(({key,instance_id,instructions,depends_on,claim})=>({key,instance_id,instructions,depends_on,claim}))})}</details></div>`)+
-    delegationOverview(g)+goalContextPanel(g)+`<div class="goal-task-heading"><h2>任务与贡献</h2><span class="hint">${active?'状态自动同步；运行详情按需刷新。':'所有结果保留原始运行链接。'}</span></div><div class="work-items">${g.tasks.map(t=>workItem(g,t)).join('')}</div>`+goalHistory(g);
+    verificationPanel(g)+delegationOverview(g)+goalContextPanel(g)+`<div class="goal-task-heading"><h2>任务与贡献</h2><span class="hint">${active?'状态自动同步；运行详情按需刷新。':'所有结果保留原始运行链接。'}</span></div><div class="work-items">${g.tasks.map(t=>workItem(g,t)).join('')}</div>`+goalHistory(g);
 }
 function workItem(g,t) {
   const a=data.instances.find(a=>a.id===t.instance_id),error=t.error||t.run?.report?.error?.code;
@@ -29,7 +29,7 @@ function taskFields(index) {
 }
 function goalForm() {
   if(!data.instances.some(a=>a.state!=='terminated')) {toast('请先从母体创建至少一个实例。');location.hash='agents';return;}
-  openModal('创建协作目标',`<form data-form="goal"><p class="form-intro">指定共同目标、验收标准与任务分工。依赖结果会传递给下游实例；真实模型按各自配置计费。复用实例会保留既有会话，需要隔离历史时请先创建新实例。</p><label>目标名称<input name="title" required maxlength="200" placeholder="例如：资料分析与证据汇总"></label><div class="grid-two"><label>共同目标<textarea name="objective" required maxlength="8000" rows="3" placeholder="这组 Agent 需要共同达成什么？"></textarea></label><label>验收标准<textarea name="acceptance" required maxlength="8000" rows="3" placeholder="你将根据什么证据确认完成？"></textarea></label></div><div id="goal-task-fields">${taskFields(0)}</div><div class="task-form-actions">${button('＋ 添加任务','goal-add-task')}${button('移除最后一项','goal-remove-task',false,'disabled')}<span class="hint">最多 16 项。任务可以复用同一实例。</span></div>${formEnd('启动目标')}</form>`,'持久化任务计划');
+  openModal('创建协作目标',`<form data-form="goal"><p class="form-intro">指定共同目标、验收标准与任务分工。依赖结果会传递给下游实例；真实模型按各自配置计费。复用实例会保留既有会话，需要隔离历史时请先创建新实例。</p><label>目标名称<input name="title" required maxlength="200" placeholder="例如：资料分析与证据汇总"></label><div class="grid-two"><label>共同目标<textarea name="objective" required maxlength="8000" rows="3" placeholder="这组 Agent 需要共同达成什么？"></textarea></label><label>验收标准<textarea name="acceptance" required maxlength="8000" rows="3" placeholder="你将根据什么证据确认完成？"></textarea></label></div><div id="goal-task-fields">${taskFields(0)}</div><div class="task-form-actions">${button('＋ 添加任务','goal-add-task')}${button('移除最后一项','goal-remove-task',false,'disabled')}<span class="hint">最多 16 项。任务可以复用同一实例。</span></div>${verificationFields()}${formEnd('启动目标')}</form>`,'持久化任务计划');
   $('#modal').classList.add('inspector');
 }
 async function goalReview(id) {
@@ -42,7 +42,7 @@ function goalCancel(id) {
 }
 function goalPlanFromForm(form) {
   const fields=new FormData(form);
-  const plan={title:fields.get('title'),objective:fields.get('objective'),acceptance:fields.get('acceptance'),tasks:[...form.querySelectorAll('[data-task-index]')].map((el,index)=>({key:`task-${index+1}`,instance_id:fields.get(`task_agent_${index}`),instructions:fields.get(`task_text_${index}`),depends_on:fields.getAll(`task_deps_${index}`),candidates:fields.getAll(`task_candidates_${index}`).filter(id=>id!==fields.get(`task_agent_${index}`)),manual_claim:fields.has(`task_manual_${index}`),delegation:delegationFromFields(el.querySelector('[data-delegation-config]'))}))};
+  const plan={verification:verificationFromForm(form),title:fields.get('title'),objective:fields.get('objective'),acceptance:fields.get('acceptance'),tasks:[...form.querySelectorAll('[data-task-index]')].map((el,index)=>({key:`task-${index+1}`,instance_id:fields.get(`task_agent_${index}`),instructions:fields.get(`task_text_${index}`),depends_on:fields.getAll(`task_deps_${index}`),candidates:fields.getAll(`task_candidates_${index}`).filter(id=>id!==fields.get(`task_agent_${index}`)),manual_claim:fields.has(`task_manual_${index}`),delegation:delegationFromFields(el.querySelector('[data-delegation-config]'))}))};
   for(const task of plan.tasks)if(task.delegation)for(const id of [task.instance_id,...task.candidates])validateDelegationBinding(data.instances.find(a=>a.id===id)?.snapshot||{});
   if(plan.tasks.some(t=>t.candidates.length>15))throw new Error('每项任务最多选择 15 个备用候选实例。');
   for(const [field,limit] of [['title',200],['objective',8000],['acceptance',8000],...plan.tasks.map((t,i)=>[`task_text_${i}`,8000])]) {

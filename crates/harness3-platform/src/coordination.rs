@@ -73,12 +73,12 @@ fn task_state(
         json!({"key":key,"state":state,"error":error}),
     )
 }
-fn goal_state(tx: &Transaction<'_>, goal: &str, state: &str) -> PResult<()> {
+pub(crate) fn goal_state(tx: &Transaction<'_>, goal: &str, state: &str) -> PResult<()> {
     tx.execute(
         "UPDATE goals SET state=?,finished_at=? WHERE id=?",
         params![
             state,
-            if state == "cancelling" {
+            if ["cancelling", "verifying", "running"].contains(&state) {
                 None
             } else {
                 Some(now())
@@ -88,6 +88,7 @@ fn goal_state(tx: &Transaction<'_>, goal: &str, state: &str) -> PResult<()> {
     )?;
     if [
         "awaiting-review",
+        "verifying",
         "accepted",
         "failed",
         "cancelled",
@@ -100,7 +101,16 @@ fn goal_state(tx: &Transaction<'_>, goal: &str, state: &str) -> PResult<()> {
     }
     tx.execute(
         "UPDATE goal_rounds SET state=?,finished_at=? WHERE goal_id=? AND number=?",
-        params![state, now(), goal, crate::artifacts::round(tx, goal)?],
+        params![
+            state,
+            if ["verifying", "running", "cancelling"].contains(&state) {
+                None
+            } else {
+                Some(now())
+            },
+            goal,
+            crate::artifacts::round(tx, goal)?
+        ],
     )?;
     event(tx, "goal.transitioned", goal, json!({"state":state}))
 }
@@ -114,6 +124,7 @@ impl Store {
             let mut goal = goal_json(tx, id)?;
             crate::artifacts::decorate(tx, &mut goal)?;
             crate::collaboration::decorate(tx, &mut goal)?;
+            crate::verification::decorate(tx, &mut goal)?;
             Ok(goal)
         })
     }
@@ -145,6 +156,7 @@ impl Store {
             if goal["state"] != "awaiting-review" {
                 return Err(fault(409, "goal_not_reviewable"));
             }
+            crate::verification::acceptance_gate(tx,id)?;
             crate::collaboration::pin_review(tx,id,expected_round,expected_context_revision)?;
             let mut manifest=Vec::new();
             for task in goal["tasks"].as_array().unwrap(){
@@ -164,11 +176,11 @@ impl Store {
     }
     pub fn reconcile_goals(&self) -> PResult<()> {
         self.transaction(|tx| {
-            let mut stmt = tx.prepare("SELECT id,state FROM goals WHERE state IN ('running','cancelling') ORDER BY created_at,rowid")?;
+            let mut stmt = tx.prepare("SELECT id,state FROM goals WHERE state IN ('running','verifying','cancelling') ORDER BY created_at,rowid")?;
             let goals = stmt.query_map([], |r| Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
             drop(stmt);
             for (id, state) in goals {
-                reconcile(tx, &id, state == "cancelling", None)?;
+                if state=="verifying" {crate::verification::advance(tx,&id)?;} else {reconcile(tx, &id, state == "cancelling", None)?;}
             }
             Ok(())
         })
@@ -332,10 +344,12 @@ fn reconcile(
         )?;
         tasks[position]["state"] = json!("queued");
     }
-    if tasks.iter().all(|t| {
-        !["pending", "queued", "running", "delegating"]
-            .contains(&t["state"].as_str().unwrap_or_default())
-    }) {
+    if !crate::verification::has_active_run(tx, id)?
+        && tasks.iter().all(|t| {
+            !["pending", "queued", "running", "delegating"]
+                .contains(&t["state"].as_str().unwrap_or_default())
+        })
+    {
         let state = if cancelling {
             "cancelled"
         } else if tasks.iter().all(|t| t["state"] == "completed") {
@@ -343,7 +357,9 @@ fn reconcile(
         } else {
             "failed"
         };
-        goal_state(tx, id, state)?;
+        if state != "awaiting-review" || !crate::verification::start(tx, id)? {
+            goal_state(tx, id, state)?;
+        }
     }
     Ok(())
 }
@@ -370,7 +386,7 @@ pub(crate) fn create_in(tx: &Transaction<'_>, plan: &GoalPlan, key: &str) -> PRe
         return Ok(serde_json::from_str(&response)?);
     }
     let active: usize = tx.query_row(
-        "SELECT count(*) FROM goals WHERE state IN ('running','cancelling','awaiting-review')",
+        "SELECT count(*) FROM goals WHERE state IN ('running','verifying','cancelling','awaiting-review')",
         [],
         |r| r.get(0),
     )?;
@@ -396,6 +412,7 @@ pub(crate) fn create_in(tx: &Transaction<'_>, plan: &GoalPlan, key: &str) -> PRe
         "INSERT INTO goal_rounds(goal_id,number,state,created_at) VALUES(?,1,'running',?)",
         params![goal, now()],
     )?;
+    crate::verification::configure(tx, &goal, &plan.verification)?;
     for (position, task) in plan.tasks.iter().enumerate() {
         crate::claims::create_policy(tx, &goal, task)?;
         crate::delegation::authorize(tx, &goal, task)?;
@@ -421,12 +438,12 @@ pub(crate) fn cancel_in(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
     if goal["state"] == "cancelled" {
         return Ok(json!({"id":id,"state":"cancelled","run_ids":[]}));
     }
-    if !["running", "cancelling", "awaiting-review"]
+    if !["running", "verifying", "cancelling", "awaiting-review"]
         .contains(&goal["state"].as_str().unwrap_or_default())
     {
         return Err(fault(409, "goal_not_cancellable"));
     }
-    let mut runs = Vec::new();
+    let mut runs = crate::verification::cancel(tx, id)?;
     for task in goal["tasks"].as_array().unwrap() {
         match task["run"]["state"].as_str() {
             Some("queued") => {

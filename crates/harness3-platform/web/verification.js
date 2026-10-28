@@ -1,0 +1,30 @@
+'use strict';
+const verificationLabels={pending:'准备验证实例',running:'正在验证',cancelling:'取消收尾',cancelled:'已取消',passed:'验证通过','changes-requested':'需要修改',inconclusive:'证据不足',failed:'验证失败',stale:'上下文已更新'};
+function verificationFields(){
+ const preferred=data.presets.find(p=>p.name==='research-verifier')||data.presets.find(p=>p.name==='demo-verifier')||data.presets[0];
+ if(!preferred)return '';
+ return `<details class="raw-data"><summary>独立验证与自动返工</summary><div class="complex-parameter" data-verification-config><label class="capability-choice"><input type="checkbox" data-complex-include data-verification-enable><span>交付后创建独立验证 Agent<small>读取本轮固定产物和共享上下文，按检查项提交结论；验证通过后仍由你最终验收。</small></span></label><fieldset data-complex-fields hidden disabled><label>验证母体<select data-verification-preset>${data.presets.map(p=>`<option value="${esc(JSON.stringify({name:p.name,version:p.version}))}" ${p===preferred?'selected':''}>${esc(p.name)} @ ${esc(p.version)} · ${esc(p.definition.protocol)}</option>`).join('')}</select></label><div data-verification-parameters>${verificationParameters(preferred)}</div><label>检查项 · 每行一项<textarea data-verification-checks required rows="4" placeholder="关键结论是否有产物证据支持？&#10;是否明确说明未核实的信息？"></textarea></label><p class="hint">1–8 项，每项最多 1,000 个 UTF-8 字节。验证实例只有读取证据和提交报告两种工具，不继承母体插件，无法自行检索外部事实。Demo 仅演示流程。</p><label>允许自动返工<select data-verification-reworks><option value="0">不自动返工，等待我处理</option><option value="1">最多 1 次</option><option value="2">最多 2 次</option></select></label><p class="hint">选择自动返工即授权在检查不通过时创建新团队、重跑整个任务图；可能重复工具操作和模型费用。证据不足或运行失败不会自动返工；每个目标合计最多 3 轮。</p></fieldset></div></details>`;
+}
+function verificationParameters(p){return p.definition.parameters_schema?structuredEditor(p.definition.parameters_schema,p.definition.parameter_defaults||{}):'<p class="hint">该验证母体无需参数。</p>';}
+function verificationFromForm(form){
+ const box=form.querySelector('[data-verification-config]');if(!box?.querySelector('[data-verification-enable]').checked)return undefined;
+ const ref=JSON.parse(box.querySelector('[data-verification-preset]').value),descriptions=box.querySelector('[data-verification-checks]').value.split('\n').map(s=>s.trim()).filter(Boolean);
+ if(!descriptions.length||descriptions.length>8||descriptions.some(s=>new TextEncoder().encode(s).length>1000))throw new Error('独立验证需要 1–8 项检查，每项最多 1,000 个 UTF-8 字节。');
+ const editor=box.querySelector('[data-verification-parameters] [data-structured-schema]');
+ return {preset_name:ref.name,preset_version:ref.version,parameters:editor?readStructured(editor):{},checks:descriptions.map((description,i)=>({key:`check-${i+1}`,description})),max_auto_reworks:Number(box.querySelector('[data-verification-reworks]').value)};
+}
+function verificationReady(g){return !g.verification?.policy||(g.verification.current?.state==='passed'&&!g.verification.stale);}
+function verificationRecord(v){
+ const effective=['passed','changes-requested','inconclusive'].includes(v.state);
+ return `<div class="panel-body"><p class="hint">第 ${v.round} 轮 · 第 ${v.attempt} 次验证 · 固定上下文 v${v.context_revision} · ${time(v.created_at)}</p><p>${badge('neutral',verificationLabels[v.state]||v.state)} ${v.run_id?button('检查验证 Run','run-detail',false,`data-id="${esc(v.run_id)}"`):''}</p>${v.instance_id?`<p class="hint">独立实例 <span class="mono">${esc(v.instance_id)}</span> · ${esc(v.policy.preset_name)} @ ${esc(v.policy.preset_version)}</p>`:''}${v.error?`<p class="callout">${esc(v.error)}</p>`:''}${v.auto_rework_round?`<p class="callout">已按授权启动第 ${v.auto_rework_round} 轮，使用新的团队与会话。</p>`:''}${v.verdict&&!effective?'<p class="callout">以下为已提交的报告，尚未成为有效验证结论。请以上方运行状态为准。</p>':''}${v.verdict?`<p class="record-text">${esc(v.verdict.summary)}</p>`:''}</div>`+table(['检查项','结论 / 理由','引用证据'],v.policy.checks.map(c=>{const f=v.verdict?.checks.find(f=>f.key===c.key);return `<tr><td class="wrap">${esc(c.description)}</td><td class="wrap"><strong>${f?({passed:'通过',failed:'不通过',unknown:'无法判断'}[f.status]):'等待报告'}</strong>${f?`<p class="record-text">${esc(f.reason)}</p>`:''}</td><td>${f?.artifact_ids.length?f.artifact_ids.map(id=>`<button class="text-button" data-action="artifact-detail" data-id="${esc(id)}">${esc(v.manifest.find(a=>a.id===id)?.task_key||short(id))} ↗</button>`).join('<br>'):'—'}</td></tr>`;}));
+}
+function verificationPanel(g){
+ const v=g.verification;if(!v?.policy)return '';
+ const current=v.current,canRetry=g.state==='awaiting-review'&&current?.attempt<3;
+ return panel('独立验证',`<div class="panel-body"><p class="hint">新会话核对固定证据；模型判断不等于外部事实认证。允许自动返工 ${v.policy.max_auto_reworks} 次，最终验收由你完成。</p>${v.stale?'<p class="callout">共享上下文已更新，需重新验证后才能验收。</p>':''}${!verificationReady(g)&&g.state==='awaiting-review'?'<p class="hint">当前无法验收。可重新验证、要求团队修改，或取消目标。</p>':''}</div>`+(current?verificationRecord(current):empty('等待团队交付','所有任务成功后才会创建独立验证实例。'))+(v.history.length>1?`<details class="raw-data" id="verification-history-${esc(g.id)}"><summary>此前验证 · ${v.history.length-1} 次</summary>${v.history.filter(h=>h.id!==current?.id).map(verificationRecord).join('')}</details>`:''),canRetry?button('重新验证','verification-retry',false,`data-id="${esc(g.id)}"`):'');
+}
+async function verificationRetry(id){
+ const g=await api(`/api/v1/goals/${encodeURIComponent(id)}`),v=g.verification.current;
+ openModal('重新验证本轮产物',`<form data-form="verification-retry" data-id="${esc(id)}" data-round="${g.round}" data-verification="${esc(v.id)}"><p class="form-intro">创建新的验证实例，读取本轮产物与最新共享上下文。第 ${g.round} 轮已验证 ${v.attempt} 次，每轮最多 3 次；可能产生模型费用。</p>${formEnd('开始重新验证')}</form>`);
+}
+document.addEventListener('change',event=>{if(!event.target.matches('[data-verification-preset]'))return;const ref=JSON.parse(event.target.value),p=data.presets.find(p=>p.name===ref.name&&p.version===ref.version);event.target.closest('[data-verification-config]').querySelector('[data-verification-parameters]').innerHTML=verificationParameters(p);});

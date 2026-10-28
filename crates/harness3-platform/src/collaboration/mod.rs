@@ -194,7 +194,7 @@ impl Store {
             }};
             let command=format!("context:{}:{}:{key}",goal,run.unwrap_or("operator"));let fingerprint=serde_json::to_string(input)?;
             if let Some((old,response))=tx.query_row("SELECT fingerprint,response FROM commands WHERE key=?",[&command],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?{return if old==fingerprint{Ok(serde_json::from_str(&response)?)}else{Err(fault(409,"idempotency_conflict"))};}
-            if !["running","awaiting-review"].contains(&check_goal(tx,&goal)?.as_str()){return Err(fault(409,"context_goal_read_only"));}
+            if !["running","verifying","awaiting-review"].contains(&check_goal(tx,&goal)?.as_str()){return Err(fault(409,"context_goal_read_only"));}
             let current=current(tx,&goal)?;let entries=current["entries"].as_array().unwrap();let old=entries.iter().find(|e|e["key"]==input.key);let expected=old.map(|e|e["revision"].as_i64().unwrap()).unwrap_or(0);
             if expected!=input.expected_revision{return Err(fault(409,"context_revision_conflict"));}
             if (old.is_none()&&entries.len()>=32)||current["revision"].as_i64().unwrap()>=128{return Err(fault(409,"context_capacity_exceeded"));}

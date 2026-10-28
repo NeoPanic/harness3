@@ -738,6 +738,7 @@ async fn artifact_versions_and_rework_share_http_cli_mcp_and_stale_review_guards
         .store
         .create_goal(
             &GoalPlan {
+                verification: None,
                 title: "review evidence".into(),
                 objective: "analyze".into(),
                 acceptance: "human review".into(),
@@ -881,6 +882,7 @@ async fn shared_context_uses_one_version_contract_across_http_cli_and_mcp() {
         .store
         .create_goal(
             &GoalPlan {
+                verification: None,
                 title: "shared findings".into(),
                 objective: "compare".into(),
                 acceptance: "review sources".into(),
@@ -1070,7 +1072,7 @@ async fn task_claims_and_attempts_share_cli_http_mcp_receipts_and_ownership_conf
     assert_eq!(created, shared);
     let mut readonly = McpServer::new(f.client(), false);
     initialize(&mut readonly).await;
-    assert_eq!(harness3_platform::mcp::tools(true).len(), 43);
+    assert_eq!(harness3_platform::mcp::tools(true).len(), 44);
     assert_eq!(harness3_platform::mcp::tools(false).len(), 22);
     let t = call(
         &mut readonly,
@@ -1279,4 +1281,85 @@ async fn delegation_policy_and_runtime_expansion_are_visible_across_cli_http_and
         "worker"
     );
     assert_eq!(body["state"], "pending");
+}
+
+#[tokio::test]
+async fn verifier_retry_cli_and_mcp_share_http_receipt_and_readonly_boundary() {
+    use harness3_platform::domain::{GoalPlan, Spawn};
+    let f = Fixture::new().await;
+    let agent = f
+        .store
+        .spawn(
+            &Spawn {
+                preset_name: "worker".into(),
+                preset_version: "1".into(),
+                count: 1,
+            },
+            "verify-agent",
+        )
+        .unwrap();
+    let plan:GoalPlan=serde_json::from_value(json!({"title":"verify","objective":"check evidence","acceptance":"supported","tasks":[{"key":"work","instance_id":agent["instance_ids"][0],"instructions":"produce evidence"}],"verification":{"preset_name":"worker","preset_version":"1","checks":[{"key":"check","description":"supported"}],"max_auto_reworks":0}})).unwrap();
+    let g = f.store.create_goal(&plan, "verify-goal").unwrap();
+    let id = g["id"].as_str().unwrap();
+    f.store.reconcile_goals().unwrap();
+    let r = f.store.claim().unwrap().unwrap();
+    f.store
+        .finish(
+            r["id"].as_str().unwrap(),
+            r["instance_id"].as_str().unwrap(),
+            "completed",
+            json!({"output":"evidence"}),
+        )
+        .unwrap();
+    for _ in 0..3 {
+        f.store.reconcile_fleets().unwrap();
+        f.store.reconcile_goals().unwrap();
+    }
+    let r = f.store.claim().unwrap().unwrap();
+    f.store
+        .finish(
+            r["id"].as_str().unwrap(),
+            r["instance_id"].as_str().unwrap(),
+            "failed",
+            json!({"error":{"code":"test_failure"}}),
+        )
+        .unwrap();
+    f.store.reconcile_goals().unwrap();
+    let goal = f.store.goal(id).unwrap();
+    let old = goal["verification"]["current"]["id"].as_str().unwrap();
+    let output = f
+        .cli(&[
+            "goals",
+            "verify",
+            id,
+            "--expected-round",
+            "1",
+            "--expected-verification-id",
+            old,
+            "--key",
+            "shared-retry",
+        ])
+        .await;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let receipt: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let args = json!({"id":id,"input":{"expected_round":1,"expected_verification_id":old},"key":"shared-retry"});
+    let mut mcp = McpServer::new(f.client(), true);
+    initialize(&mut mcp).await;
+    let result = call(&mut mcp, "verification_retry", args.clone()).await;
+    assert_eq!(result["result"]["structuredContent"], receipt);
+    let mut readonly = McpServer::new(f.client(), false);
+    initialize(&mut readonly).await;
+    let denied = call(&mut readonly, "verification_retry", args).await;
+    assert!(denied["error"].is_object() || denied["result"]["isError"] == true);
+    assert_eq!(
+        f.store.goal(id).unwrap()["verification"]["history"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
 }

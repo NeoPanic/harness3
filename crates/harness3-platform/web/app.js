@@ -3,7 +3,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (value = '') => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const short = s => String(s ?? '').slice(0, 15);
 const time = value => value ? new Date(value).toLocaleTimeString('zh-CN', {hour12:false}) : '—';
-const labels = {ready:'就绪',draining:'排空中',busy:'执行中',suspended:'已暂停',terminated:'已终止',queued:'排队中',running:'运行中',completed:'已完成',failed:'失败',interrupted:'中断 · 结果未知',cancelled:'已取消',implemented:'已实现',partial:'部分实现',planned:'规划中'};
+const labels = {verifying:'独立验证',ready:'就绪',draining:'排空中',busy:'执行中',suspended:'已暂停',terminated:'已终止',queued:'排队中',running:'运行中',completed:'已完成',failed:'失败',interrupted:'中断 · 结果未知',cancelled:'已取消',implemented:'已实现',partial:'部分实现',planned:'规划中'};
 const badge = (s, text) => `<span class="badge ${esc(s)}">${esc(text || labels[s] || s)}</span>`;
 Object.assign(labels,{delegating:'委派准备中',active:'已协调',provisioning:'协调中',superseded:'已被替代',pending:'等待派发',blocked:'依赖阻断','awaiting-review':'待验收',accepted:'已验收',cancelling:'正在取消'});
 let data = null, events = [], cursor = 0, authenticated = false, modalContext = null, refreshTask = null;
@@ -292,6 +292,7 @@ async function handleAction(action, element) {
   }
   if(action==='goto-agents') {location.hash='agents';return;}
   if(action==='clear-filters') {filters[page()]={query:'',state:'all'};render();$('#directory-search')?.focus();return;}
+  if(action==='verification-retry')return verificationRetry(id);
   if(await researchAction(action,element))return;
   if(await messageAction(action,element))return;
   if(await taskClaimAction(action,element))return;
@@ -361,7 +362,7 @@ document.addEventListener('submit',async event=>{
   try {
     let result;
     if(form.dataset.form==='research') {
-      const ref=JSON.parse(values.preset);result=await api('/api/v1/research-jobs',{title:values.title,objective:values.objective,acceptance:values.acceptance,preset_name:ref.name,preset_version:ref.version,researchers:Number(values.researchers),parameters:instanceParameters(form),delegation:researchDelegation(form,ref)},'POST',form.dataset.commandKey);location.hash=`research/${result.id}`;
+      const ref=JSON.parse(values.preset);result=await api('/api/v1/research-jobs',{title:values.title,objective:values.objective,acceptance:values.acceptance,preset_name:ref.name,preset_version:ref.version,researchers:Number(values.researchers),parameters:instanceParameters(form),verification:verificationFromForm(form),delegation:researchDelegation(form,ref)},'POST',form.dataset.commandKey);location.hash=`research/${result.id}`;
     }
     if(form.dataset.form==='research-cancel')result=await api(`/api/v1/research-jobs/${encodeURIComponent(form.dataset.id)}/cancel`,{});
     if(form.dataset.form==='message-send') {
@@ -376,6 +377,7 @@ document.addEventListener('submit',async event=>{
     if(form.dataset.form==='goal') {result=await api('/api/v1/goals',goalPlanFromForm(form),'POST',form.dataset.commandKey);location.hash=`goal/${result.id}`;}
     if(form.dataset.form==='task-claim')result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/tasks/${encodeURIComponent(form.dataset.task)}/claim`,{expected_round:Number(form.dataset.round),expected_generation:Number(form.dataset.generation),instance_id:values.instance_id},'POST',form.dataset.commandKey);
     if(form.dataset.form==='task-release'){if(new TextEncoder().encode(values.note).length>2000)throw new Error('释放原因最多 2,000 个 UTF-8 字节。');result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/tasks/${encodeURIComponent(form.dataset.task)}/release`,{expected_round:Number(form.dataset.round),expected_generation:Number(form.dataset.generation),note:values.note},'POST',form.dataset.commandKey);}
+    if(form.dataset.form==='verification-retry')result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/verification/retry`,{expected_round:Number(form.dataset.round),expected_verification_id:form.dataset.verification},'POST',form.dataset.commandKey);
     if(form.dataset.form==='goal-review') {result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/accept`,{review:values.review,expected_round:Number(form.dataset.round),expected_context_revision:Number(form.dataset.contextRevision)});}
     if(form.dataset.form==='context-publish'){
       const input={key:values.entry_key,expected_revision:Number(form.dataset.revision),title:values.title,body:values.body,kind:values.kind,status:values.status,artifact_ids:new FormData(form).getAll('artifact_id')};
@@ -395,7 +397,7 @@ document.addEventListener('submit',async event=>{
     if(form.dataset.form==='run') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/runs`,{text:values.text},'POST',form.dataset.commandKey);location.hash='runs';}
     $('#modal').close();await refresh(true);
     if(form.dataset.form==='run'&&data.runs.some(r=>r.id===result.id)){await runDetail(result.id);}
-    toast(form.dataset.form==='task-claim'?'认领已接纳，执行尝试与 Run 已保存。':form.dataset.form==='task-release'?'认领已释放，任务等待人工重新领取。':form.dataset.form==='context-publish'?'共享记录已保存，参与实例可读取新版本。':form.dataset.form==='goal-rework'?'返工已接纳，正在创建独立新团队；旧产物已保留。':form.dataset.form==='research'?'调研已接纳：创建团队后自动规划与派发。':form.dataset.form==='research-cancel'?'取消已保存，正在回收团队。':form.dataset.form==='message-send'?'消息已接纳；投递与消费状态见协作消息页。':form.dataset.form==='message-action'?'处置记录已保存。':form.dataset.form==='process-state'?(result.state==='disabled'?'插件版本已禁用，新的调用将被拒绝。':'健康检查通过，插件版本已启用。'):form.dataset.form==='process-install'?'包校验和健康检查通过，插件版本已安装。':result?.operation_id ? '操作已接纳，协调进度见实例组详情。' : result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='drain'?'排空请求已保存，活动任务结算后终止。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
+    toast(form.dataset.form==='verification-retry'?'重新验证已接纳，正在创建独立实例。':form.dataset.form==='task-claim'?'认领已接纳，执行尝试与 Run 已保存。':form.dataset.form==='task-release'?'认领已释放，任务等待人工重新领取。':form.dataset.form==='context-publish'?'共享记录已保存，参与实例可读取新版本。':form.dataset.form==='goal-rework'?'返工已接纳，正在创建独立新团队；旧产物已保留。':form.dataset.form==='research'?'调研已接纳：创建团队后自动规划与派发。':form.dataset.form==='research-cancel'?'取消已保存，正在回收团队。':form.dataset.form==='message-send'?'消息已接纳；投递与消费状态见协作消息页。':form.dataset.form==='message-action'?'处置记录已保存。':form.dataset.form==='process-state'?(result.state==='disabled'?'插件版本已禁用，新的调用将被拒绝。':'健康检查通过，插件版本已启用。'):form.dataset.form==='process-install'?'包校验和健康检查通过，插件版本已安装。':result?.operation_id ? '操作已接纳，协调进度见实例组详情。' : result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='drain'?'排空请求已保存，活动任务结算后终止。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
   }catch(error){const target=form.querySelector('#form-error');if(target){target.textContent=error.message;target.tabIndex=-1;target.focus();}}
   finally {submit.disabled=false;submit.textContent=label;form.removeAttribute('aria-busy');}
 });

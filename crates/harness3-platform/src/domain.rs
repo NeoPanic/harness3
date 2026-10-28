@@ -126,6 +126,8 @@ pub struct RunInput {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GoalPlan {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<crate::verification::Policy>,
     pub title: String,
     pub objective: String,
     pub acceptance: String,

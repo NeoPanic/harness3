@@ -20,6 +20,7 @@ fn setup(bound: bool) -> (Store, String) {
     let goal = s
         .create_goal(
             &GoalPlan {
+                verification: None,
                 title: "joint findings".into(),
                 objective: "compare evidence".into(),
                 acceptance: "check facts and questions".into(),
@@ -455,6 +456,7 @@ fn persisted_board_and_dispatch_snapshot_survive_reopen_and_crash_recovery() {
     let goal = s
         .create_goal(
             &GoalPlan {
+                verification: None,
                 title: "durable context".into(),
                 objective: "compare".into(),
                 acceptance: "review".into(),
@@ -542,6 +544,7 @@ fn foreign_artifacts_and_legacy_unknown_sources_cannot_pass_review() {
     let other = s
         .create_goal(
             &GoalPlan {
+                verification: None,
                 title: "other goal".into(),
                 objective: "other".into(),
                 acceptance: "other".into(),

@@ -133,3 +133,5 @@ Bug reports should include a minimal reproduction and the violated runtime contr
 ## License
 
 [MIT](LICENSE). The original copyright notice is retained; see the [brand guide](docs/brand/README.md) for attribution and identity usage.
+
+[Independent verification (中文)](docs/verification.zh-CN.md) covers frozen evidence, reviewer reports, bounded automatic repair, and retry entry points.

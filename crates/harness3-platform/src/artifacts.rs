@@ -174,62 +174,158 @@ impl Store {
         })
     }
     pub fn rework_goal(&self, id: &str, input: &ReworkInput, key: &str) -> PResult<Value> {
-        if key.is_empty()
-            || key.len() > 160
-            || input.note.trim().is_empty()
-            || input.note.len() > 8000
-            || !(1..3).contains(&input.expected_round)
-            || input.assignments.len() > 16
+        self.transaction(|tx| rework_in(tx, id, input, key))
+    }
+}
+pub(crate) fn rework_in(
+    tx: &Transaction<'_>,
+    id: &str,
+    input: &ReworkInput,
+    key: &str,
+) -> PResult<Value> {
+    if key.is_empty()
+        || key.len() > 160
+        || input.note.trim().is_empty()
+        || input.note.len() > 8000
+        || !(1..3).contains(&input.expected_round)
+        || input.assignments.len() > 16
+    {
+        return Err(fault(400, "invalid_goal_rework"));
+    }
+
+    let command = format!("goal-rework:{id}:{key}");
+    let fingerprint = serde_json::to_string(input)?;
+    if let Some((old, response)) = tx
+        .query_row(
+            "SELECT fingerprint,response FROM commands WHERE key=?",
+            [&command],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+        )
+        .optional()?
+    {
+        return if old == fingerprint {
+            Ok(serde_json::from_str(&response)?)
+        } else {
+            Err(fault(409, "idempotency_conflict"))
+        };
+    }
+    let goal = crate::coordination::goal_json(tx, id)?;
+    if goal["state"] != "awaiting-review" {
+        return Err(fault(409, "goal_not_reviewable"));
+    }
+    if round(tx, id)? != input.expected_round {
+        return Err(fault(409, "goal_round_conflict"));
+    }
+    let research: Option<String> = tx
+        .query_row("SELECT id FROM research_jobs WHERE goal_id=?", [id], |r| {
+            r.get(0)
+        })
+        .optional()?;
+    if research.is_some() {
+        let active:i64=tx.query_row("SELECT count(*) FROM research_jobs WHERE state IN ('provisioning','planning','running','verifying','cancelling') AND (goal_id IS NULL OR goal_id!=?)",[id],|r|r.get(0))?;
+        if active >= 8 {
+            return Err(fault(409, "research_quota_exceeded"));
+        }
+    }
+    if research.is_some() && !input.assignments.is_empty() {
+        return Err(fault(400, "research_rework_uses_fresh_team"));
+    }
+    let tasks = goal["tasks"].as_array().unwrap();
+    if tasks.iter().any(|t| outcome_unknown(&t["run"]["report"])) {
+        return Err(fault(409, "goal_unknown_outcome"));
+    }
+    let mut assigned = std::collections::HashMap::new();
+    for assignment in &input.assignments {
+        if assigned
+            .insert(&assignment.key, &assignment.instance_id)
+            .is_some()
+            || !tasks.iter().any(|t| t["key"] == assignment.key)
         {
             return Err(fault(400, "invalid_goal_rework"));
         }
-        self.transaction(|tx|{
-            let command=format!("goal-rework:{id}:{key}");let fingerprint=serde_json::to_string(input)?;
-            if let Some((old,response))=tx.query_row("SELECT fingerprint,response FROM commands WHERE key=?",[&command],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?{return if old==fingerprint{Ok(serde_json::from_str(&response)?)}else{Err(fault(409,"idempotency_conflict"))};}
-            let goal=crate::coordination::goal_json(tx,id)?;
-            if goal["state"]!="awaiting-review"{return Err(fault(409,"goal_not_reviewable"));}
-            if round(tx,id)?!=input.expected_round{return Err(fault(409,"goal_round_conflict"));}
-            let research:Option<String>=tx.query_row("SELECT id FROM research_jobs WHERE goal_id=?",[id],|r|r.get(0)).optional()?;
-            if research.is_some(){
-                let active:i64=tx.query_row("SELECT count(*) FROM research_jobs WHERE state IN ('provisioning','planning','running','cancelling')",[],|r|r.get(0))?;
-                if active>=8{return Err(fault(409,"research_quota_exceeded"));}
-            }
-            if research.is_some()&&!input.assignments.is_empty(){return Err(fault(400,"research_rework_uses_fresh_team"));}
-            let tasks=goal["tasks"].as_array().unwrap();
-            if tasks.iter().any(|t|outcome_unknown(&t["run"]["report"])) {return Err(fault(409,"goal_unknown_outcome"));}
-            let mut assigned=std::collections::HashMap::new();
-            for assignment in &input.assignments {
-                if assigned.insert(&assignment.key,&assignment.instance_id).is_some()||!tasks.iter().any(|t|t["key"]==assignment.key){return Err(fault(400,"invalid_goal_rework"));}
-                let state=tx.query_row("SELECT state FROM instances WHERE id=?",[&assignment.instance_id],|r|r.get::<_,String>(0)).optional()?.ok_or_else(||fault(404,"instance_not_found"))?;
-                let expired:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM instance_deadlines WHERE instance_id=? AND expires_at<=?)",params![assignment.instance_id,now()],|r|r.get(0))?;
-                if state!="ready"||expired{return Err(fault(409,"instance_not_ready"));}
-            }
-            if !input.assignments.is_empty()&&assigned.len()!=tasks.len(){return Err(fault(400,"invalid_goal_rework"));}
-            tx.execute("UPDATE goal_rounds SET state='changes-requested',review=?,tasks=?,finished_at=? WHERE goal_id=? AND number=?",params![input.note,serde_json::to_string(tasks)?,now(),id,input.expected_round])?;
-            tx.execute("INSERT INTO goal_rounds(goal_id,number,note,state,created_at) VALUES(?,?,?,'running',?)",params![id,input.expected_round+1,input.note,now()])?;
-            for task in tasks {
-                let task_key=task["key"].as_str().unwrap();
-                if input.assignments.is_empty(){
-                    let (name,version,snapshot):(String,String,String)=tx.query_row("SELECT preset_name,preset_version,snapshot FROM instances WHERE id=?",[task["instance_id"].as_str().unwrap()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
-                    let snapshot:Value=serde_json::from_str(&snapshot)?;
-                    let fleet=crate::fleets::create_in(tx,&crate::fleets::FleetPlan{preset_name:name,preset_version:version,count:1,mode:"finite".into(),ttl_seconds:Some(1800),parameters:snapshot["parameters"].as_object().cloned().unwrap_or_default()},&format!("rework-{}",crate::domain::id("allocation")))?;
-                    tx.execute("INSERT INTO goal_rework_allocations(goal_id,round,task_key,fleet_id) VALUES(?,?,?,?)",params![id,input.expected_round+1,task_key,fleet["fleet_id"].as_str().unwrap()])?;
-                    tx.execute("UPDATE work_items SET state='pending',run_id=NULL,error=NULL WHERE goal_id=? AND key=?",params![id,task_key])?;
-                } else {
-                    tx.execute("UPDATE work_items SET instance_id=?,state='pending',run_id=NULL,error=NULL WHERE goal_id=? AND key=?",params![assigned[&task_key.to_owned()],id,task_key])?;
-                }
-            }
-            if let Some(research)=research{
-                tx.execute("UPDATE research_jobs SET state='running',expires_at=?,error=NULL WHERE id=?",params![now()+900_000,research])?;
-                event(tx,"research.rework_requested",&research,json!({"goal_id":id,"round":input.expected_round+1}))?;
-            }
-            tx.execute("UPDATE goals SET state='running',review=NULL,finished_at=NULL WHERE id=?",[id])?;
-            let response=json!({"id":id,"state":"running","round":input.expected_round+1});
-            tx.execute("INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",params![command,fingerprint,response.to_string()])?;
-            event(tx,"goal.rework_requested",id,json!({"round":input.expected_round+1,"note":input.note,"assignments":input.assignments}))?;
-            Ok(response)
-        })
+        let state = tx
+            .query_row(
+                "SELECT state FROM instances WHERE id=?",
+                [&assignment.instance_id],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| fault(404, "instance_not_found"))?;
+        let expired: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM instance_deadlines WHERE instance_id=? AND expires_at<=?)",
+            params![assignment.instance_id, now()],
+            |r| r.get(0),
+        )?;
+        if state != "ready" || expired {
+            return Err(fault(409, "instance_not_ready"));
+        }
     }
+    if !input.assignments.is_empty() && assigned.len() != tasks.len() {
+        return Err(fault(400, "invalid_goal_rework"));
+    }
+    tx.execute("UPDATE goal_rounds SET state='changes-requested',review=?,tasks=?,finished_at=? WHERE goal_id=? AND number=?",params![input.note,serde_json::to_string(tasks)?,now(),id,input.expected_round])?;
+    tx.execute(
+        "INSERT INTO goal_rounds(goal_id,number,note,state,created_at) VALUES(?,?,?,'running',?)",
+        params![id, input.expected_round + 1, input.note, now()],
+    )?;
+    for task in tasks {
+        let task_key = task["key"].as_str().unwrap();
+        if input.assignments.is_empty() {
+            let (name, version, snapshot): (String, String, String) = tx.query_row(
+                "SELECT preset_name,preset_version,snapshot FROM instances WHERE id=?",
+                [task["instance_id"].as_str().unwrap()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?;
+            let snapshot: Value = serde_json::from_str(&snapshot)?;
+            let fleet = crate::fleets::create_in(
+                tx,
+                &crate::fleets::FleetPlan {
+                    preset_name: name,
+                    preset_version: version,
+                    count: 1,
+                    mode: "finite".into(),
+                    ttl_seconds: Some(1800),
+                    parameters: snapshot["parameters"]
+                        .as_object()
+                        .cloned()
+                        .unwrap_or_default(),
+                },
+                &format!("rework-{}", crate::domain::id("allocation")),
+            )?;
+            tx.execute("INSERT INTO goal_rework_allocations(goal_id,round,task_key,fleet_id) VALUES(?,?,?,?)",params![id,input.expected_round+1,task_key,fleet["fleet_id"].as_str().unwrap()])?;
+            tx.execute("UPDATE work_items SET state='pending',run_id=NULL,error=NULL WHERE goal_id=? AND key=?",params![id,task_key])?;
+        } else {
+            tx.execute("UPDATE work_items SET instance_id=?,state='pending',run_id=NULL,error=NULL WHERE goal_id=? AND key=?",params![assigned[&task_key.to_owned()],id,task_key])?;
+        }
+    }
+    if let Some(research) = research {
+        tx.execute(
+            "UPDATE research_jobs SET state='running',expires_at=?,error=NULL WHERE id=?",
+            params![now() + 900_000, research],
+        )?;
+        event(
+            tx,
+            "research.rework_requested",
+            &research,
+            json!({"goal_id":id,"round":input.expected_round+1}),
+        )?;
+    }
+    tx.execute(
+        "UPDATE goals SET state='running',review=NULL,finished_at=NULL WHERE id=?",
+        [id],
+    )?;
+    let response = json!({"id":id,"state":"running","round":input.expected_round+1});
+    tx.execute(
+        "INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",
+        params![command, fingerprint, response.to_string()],
+    )?;
+    event(
+        tx,
+        "goal.rework_requested",
+        id,
+        json!({"round":input.expected_round+1,"note":input.note,"assignments":input.assignments}),
+    )?;
+    Ok(response)
 }
 
 pub(crate) fn resolve_assignment(

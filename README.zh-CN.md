@@ -109,3 +109,5 @@ RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
 ## 许可证
 
 采用 [MIT](LICENSE)，保留原有版权声明。品牌资产随仓库提供，使用与署名约定见[品牌说明](docs/brand/README.md)。
+
+独立验证与授权自动返工的配置、证据约束及入口见[验证指南](docs/verification.zh-CN.md)。

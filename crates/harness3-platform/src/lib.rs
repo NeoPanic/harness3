@@ -18,3 +18,4 @@ pub mod presets;
 pub mod research;
 pub mod runtime;
 pub mod store;
+pub mod verification;

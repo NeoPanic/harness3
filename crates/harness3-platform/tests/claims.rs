@@ -42,6 +42,7 @@ fn task(key: &str, instance: &str, manual: bool, candidates: Vec<String>) -> Tas
 }
 fn plan(tasks: Vec<TaskPlan>) -> GoalPlan {
     GoalPlan {
+        verification: None,
         title: "candidate work".into(),
         objective: "joint evidence".into(),
         acceptance: "inspect provenance".into(),

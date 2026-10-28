@@ -25,6 +25,7 @@ fn setup() -> (Store, String) {
     let g = s
         .create_goal(
             &GoalPlan {
+                verification: None,
                 title: "joint evidence".into(),
                 objective: "compare".into(),
                 acceptance: "check".into(),
@@ -268,6 +269,7 @@ fn rework_survives_reopen_and_keeps_one_round_one_team_and_original_artifacts() 
     let goal = s
         .create_goal(
             &GoalPlan {
+                verification: None,
                 title: "durable rework".into(),
                 objective: "compare".into(),
                 acceptance: "check".into(),

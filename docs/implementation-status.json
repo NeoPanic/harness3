@@ -225,7 +225,7 @@
     "name": "自主规划与动态委派",
     "phase": "P2",
     "status": "partial",
-    "detail": "已有自主规划、并行研究/汇总、人工三轮返工；新增运行中递归委派、不同角色母体、子任务贡献后原实例新 Run 续作，成功结算后才展开，失败阻断，旧计划与 Attempt 保留。任意图修改、自主质量评审/局部返工与费用预算待补。",
+    "detail": "已有自主规划、并行研究/汇总、人工三轮返工；新增运行中递归委派、不同角色母体、子任务贡献后原实例新 Run 续作，成功结算后才展开，失败阻断，旧计划与 Attempt 保留。独立验证与授权整图自动返工已有实现；任意图修改、局部返工与费用预算待补。",
     "source": [
       "crates/harness3-platform/src/research/mod.rs",
       "crates/harness3-platform/src/research/tools.rs",
@@ -301,12 +301,16 @@
     "name": "产物、验证与返工",
     "phase": "P2",
     "status": "partial",
-    "detail": "任务文本贡献按轮次保存不可变产物、SHA-256、Run/实例来源和非空/大小检查；人工验收固定清单。有界返工（最多 3 轮）默认新团队，保留旧贡献与评审，四入口可查。结构化证据、文件产物、专用验证 Agent、自动/局部返工待补。",
+    "detail": "任务文本贡献按轮次保存不可变产物、SHA-256、Run/实例来源和非空/大小检查；人工验收固定清单。有界返工（最多 3 轮）默认新团队，保留旧贡献与评审，四入口可查。独立验证冻结产物与上下文、逐项证据引用，成功 Run 后结论生效；支持最多两次授权自动返工与每轮三次重验。结构化/文件产物、外部事实核验与局部返工待补。",
     "source": [
       "crates/harness3-platform/src/artifacts.rs",
       "crates/harness3-platform/src/coordination.rs",
       "crates/harness3-platform/web/artifacts.js",
-      "crates/harness3-platform/tests/artifacts.rs"
+      "crates/harness3-platform/tests/artifacts.rs",
+      "crates/harness3-platform/src/verification/mod.rs",
+      "crates/harness3-platform/src/verification/tools.rs",
+      "crates/harness3-platform/web/verification.js",
+      "crates/harness3-platform/tests/verification.rs"
     ],
     "target": [
       "crates/harness3-domain/src/artifacts/",
@@ -339,7 +343,7 @@
     "name": "API / CLI / MCP 入口",
     "phase": "P2",
     "status": "partial",
-    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 43 个工具，默认开放 22 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
+    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 44 个工具，默认开放 22 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
     "source": [
       "crates/harness3-platform/src/api.rs",
       "crates/harness3-platform/src/client.rs",

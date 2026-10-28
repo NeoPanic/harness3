@@ -35,6 +35,7 @@ fn policy(depth: usize, budget: usize) -> Policy {
 fn create(s: &Store, agent: &str, depth: usize, budget: usize) -> String {
     s.create_goal(
         &GoalPlan {
+            verification: None,
             title: "dynamic research".into(),
             objective: "independent contributions then resume".into(),
             acceptance: "verify provenance".into(),
@@ -483,6 +484,7 @@ async fn research_entry_can_authorize_runtime_delegation() {
     let s = Store::memory().unwrap();
     seed(&s);
     let input = ResearchInput {
+        verification: None,
         title: "research with runtime delegation".into(),
         objective: "split after planning".into(),
         acceptance: "each contributor resumes".into(),

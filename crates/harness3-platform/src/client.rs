@@ -18,6 +18,11 @@ pub struct PlatformClient {
 #[serde(tag = "tool", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
     Snapshot,
+    VerificationRetry {
+        id: String,
+        input: crate::verification::Retry,
+        key: String,
+    },
     TasksShow {
         id: String,
         task: String,
@@ -269,6 +274,12 @@ impl PlatformClient {
     pub async fn execute(&self, command: Command) -> ClientResult<Value> {
         use Command::*;
         let (method, path, body, key) = match command {
+            VerificationRetry { id, input, key } => (
+                Method::POST,
+                object("goals", &id, "/verification/retry")?,
+                Some(serde_json::to_value(input)?),
+                Some(key),
+            ),
             TasksShow { id, task } => (
                 Method::GET,
                 object("goals", &id, &format!("/tasks/{}", segment(&task)?))?,

@@ -15,6 +15,7 @@ fn seed(s: &Store) {
 }
 fn input() -> ResearchInput {
     ResearchInput {
+        verification: None,
         delegation: None,
         title: "Bounded study".into(),
         objective: "Compare two approaches".into(),
