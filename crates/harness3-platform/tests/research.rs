@@ -329,3 +329,86 @@ fn unknown_research_tool_effect_never_enters_successful_synthesis() {
     );
     assert!(s.claim().unwrap().is_none());
 }
+
+#[test]
+fn research_rework_replaces_retired_team_and_keeps_the_goal_and_evidence_history() {
+    let s = store();
+    let (receipt, planner) = start(&s);
+    let id = receipt["id"].as_str().unwrap();
+    s.submit_research_plan(planner["id"].as_str().unwrap(), &plan())
+        .unwrap();
+    finish(&s, &planner, "planned");
+    s.reconcile_research().unwrap();
+    let goal = s.research(id).unwrap()["goal_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    for _ in 0..3 {
+        s.reconcile_goals().unwrap();
+        let run = s.claim().unwrap().unwrap();
+        finish(&s, &run, "first evidence");
+    }
+    s.reconcile_goals().unwrap();
+    s.reconcile_research().unwrap();
+    s.reconcile_fleets().unwrap();
+    let before = s.research(id).unwrap();
+    assert!(
+        before["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|m| m["state"] == "terminated")
+    );
+    s.rework_goal(
+        &goal,
+        &harness3_platform::artifacts::ReworkInput {
+            expected_round: 1,
+            note: "Compare conflicts and retain uncertainty".into(),
+            assignments: vec![],
+        },
+        "research-round2",
+    )
+    .unwrap();
+    assert_eq!(s.research(id).unwrap()["state"], "running");
+    s.reconcile_fleets().unwrap();
+    s.reconcile_goals().unwrap();
+    let first = s.claim().unwrap().unwrap();
+    let second = s.claim().unwrap().unwrap();
+    assert!(s.claim().unwrap().is_none());
+    for r in [&first, &second] {
+        assert!(
+            !before["members"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|m| m["instance_id"] == r["instance_id"])
+        );
+        assert!(r["input"].as_str().unwrap().contains("first evidence"));
+        finish(&s, r, "revised evidence");
+    }
+    s.reconcile_goals().unwrap();
+    let synth = s.claim().unwrap().unwrap();
+    let input = synth["input"].as_str().unwrap();
+    assert!(
+        input.contains(first["id"].as_str().unwrap())
+            && input.contains(second["id"].as_str().unwrap())
+    );
+    assert!(input.contains("artifact_"));
+    finish(&s, &synth, "revised synthesis");
+    s.reconcile_goals().unwrap();
+    s.reconcile_research().unwrap();
+    s.reconcile_fleets().unwrap();
+    let job = s.research(id).unwrap();
+    assert_eq!(job["goal_id"], goal);
+    assert_eq!(job["goal"]["round"], 2);
+    assert_eq!(job["goal"]["artifacts"].as_array().unwrap().len(), 6);
+    assert_eq!(job["members"].as_array().unwrap().len(), 7);
+    assert!(
+        job["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|m| m["state"] == "terminated")
+    );
+    assert_eq!(s.capacity().unwrap()["reserved"], 0);
+}

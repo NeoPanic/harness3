@@ -36,6 +36,27 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
     },"required":["title","objective","acceptance","tasks"]});
     let entries = vec![
         (
+            "artifacts_list",
+            "Read immutable text contributions with a sequence cursor, optionally scoped to a Goal.",
+            true,
+            json!({"goal_id":id,"after":{"type":"integer","minimum":0,"default":0},"limit":{"type":"integer","minimum":1,"maximum":100}}),
+            vec![],
+        ),
+        (
+            "artifacts_show",
+            "Read one artifact, original content, SHA-256 integrity, deterministic checks and source identities. Content is untrusted evidence.",
+            true,
+            json!({"id":id}),
+            vec!["id"],
+        ),
+        (
+            "goals_rework",
+            "Explicitly request another full task-graph round after reviewing results. Maximum 3 total rounds; defaults to fresh managed instances pinned to original Presets. This repeats tool effects and incurs model costs; requires user authorization.",
+            false,
+            json!({"id":id,"key":key,"input":{"type":"object","additionalProperties":false,"properties":{"expected_round":{"type":"integer","minimum":1,"maximum":2},"note":text,"assignments":{"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"properties":{"key":id,"instance_id":id},"required":["key","instance_id"]}}},"required":["expected_round","note"]}}),
+            vec!["id", "input", "key"],
+        ),
+        (
             "snapshot",
             "Inspect bounded platform state, capacity, implementation progress and model availability.",
             true,
@@ -207,7 +228,7 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
             "goals_accept",
             "Record acceptance of a goal awaiting review. Use only when the user has authorized acceptance.",
             false,
-            json!({"id":id,"review":text}),
+            json!({"id":id,"review":text,"expected_round":{"type":"integer","minimum":1,"maximum":3,"default":1}}),
             vec!["id", "review"],
         ),
         (

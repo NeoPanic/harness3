@@ -102,7 +102,9 @@ resource!(GoalArgs, GoalAction {
     Show { id: String },
     Create { #[arg(long)] file: PathBuf, #[arg(long)] key: String },
     Cancel { id: String },
-    Accept { id: String, #[arg(long)] review: String },
+    Accept { id: String, #[arg(long)] review: String, #[arg(long,default_value="1")] expected_round:i64 },
+    /// Repeat the full graph with a reviewer note and fresh managed instances by default.
+    Rework {id:String,#[arg(long)] file:PathBuf,#[arg(long)] key:String},
 });
 resource!(FleetArgs, FleetAction {
     List,
@@ -167,7 +169,20 @@ pub async fn goals(args: GoalArgs) -> ClientResult<()> {
             key,
         },
         Cancel { id } => Command::GoalsCancel { id },
-        Accept { id, review } => Command::GoalsAccept { id, review },
+        Accept {
+            id,
+            review,
+            expected_round,
+        } => Command::GoalsAccept {
+            id,
+            review,
+            expected_round,
+        },
+        Rework { id, file, key } => Command::GoalsRework {
+            id,
+            input: read_json(file)?,
+            key,
+        },
     };
     print(args.connection.client()?.execute(command).await?)
 }
@@ -287,4 +302,24 @@ fn read_json<T: DeserializeOwned>(path: PathBuf) -> ClientResult<T> {
 pub fn print(value: Value) -> ClientResult<()> {
     println!("{}", serde_json::to_string_pretty(&value)?);
     Ok(())
+}
+
+resource!(ArtifactArgs, ArtifactAction {
+    List {#[arg(long)] goal_id:Option<String>,#[arg(long,default_value="0")] after:i64,#[arg(long)] limit:Option<usize>},
+    Show {id:String},
+});
+pub async fn artifacts(args: ArtifactArgs) -> ClientResult<()> {
+    let command = match args.action {
+        ArtifactAction::List {
+            goal_id,
+            after,
+            limit,
+        } => Command::ArtifactsList {
+            goal_id,
+            after,
+            limit,
+        },
+        ArtifactAction::Show { id } => Command::ArtifactsShow { id },
+    };
+    print(args.connection.client()?.execute(command).await?)
 }

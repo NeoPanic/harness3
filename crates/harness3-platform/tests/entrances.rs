@@ -715,3 +715,148 @@ async fn autonomous_research_is_one_idempotent_job_across_cli_http_mcp() {
     assert_eq!(f.store.research(id).unwrap()["state"], "cancelled");
     assert_eq!(f.store.capacity().unwrap()["reserved"], 0);
 }
+
+#[tokio::test]
+async fn artifact_versions_and_rework_share_http_cli_mcp_and_stale_review_guards() {
+    use harness3_platform::{
+        artifacts::ReworkInput,
+        domain::{GoalPlan, Spawn, TaskPlan},
+    };
+    let f = Fixture::new().await;
+    let fleet = f
+        .store
+        .spawn(
+            &Spawn {
+                preset_name: "worker".into(),
+                preset_version: "1".into(),
+                count: 1,
+            },
+            "artifact-worker",
+        )
+        .unwrap();
+    let goal = f
+        .store
+        .create_goal(
+            &GoalPlan {
+                title: "review evidence".into(),
+                objective: "analyze".into(),
+                acceptance: "human review".into(),
+                tasks: vec![TaskPlan {
+                    key: "report".into(),
+                    instance_id: fleet["instance_ids"][0].as_str().unwrap().into(),
+                    instructions: "analyze".into(),
+                    depends_on: vec![],
+                }],
+            },
+            "artifact-goal",
+        )
+        .unwrap();
+    let id = goal["id"].as_str().unwrap();
+    f.store.reconcile_goals().unwrap();
+    let run = f.store.claim().unwrap().unwrap();
+    f.store
+        .finish(
+            run["id"].as_str().unwrap(),
+            run["instance_id"].as_str().unwrap(),
+            "completed",
+            json!({"output":"first evidence"}),
+        )
+        .unwrap();
+    f.store.reconcile_goals().unwrap();
+    let list = f
+        .client()
+        .execute(Command::ArtifactsList {
+            goal_id: Some(id.into()),
+            after: 0,
+            limit: None,
+        })
+        .await
+        .unwrap();
+    let aid = list["artifacts"][0]["id"].as_str().unwrap();
+    let mut mcp = McpServer::new(f.client(), true);
+    initialize(&mut mcp).await;
+    let view = call(&mut mcp, "artifacts_show", json!({"id":aid})).await;
+    assert_eq!(
+        view["result"]["structuredContent"]["content"],
+        "first evidence"
+    );
+    let cli = f.cli(&["artifacts", "show", aid]).await;
+    assert!(cli.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&cli.stdout).unwrap()["id"],
+        aid
+    );
+    let input = ReworkInput {
+        expected_round: 1,
+        note: "add evidence".into(),
+        assignments: vec![],
+    };
+    let receipt = call(
+        &mut mcp,
+        "goals_rework",
+        json!({"id":id,"input":input,"key":"revise"}),
+    )
+    .await;
+    assert_eq!(receipt["result"]["structuredContent"]["round"], 2);
+    assert_eq!(
+        f.client()
+            .execute(Command::GoalsRework {
+                id: id.into(),
+                input,
+                key: "revise".into()
+            })
+            .await
+            .unwrap(),
+        receipt["result"]["structuredContent"]
+    );
+    f.store.reconcile_fleets().unwrap();
+    f.store.reconcile_goals().unwrap();
+    let run = f.store.claim().unwrap().unwrap();
+    f.store
+        .finish(
+            run["id"].as_str().unwrap(),
+            run["instance_id"].as_str().unwrap(),
+            "completed",
+            json!({"output":"revised evidence"}),
+        )
+        .unwrap();
+    f.store.reconcile_goals().unwrap();
+    let stale = call(&mut mcp, "goals_accept", json!({"id":id,"review":"stale"})).await;
+    assert_eq!(stale["result"]["isError"], true);
+    assert!(stale.to_string().contains("goal_round_conflict"));
+    let accepted = f
+        .cli(&[
+            "goals",
+            "accept",
+            id,
+            "--review",
+            "checked revised evidence",
+            "--expected-round",
+            "2",
+        ])
+        .await;
+    assert!(accepted.status.success());
+    assert_eq!(
+        f.store.goal(id).unwrap()["rounds"][1]["manifest"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let mut readonly = McpServer::new(f.client(), false);
+    initialize(&mut readonly).await;
+    assert!(
+        call(
+            &mut readonly,
+            "goals_rework",
+            json!({"id":id,"input":{"expected_round":2,"note":"again"},"key":"no-write"})
+        )
+        .await
+        .get("error")
+        .is_some()
+    );
+    assert_eq!(
+        call(&mut readonly, "artifacts_show", json!({"id":aid})).await["result"]["isError"],
+        false
+    );
+}

@@ -20,7 +20,7 @@ Harness³ 的目标是让用户在本地启动一套可管理的 Agent 协作平
 
 本地消息的已实现契约见[持久消息 v1](messaging.zh-CN.md)，完整目标中的频道、认领与远程传递仍未落地。
 
-逐项实现状态、验证边界与当前模块 → 目标目录映射维护在 [实现进度](implementation-status.zh-CN.md)，与 Web 的能力页共享机器可读清单。本文的 P0–P4 和第 12 节目录为完整目标；已有代码不等于整个阶段验收通过。当前已经落地显式任务图、依赖证据传递和人工验收，已有有界自主调研规划，仍需补动态任务图与递归委派、频道/工作认领与 Attempts、产物返工、远程插件和治理。
+逐项实现状态、验证边界与当前模块 → 目标目录映射维护在 [实现进度](implementation-status.zh-CN.md)，与 Web 的能力页共享机器可读清单。本文的 P0–P4 和第 12 节目录为完整目标；已有代码不等于整个阶段验收通过。当前已经落地显式任务图、依赖证据传递和人工验收，已有有界自主调研规划，仍需补动态任务图与递归委派、频道/工作认领与 Attempts、结构化产物与自主验证返工、远程插件和治理。
 
 | 目标能力 | 当前依据 | 还缺什么 |
 | --- | --- | --- |
@@ -32,9 +32,9 @@ Harness³ 的目标是让用户在本地启动一套可管理的 Agent 协作平
 | 恢复与唤醒 | daemon 独占锁、已知回执恢复、未知结果中断、TTL 协调 | 持久 Inbox/唤醒与未知结果阻塞已落地；多进程 Worker 监管、租约和远程对账待补 |
 | Worker 调度 | 本地持久队列、4 槽并发、单实例串行 | 多进程认领、续租、心跳、fencing、跨组公平性和背压 |
 | 私有工作区 | 尚无平台 workspace 实现 | 根目录授权、产物寻址、路径逃逸防护、OS/容器沙箱 |
-| Agent 间消息与频道 | 任务依赖证据传递、本地 Inbox/Outbox、确认/消费分离、幂等消息、受限发送工具和人工处置 | 组织消息、Inbox/Outbox、去重、路由、因果关联与确认 |
-| 任务认领与组织上下文 | 持久 Goal/WorkItem、显式依赖、取消传播 | 自主拆解、动态委派、Attempts、共享黑板和结构化组织上下文 |
-| 贡献整合与验证 | 文本贡献、失败阻断、人工验收结论 | 版本化 Artifact、结构化 Contribution、自动验证、返工与评审轮次 |
+| Agent 间消息与频道 | 任务依赖证据传递、本地 Inbox/Outbox、确认/消费分离、幂等消息、受限发送工具和人工处置 | 频道、工作认领/Attempts、跨机器投递、按主体授权与子树作用域 |
+| 任务认领与组织上下文 | 持久 Goal/WorkItem、显式依赖、取消传播 | 通用动态委派、独立 Attempts/认领、共享黑板和结构化组织上下文；当前自主调研已支持有界拆解 |
+| 贡献整合与验证 | 不可变文本 Artifact、内容摘要、格式检查、人工验收清单、最多 3 轮新团队返工 | 结构化 Contribution、文件产物、自动质量验证与局部/自主返工 |
 | 预算与配额 | 单 Run Limits、TokenUsage、上下文预算、64 实例配额 | 跨 Agent 原子预算预留、费用账本、速率限制与未知用量对账 |
 | 运行身份与审计 | loopback/token、持久平台事件、内核 Policy | Principal/Grant、委派链、凭证范围、审批、撤权与租户隔离 |
 | API / MCP / CLI / Web | 单二进制 daemon、HTTP/Web、共享 client、通用 CLI、对外 MCP stdio tools | MCP resources/Streamable HTTP、细粒度授权、CLI --wait、SSE/分页、发行物与容器 |
@@ -61,6 +61,8 @@ Harness³ 的目标是让用户在本地启动一套可管理的 Agent 协作平
 这一模型需要形成可审查规格：母体/实例对象与状态、插件与三类模型协议、消息与委派、故障与恢复、权限/预算与评估。后续再根据真实问题引入拍卖式任务分配、复杂规划或长期记忆，避免先堆积抽象。
 
 参考入口：[ReAct](https://arxiv.org/abs/2210.03629)、[Actor Model of Computation](https://arxiv.org/abs/1008.1459)、[Lamport：Time, Clocks, and the Ordering of Events](https://lamport.azurewebsites.net/pubs/time-clocks.pdf)。这些是设计背景，不构成对 Harness³ 正确性或性能的证明。
+
+持久编排与协作领域的边界、Temporal 概念对照和当前恢复能力限制见[多 Agent 协作与 Durable Workflow](durable-workflows.zh-CN.md)。本地 SQLite 实现尚无确定性事件重放或分布式 Worker 语义。
 
 ## 4. 目标架构
 

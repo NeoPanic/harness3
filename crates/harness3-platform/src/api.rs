@@ -228,6 +228,18 @@ pub fn router(app: App) -> Router {
         .route("/api/v1/goals/{id}", get(goal))
         .route("/api/v1/goals/{id}/cancel", post(cancel_goal))
         .route("/api/v1/goals/{id}/accept", post(accept_goal))
+        .route("/api/v1/goals/{id}/rework", post(rework_goal))
+        .route("/api/v1/artifacts", get(artifacts))
+        .route("/api/v1/artifacts/{id}", get(artifact))
+        .route(
+            "/artifacts.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/artifacts.js"),
+                )
+            }),
+        )
         .route("/api/v1/events", get(events))
         .layer(DefaultBodyLimit::max(128 * 1024))
         .layer(middleware::from_fn_with_state(app.clone(), guard))
@@ -266,7 +278,7 @@ async fn logout() -> Response {
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":[crate::messaging::package()],"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
+        json!({"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":[crate::messaging::package()],"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Value>) -> PResult<Json<Value>> {
@@ -424,13 +436,22 @@ async fn create_goal(
 #[serde(deny_unknown_fields)]
 struct Review {
     review: String,
+    #[serde(default = "first_round")]
+    expected_round: i64,
+}
+fn first_round() -> i64 {
+    1
 }
 async fn accept_goal(
     State(app): State<App>,
     Path(id): Path<String>,
     Json(input): Json<Review>,
 ) -> PResult<Json<Value>> {
-    Ok(Json(app.store.accept_goal(&id, &input.review)?))
+    Ok(Json(app.store.accept_goal_round(
+        &id,
+        &input.review,
+        input.expected_round,
+    )?))
 }
 async fn cancel_goal(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
     let result = app.store.cancel_goal(&id)?;
@@ -482,7 +503,9 @@ async fn message_action(
 }
 
 async fn research_list(State(app): State<App>) -> PResult<Json<Value>> {
-    Ok(Json(json!({"research_jobs":app.store.researches()?})))
+    Ok(Json(
+        json!({"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?}),
+    ))
 }
 async fn research_create(
     State(app): State<App>,
@@ -499,4 +522,34 @@ async fn research_show(State(app): State<App>, Path(id): Path<String>) -> PResul
 }
 async fn research_cancel(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
     Ok(Json(app.store.cancel_research(&id)?))
+}
+
+async fn rework_goal(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::artifacts::ReworkInput>,
+) -> PResult<(StatusCode, Json<Value>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(app.store.rework_goal(&id, &input, key(&headers)?)?),
+    ))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ArtifactQuery {
+    goal_id: Option<String>,
+    #[serde(default)]
+    after: i64,
+    limit: Option<usize>,
+}
+async fn artifacts(State(app): State<App>, Query(q): Query<ArtifactQuery>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.artifacts(
+        q.goal_id.as_deref(),
+        q.after,
+        q.limit.unwrap_or(50),
+    )?))
+}
+async fn artifact(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.artifact(&id)?))
 }

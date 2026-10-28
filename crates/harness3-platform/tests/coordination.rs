@@ -282,9 +282,9 @@ fn legacy_schema_migrates_without_losing_instances_or_sessions() {
         connection
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        7
+        8
     );
-    connection.execute_batch("PRAGMA user_version=8;").unwrap();
+    connection.execute_batch("PRAGMA user_version=9;").unwrap();
     drop(connection);
     assert!(Store::open(&path).is_err());
     std::fs::remove_file(path).unwrap();

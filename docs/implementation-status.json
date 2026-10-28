@@ -224,7 +224,7 @@
     "name": "自主规划与动态委派",
     "phase": "P2",
     "status": "partial",
-    "detail": "自主调研入口已实现：一个目标接纳有界团队，规划 Agent 提交分工，2–6 位独立研究者并行，独立汇总等待贡献后运行；持久恢复、取消、15 分钟期限与回收。任意动态任务图、递归委派、自主返工和费用预算待补。",
+    "detail": "自主调研入口已实现：一个目标接纳有界团队，规划 Agent 提交分工，2–6 位独立研究者并行，独立汇总等待贡献后运行；持久恢复、取消、15 分钟期限与回收。已支持人工评审驱动的最多 3 轮返工，新研究者/汇总实例接续原 Goal 与历史。任意动态任务图、递归委派、自主评审返工和费用预算待补。",
     "source": [
       "crates/harness3-platform/src/research/mod.rs",
       "crates/harness3-platform/src/research/tools.rs",
@@ -259,26 +259,32 @@
     "id": "artifacts",
     "name": "产物、验证与返工",
     "phase": "P2",
-    "status": "planned",
-    "detail": "现有文本输出可人工验收；版本化产物、结构化贡献、验证规则、返工及重试历史待实现。",
-    "source": [],
+    "status": "partial",
+    "detail": "任务文本贡献按轮次保存不可变产物、SHA-256、Run/实例来源和非空/大小检查；人工验收固定清单。有界返工（最多 3 轮）默认新团队，保留旧贡献与评审，四入口可查。结构化证据、文件产物、专用验证 Agent、自动/局部返工待补。",
+    "source": [
+      "crates/harness3-platform/src/artifacts.rs",
+      "crates/harness3-platform/src/coordination.rs",
+      "crates/harness3-platform/web/artifacts.js",
+      "crates/harness3-platform/tests/artifacts.rs"
+    ],
     "target": [
       "crates/harness3-domain/src/artifacts/",
       "plugins/verification/"
     ],
-    "verification": "not-implemented"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "web",
     "name": "Web 执行证据检查",
     "phase": "P1",
     "status": "implemented",
-    "detail": "实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。",
+    "detail": "实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。 新增协作产物、原文下载、版本/评审历史和新团队返工。",
     "source": [
       "crates/harness3-platform/web/app.js",
       "crates/harness3-platform/web/goals.js",
       "crates/harness3-platform/web/fleets.js",
-      "crates/harness3-platform/web/messages.js"
+      "crates/harness3-platform/web/messages.js",
+      "crates/harness3-platform/web/artifacts.js"
     ],
     "target": [
       "web/src/features/"
@@ -290,7 +296,7 @@
     "name": "API / CLI / MCP 入口",
     "phase": "P2",
     "status": "partial",
-    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 34 个工具，默认开放 17 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
+    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 37 个工具，默认开放 19 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
     "source": [
       "crates/harness3-platform/src/api.rs",
       "crates/harness3-platform/src/client.rs",

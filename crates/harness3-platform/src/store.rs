@@ -18,7 +18,7 @@ impl Store {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 7 {
+        if version > 8 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
@@ -32,8 +32,13 @@ impl Store {
                 SELECT fleet_id,slot,generation,1,1,instance_id FROM instance_allocations;
                 COMMIT;")?;
         }
-        connection.execute_batch("PRAGMA user_version=7;")?;
-        Ok(Self(Arc::new(Mutex::new(connection))))
+        connection.execute_batch("PRAGMA user_version=8;")?;
+        let store = Self(Arc::new(Mutex::new(connection)));
+        store.transaction(|tx| {
+            tx.execute("INSERT OR IGNORE INTO goal_rounds(goal_id,number,state,review,created_at,finished_at) SELECT id,1,state,review,created_at,finished_at FROM goals",[])?;
+            crate::artifacts::backfill(tx)
+        })?;
+        Ok(store)
     }
     pub fn memory() -> PResult<Self> {
         Self::open(Path::new(":memory:"))

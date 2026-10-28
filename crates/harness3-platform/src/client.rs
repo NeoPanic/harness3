@@ -18,6 +18,20 @@ pub struct PlatformClient {
 #[serde(tag = "tool", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
     Snapshot,
+    ArtifactsList {
+        goal_id: Option<String>,
+        #[serde(default)]
+        after: i64,
+        limit: Option<usize>,
+    },
+    ArtifactsShow {
+        id: String,
+    },
+    GoalsRework {
+        id: String,
+        input: crate::artifacts::ReworkInput,
+        key: String,
+    },
     ResearchList,
     ResearchShow {
         id: String,
@@ -125,6 +139,8 @@ pub enum Command {
     GoalsAccept {
         id: String,
         review: String,
+        #[serde(default = "first_round")]
+        expected_round: i64,
     },
     EventsList {
         #[serde(default)]
@@ -135,7 +151,9 @@ impl Command {
     pub fn read_only(&self) -> bool {
         matches!(
             self,
-            Self::ResearchList
+            Self::ArtifactsList { .. }
+                | Self::ArtifactsShow { .. }
+                | Self::ResearchList
                 | Self::ResearchShow { .. }
                 | Self::MessagesList { .. }
                 | Self::MessagesShow { .. }
@@ -218,6 +236,36 @@ impl PlatformClient {
     pub async fn execute(&self, command: Command) -> ClientResult<Value> {
         use Command::*;
         let (method, path, body, key) = match command {
+            ArtifactsList {
+                goal_id,
+                after,
+                limit,
+            } => {
+                let mut url = reqwest::Url::parse("http://localhost/artifacts")?;
+                {
+                    let mut pairs = url.query_pairs_mut();
+                    pairs.append_pair("after", &after.to_string());
+                    if let Some(goal) = goal_id {
+                        pairs.append_pair("goal_id", &goal);
+                    }
+                    if let Some(limit) = limit {
+                        pairs.append_pair("limit", &limit.to_string());
+                    }
+                }
+                (
+                    Method::GET,
+                    format!("/artifacts?{}", url.query().unwrap_or_default()),
+                    None,
+                    None,
+                )
+            }
+            ArtifactsShow { id } => (Method::GET, object("artifacts", &id, "")?, None, None),
+            GoalsRework { id, input, key } => (
+                Method::POST,
+                object("goals", &id, "/rework")?,
+                Some(serde_json::to_value(input)?),
+                Some(key),
+            ),
             ResearchList => (Method::GET, "/research-jobs".into(), None, None),
             ResearchShow { id } => (Method::GET, object("research-jobs", &id, "")?, None, None),
             ResearchCreate { input, key } => (
@@ -399,10 +447,14 @@ impl PlatformClient {
                 Some(json!({})),
                 None,
             ),
-            GoalsAccept { id, review } => (
+            GoalsAccept {
+                id,
+                review,
+                expected_round,
+            } => (
                 Method::POST,
                 object("goals", &id, "/accept")?,
-                Some(json!({"review":review})),
+                Some(json!({"review":review,"expected_round":expected_round})),
                 None,
             ),
             EventsList { after } => (Method::GET, format!("/events?after={after}"), None, None),
@@ -423,4 +475,8 @@ fn segment(value: &str) -> ClientResult<&str> {
     } else {
         Ok(value)
     }
+}
+
+fn first_round() -> i64 {
+    1
 }
