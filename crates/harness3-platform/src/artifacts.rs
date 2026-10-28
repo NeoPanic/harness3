@@ -203,8 +203,8 @@ pub(crate) fn rework_in(
         || input.note.trim().is_empty()
         || input.note.len() > 8000
         || !(1..3).contains(&input.expected_round)
-        || input.assignments.len() > 16
-        || input.task_keys.len() > 16
+        || input.assignments.len() > crate::limits::TASKS_PER_GOAL
+        || input.task_keys.len() > crate::limits::TASKS_PER_GOAL
     {
         return Err(fault(400, "invalid_goal_rework"));
     }
@@ -370,6 +370,7 @@ pub(crate) fn rework_in(
             tx.execute("UPDATE work_items SET state='pending',run_id=NULL,error=NULL WHERE goal_id=? AND key=?",params![id,task_key])?;
         } else {
             tx.execute("UPDATE work_items SET instance_id=?,state='pending',run_id=NULL,error=NULL WHERE goal_id=? AND key=?",params![assigned[&task_key.to_owned()],id,task_key])?;
+            crate::channels::join_team(tx, id, assigned[&task_key.to_owned()])?;
         }
     }
     if let Some(research) = research {
@@ -420,10 +421,13 @@ pub(crate) fn resolve_assignment(
     let Some(member) = member else {
         return Ok(Some(String::new()));
     };
-    tx.execute(
-        "UPDATE work_items SET instance_id=? WHERE goal_id=? AND key=?",
-        params![member, goal, key],
+    let changed = tx.execute(
+        "UPDATE work_items SET instance_id=? WHERE goal_id=? AND key=? AND instance_id!=?",
+        params![member, goal, key, member],
     )?;
+    if changed > 0 {
+        crate::channels::join_team(tx, goal, &member)?;
+    }
     let research:Option<(String,String)>=tx.query_row("SELECT j.id,m.instance_id FROM research_jobs j JOIN research_members m ON m.research_id=j.id AND m.role='planner' WHERE j.goal_id=? ORDER BY m.position LIMIT 1",[goal],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
     if let Some((research, parent)) = research {
         let position: i64 = tx.query_row(

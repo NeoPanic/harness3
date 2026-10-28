@@ -61,3 +61,7 @@ CREATE TABLE IF NOT EXISTS goal_verifications(id TEXT PRIMARY KEY,goal_id TEXT N
 CREATE TABLE IF NOT EXISTS verification_reads(verification_id TEXT NOT NULL REFERENCES goal_verifications(id),artifact_id TEXT NOT NULL REFERENCES artifacts(id),start_pos INTEGER NOT NULL,end_pos INTEGER NOT NULL,PRIMARY KEY(verification_id,artifact_id,start_pos,end_pos));
 
 CREATE TABLE IF NOT EXISTS goal_rework_scopes(goal_id TEXT NOT NULL REFERENCES goals(id),round INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(goal_id,round));
+
+CREATE TABLE IF NOT EXISTS workspace_artifacts(id TEXT PRIMARY KEY,instance_id TEXT NOT NULL REFERENCES instances(id),run_id TEXT NOT NULL REFERENCES runs(id),goal_id TEXT REFERENCES goals(id),kind TEXT NOT NULL,name TEXT NOT NULL,path TEXT,media_type TEXT NOT NULL,content TEXT NOT NULL,digest TEXT NOT NULL,bytes INTEGER NOT NULL,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS workspace_commands(run_id TEXT NOT NULL REFERENCES runs(id),command_key TEXT NOT NULL,fingerprint TEXT NOT NULL,response TEXT NOT NULL,PRIMARY KEY(run_id,command_key));
+CREATE TABLE IF NOT EXISTS workspace_verification_reads(verification_id TEXT NOT NULL REFERENCES goal_verifications(id),artifact_id TEXT NOT NULL REFERENCES workspace_artifacts(id),start_pos INTEGER NOT NULL,end_pos INTEGER NOT NULL,PRIMARY KEY(verification_id,artifact_id,start_pos,end_pos));

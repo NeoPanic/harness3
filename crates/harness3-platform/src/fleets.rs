@@ -102,7 +102,7 @@ impl Store {
         self.transaction(|tx| {
             let used=quota_used(tx)?;
             let live:usize=tx.query_row("SELECT count(*) FROM instances WHERE state!='terminated'",[],|r|r.get(0))?;
-            Ok(json!({"limit":64,"reserved":used,"active":live,"available":64usize.saturating_sub(used)}))
+            Ok(json!({"limit":crate::limits::INSTANCES,"reserved":used,"active":live,"available":crate::limits::INSTANCES.saturating_sub(used)}))
         })
     }
     pub fn create_fleet(&self, plan: &FleetPlan, key: &str) -> PResult<Value> {
@@ -112,7 +112,8 @@ impl Store {
         key_valid(key)?;
         if !["scale", "terminate"].contains(&action.action.as_str())
             || action.expected_revision < 1
-            || (action.action == "scale" && action.count.is_none_or(|n| n > 64))
+            || (action.action == "scale"
+                && action.count.is_none_or(|n| n > crate::limits::INSTANCES))
             || (action.action == "terminate" && action.count.is_some())
         {
             return Err(fault(400, "invalid_fleet_action"));
@@ -137,7 +138,7 @@ impl Store {
                 tx.execute("UPDATE fleet_slots SET fulfilled=0 WHERE fleet_id=? AND enabled=1 AND (instance_id IS NULL OR instance_id IN (SELECT id FROM instances WHERE state IN ('terminated','draining')))",[fleet])?;
             }
             retire(tx,fleet)?;
-            if quota_used(tx)?>64 {return Err(fault(409,"instance_quota_exceeded"));}
+            if quota_used(tx)?>crate::limits::INSTANCES {return Err(fault(409,"instance_quota_exceeded"));}
             event(tx,"fleet.intent_changed",fleet,json!({"desired_count":count,"state":next,"revision":revision+1}))?;
             receipt(tx,fleet,&action.action,revision+1,&command,&fingerprint)
         })
@@ -320,7 +321,7 @@ pub(crate) fn reconcile(tx: &Transaction<'_>) -> PResult<()> {
 pub(crate) fn create_in(tx: &Transaction<'_>, plan: &FleetPlan, key: &str) -> PResult<Value> {
     key_valid(key)?;
     if plan.count == 0
-        || plan.count > 64
+        || plan.count > crate::limits::INSTANCES
         || !["finite", "maintain"].contains(&plan.mode.as_str())
         || plan
             .ttl_seconds
@@ -357,7 +358,7 @@ pub(crate) fn create_in(tx: &Transaction<'_>, plan: &FleetPlan, key: &str) -> PR
         return Ok(serde_json::from_str(&response)?);
     }
     crate::lifecycle::reconcile(tx)?;
-    if quota_used(tx)? + plan.count > 64 {
+    if quota_used(tx)? + plan.count > crate::limits::INSTANCES {
         return Err(fault(409, "instance_quota_exceeded"));
     }
     let template: String = tx

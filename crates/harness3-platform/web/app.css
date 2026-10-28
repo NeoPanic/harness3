@@ -67,6 +67,13 @@ button:disabled { cursor: wait; opacity: .55; }
 .keycap { margin-left: auto; font: 9px var(--mono); border: 1px solid #5d5d5d; color: #ccc; border-radius: 3px; padding: 1px 3px; }
 .nav-label { margin: 0 12px 9px; color: #a8a8a8; font: 9px var(--mono); letter-spacing: 1.5px; }
 .nav-label.second { margin-top: 26px; }
+.navigation { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 16px; scrollbar-width: thin; }
+.nav-group + .nav-group { margin-top: 20px; }
+.nav-group .nav-label { margin-bottom: 7px; font: 10px/1.4 var(--font); letter-spacing: .06em; color: #aaa; }
+.nav-group nav { gap: 2px; }
+.nav-group nav a { min-height: 36px; padding-block: 7px; }
+.sidebar:has(.nav-group) { overflow: hidden; }
+.sidebar:has(.nav-group) .brand, .sidebar:has(.nav-group) .sidebar-bottom { flex-shrink: 0; }
 nav { display: grid; gap: 3px; }
 nav a { display: flex; align-items: center; gap: 11px; min-height: 41px; padding: 9px 12px; border-radius: 5px; font-size: 12px; }
 nav a:hover { background: #ffffff0c; color: #fff; }

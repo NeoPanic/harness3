@@ -11,9 +11,9 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
     let text = json!({"type":"string","minLength":1});
     let key = json!({"type":"string","minLength":1,"maxLength":160,"description":"Stable idempotency key. Retry unknown outcomes with identical key and content."});
     let revision = json!({"type":"integer","minimum":1});
-    let count = json!({"type":"integer","minimum":0,"maximum":64});
+    let count = json!({"type":"integer","minimum":0,"maximum":256});
     let plan = json!({"type":"object","additionalProperties":false,"properties":{
-        "preset_name":id,"preset_version":id,"count":{"type":"integer","minimum":1,"maximum":64},
+        "preset_name":id,"preset_version":id,"count":{"type":"integer","minimum":1,"maximum":256},
         "mode":{"type":"string","enum":["finite","maintain"],"default":"finite"},
         "ttl_seconds":{"type":"integer","minimum":1,"maximum":2592000},
         "parameters":{"type":"object","description":"Values validated against the selected Preset parameter schema."}
@@ -29,11 +29,11 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
     let bundle = json!({"type":"object","additionalProperties":false,"properties":{
         "id":id,"version":id,"description":text,"instructions":text
     },"required":["id","version","description","instructions"]});
-    let delegation = json!({"type":"object","additionalProperties":false,"properties":{"max_depth":{"type":"integer","minimum":1,"maximum":3},"max_children":{"type":"integer","minimum":1,"maximum":4},"max_descendants":{"type":"integer","minimum":1,"maximum":12},"roles":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"object","additionalProperties":false,"properties":{"name":id,"preset_name":id,"preset_version":id,"parameters":{"type":"object"}},"required":["name","preset_name","preset_version"]}}},"required":["max_depth","max_children","max_descendants","roles"]});
-    let verification = json!({"type":"object","additionalProperties":false,"properties":{"preset_name":id,"preset_version":id,"parameters":{"type":"object"},"max_auto_reworks":{"type":"integer","minimum":0,"maximum":2,"default":0},"checks":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","additionalProperties":false,"properties":{"key":id,"description":{"type":"string","minLength":1,"maxLength":1000}},"required":["key","description"]}}},"required":["preset_name","preset_version","checks"]});
+    let delegation = json!({"type":"object","additionalProperties":false,"properties":{"max_depth":{"type":"integer","minimum":1,"maximum":6},"max_children":{"type":"integer","minimum":1,"maximum":8},"max_descendants":{"type":"integer","minimum":1,"maximum":48},"roles":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"object","additionalProperties":false,"properties":{"name":id,"preset_name":id,"preset_version":id,"parameters":{"type":"object"}},"required":["name","preset_name","preset_version"]}}},"required":["max_depth","max_children","max_descendants","roles"]});
+    let verification = json!({"type":"object","additionalProperties":false,"properties":{"preset_name":id,"preset_version":id,"parameters":{"type":"object"},"auto_rework_scope":{"type":"string","enum":["all","failed-artifacts"]},"max_auto_reworks":{"type":"integer","minimum":0,"maximum":2,"default":0},"checks":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","additionalProperties":false,"properties":{"key":id,"description":{"type":"string","minLength":1,"maxLength":1000}},"required":["key","description"]}}},"required":["preset_name","preset_version","checks"]});
     let goal = json!({"type":"object","additionalProperties":false,"properties":{
         "title":text,"objective":text,"acceptance":text,"verification":verification,
-        "tasks":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"object","additionalProperties":false,
+        "tasks":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,
         "properties":{"delegation":delegation,"key":id,"instance_id":id,"instructions":text,"candidates":{"type":"array","maxItems":15,"items":id},"manual_claim":{"type":"boolean","default":false},"depends_on":{"type":"array","items":id}},"required":["key","instance_id","instructions"]}}
     },"required":["title","objective","acceptance","tasks"]});
     let claim_input = json!({"type":"object","additionalProperties":false,"properties":{"expected_round":{"type":"integer","minimum":1,"maximum":3},"expected_generation":{"type":"integer","minimum":0},"instance_id":id},"required":["expected_round","expected_generation","instance_id"]});
@@ -106,7 +106,7 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
             "goals_rework",
             "Explicitly request another full task-graph round after reviewing results. Maximum 3 total rounds; defaults to fresh managed instances pinned to original Presets. This repeats tool effects and incurs model costs; requires user authorization.",
             false,
-            json!({"id":id,"key":key,"input":{"type":"object","additionalProperties":false,"properties":{"expected_round":{"type":"integer","minimum":1,"maximum":2},"note":text,"task_keys":{"type":"array","maxItems":16,"uniqueItems":true,"items":id},"assignments":{"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"properties":{"key":id,"instance_id":id},"required":["key","instance_id"]}}},"required":["expected_round","note"]}}),
+            json!({"id":id,"key":key,"input":{"type":"object","additionalProperties":false,"properties":{"expected_round":{"type":"integer","minimum":1,"maximum":2},"note":text,"task_keys":{"type":"array","maxItems":64,"uniqueItems":true,"items":id},"assignments":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"properties":{"key":id,"instance_id":id},"required":["key","instance_id"]}}},"required":["expected_round","note"]}}),
             vec!["id", "input", "key"],
         ),
         (

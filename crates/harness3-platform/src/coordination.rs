@@ -125,6 +125,7 @@ impl Store {
             crate::artifacts::decorate(tx, &mut goal)?;
             crate::collaboration::decorate(tx, &mut goal)?;
             crate::verification::decorate(tx, &mut goal)?;
+            crate::autonomy::decorate(tx, &mut goal)?;
             Ok(goal)
         })
     }
@@ -193,6 +194,7 @@ fn reconcile(
     cancelling: bool,
     requested: Option<(&str, &str)>,
 ) -> PResult<()> {
+    crate::autonomy::advance(tx, id)?;
     crate::delegation::advance(tx, id, cancelling)?;
     let goal = goal_json(tx, id)?;
     let mut tasks = goal["tasks"].as_array().unwrap().clone();
@@ -418,6 +420,7 @@ pub(crate) fn create_in(tx: &Transaction<'_>, plan: &GoalPlan, key: &str) -> PRe
         crate::delegation::authorize(tx, &goal, task)?;
         tx.execute("INSERT INTO work_items(goal_id,key,position,instance_id,instructions,depends_on,state) VALUES(?,?,?,?,?,?,'pending')",params![goal,task.key,position,task.instance_id,task.instructions,serde_json::to_string(&task.depends_on)?])?;
     }
+    crate::channels::seed_team(tx, &goal)?;
     event(
         tx,
         "goal.created",

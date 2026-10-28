@@ -49,6 +49,20 @@ impl Model for DemoModel {
                 spec.parameters["properties"]["checks"]["items"]["properties"]["key"]["enum"]
                     .as_array()
                     .unwrap();
+            let evidence_pages: Vec<_> = input
+                .turns
+                .iter()
+                .rev()
+                .take_while(|turn| matches!(turn, Turn::Tools(_)))
+                .filter_map(|turn| {
+                    if let Turn::Tools(items) = turn {
+                        Some(items)
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .collect();
             let (text, calls) = match previous {
                 Some(o) if o.call.name == "platform.verification.report" => (
                     "[确定性演示] 已提交逐项验证回执；只验证平台读证据与评审流程，不判断语义质量。"
@@ -57,11 +71,22 @@ impl Model for DemoModel {
                 ),
                 Some(o) if o.call.name == "platform.verification.evidence" => (
                     String::new(),
-                    vec![Call {
-                        id: "demo-verdict".into(),
-                        name: spec.name.clone(),
-                        arguments: json!({"summary":"确定性演示：已读取冻结产物，验证控制链路，不证明内容正确。","checks":keys.iter().map(|key|json!({"key":key,"status":"passed","reason":"Demo 仅确认产物可读取，语义正确性需要真实模型或人工核查。","artifact_ids":ids})).collect::<Vec<_>>()}),
-                    }],
+                    if evidence_pages
+                        .iter()
+                        .any(|o| o.output.content["complete"] == false)
+                    {
+                        evidence_pages.iter().filter(|o|o.output.content["complete"]==false).map(|o|Call {
+                            id: format!("demo-evidence-{}-{}",o.output.content["artifact_id"].as_str().unwrap(),o.output.content["next_offset"]),
+                            name:"platform.verification.evidence".into(),
+                            arguments:json!({"artifact_id":o.output.content["artifact_id"],"offset":o.output.content["next_offset"],"limit":12000}),
+                        }).collect()
+                    } else {
+                        vec![Call {
+                            id: "demo-verdict".into(),
+                            name: spec.name.clone(),
+                            arguments: json!({"summary":"确定性演示：已读取冻结产物，验证控制链路，不证明内容正确。","checks":keys.iter().map(|key|json!({"key":key,"status":"passed","reason":"Demo 仅确认产物可读取，语义正确性需要真实模型或人工核查。","artifact_ids":ids})).collect::<Vec<_>>()}),
+                        }]
+                    },
                 ),
                 _ => (
                     String::new(),
@@ -111,6 +136,13 @@ impl Model for DemoModel {
                 continuation: Value::Null,
                 reasoning: None,
             });
+        }
+        if input
+            .tools
+            .iter()
+            .any(|s| s.name == "platform.workspace.write")
+        {
+            return demo_team(&input);
         }
         if input
             .tools
@@ -267,6 +299,192 @@ impl Model for DemoModel {
             reasoning: None,
         })
     }
+}
+fn demo_team(input: &ModelInput) -> Result<ModelReply> {
+    let previous = match input.turns.last() {
+        Some(Turn::Tools(items)) => items.first(),
+        _ => None,
+    };
+    let has = |name: &str| input.tools.iter().any(|s| s.name == name);
+    let call = |id: &str, name: &str, arguments: Value| Call {
+        id: id.into(),
+        name: name.into(),
+        arguments,
+    };
+    let write = || {
+        let evidence = input
+            .turns
+            .iter()
+            .filter_map(|turn| match turn {
+                Turn::Tools(items) => Some(
+                    items
+                        .iter()
+                        .map(|o| json!({"tool":o.call.name,"receipt":o.output.content}))
+                        .collect::<Vec<_>>(),
+                ),
+                _ => None,
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+        call(
+            "demo-file-write",
+            "platform.workspace.write",
+            json!({"path":"evidence.md","content":format!("# 确定性团队演示\n\n本文件验证真实工具、同目标文件共享和来源追踪，不执行语义研究。\n\n## 任务输入\n{}\n\n## 已读取回执\n{}",input.text,serde_json::to_string_pretty(&evidence).unwrap_or_default()),"command_key":"demo-write"}),
+        )
+    };
+    let (text, calls) = match previous.map(|o| o.call.name.as_str()) {
+        None if has("platform.tasks.board") => (
+            String::new(),
+            vec![call("demo-board", "platform.tasks.board", json!({}))],
+        ),
+        None | Some("platform.tasks.board") if has("platform.channels.read") => (
+            String::new(),
+            vec![call("demo-channels", "platform.channels.read", json!({}))],
+        ),
+        Some("platform.channels.read") => {
+            let channel = previous
+                .and_then(|o| o.output.content["channels"].as_array())
+                .and_then(|c| c.first());
+            if let Some(channel) = channel {
+                (
+                    String::new(),
+                    vec![call(
+                        "demo-post",
+                        "platform.channels.post",
+                        json!({"channel_id":channel["id"],"text":"[确定性演示] 当前 Agent 已读取任务板，接下来生成并发布文件与 JSON 证据。此消息不表示真实调研完成。","wake_subscribers":false,"key":"demo-team-post"}),
+                    )],
+                )
+            } else {
+                (
+                    String::new(),
+                    vec![call(
+                        "demo-artifacts",
+                        "platform.workspace.artifacts",
+                        json!({}),
+                    )],
+                )
+            }
+        }
+        Some("platform.channels.post") => (
+            String::new(),
+            vec![call(
+                "demo-artifacts",
+                "platform.workspace.artifacts",
+                json!({}),
+            )],
+        ),
+        Some("platform.workspace.artifacts") => {
+            let peer = previous
+                .and_then(|o| o.output.content["artifacts"].as_array())
+                .and_then(|items| items.iter().find(|a| a["source_state"] == "completed"));
+            (
+                String::new(),
+                vec![if let Some(peer) = peer {
+                    call(
+                        "demo-peer-read",
+                        "platform.workspace.read_artifact",
+                        json!({"artifact_id":peer["id"]}),
+                    )
+                } else {
+                    write()
+                }],
+            )
+        }
+        Some("platform.workspace.read_artifact") => (String::new(), vec![write()]),
+        Some("platform.workspace.write") => (
+            String::new(),
+            vec![call(
+                "demo-file-publish",
+                "platform.workspace.publish",
+                json!({"name":"团队演示文件","path":"evidence.md","command_key":"demo-file"}),
+            )],
+        ),
+        Some("platform.workspace.publish")
+            if previous.is_some_and(|o| o.call.id == "demo-file-publish") =>
+        {
+            (
+                String::new(),
+                vec![call(
+                    "demo-json-publish",
+                    "platform.workspace.publish",
+                    json!({"name":"团队演示结构化记录","value":{"demo":true,"semantic_research":false,"file_artifact_id":previous.unwrap().output.content["id"]},"command_key":"demo-json"}),
+                )],
+            )
+        }
+        Some("platform.workspace.publish") if has("platform.context.read") => (
+            String::new(),
+            vec![call(
+                "demo-team-context",
+                "platform.context.read",
+                json!({}),
+            )],
+        ),
+        Some("platform.context.read") => {
+            let run = previous.unwrap().output.content["source_run_id"]
+                .as_str()
+                .ok_or_else(|| Error::new("context_scope_unavailable"))?;
+            let publications = input
+                .turns
+                .iter()
+                .filter_map(|turn| {
+                    if let Turn::Tools(items) = turn {
+                        Some(items)
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .filter(|o| o.call.name == "platform.workspace.publish")
+                .map(|o| o.output.content["id"].clone())
+                .collect::<Vec<_>>();
+            (
+                String::new(),
+                vec![call(
+                    "demo-team-context-publish",
+                    "platform.context.publish",
+                    json!({"key":format!("demo.{run}"),"expected_revision":0,"title":"已发布团队演示文件与 JSON","body":format!("确定性演示发布了快照：{}。这些回执验证协作链路，不证明语义质量。",json!(publications)),"kind":"observation","command_key":"demo-team-context"}),
+                )],
+            )
+        }
+        _ if previous.is_none() => (
+            String::new(),
+            vec![call(
+                "demo-artifacts",
+                "platform.workspace.artifacts",
+                json!({}),
+            )],
+        ),
+        _ => {
+            let ids = input
+                .turns
+                .iter()
+                .filter_map(|turn| {
+                    if let Turn::Tools(items) = turn {
+                        Some(items)
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .filter(|o| o.call.name == "platform.workspace.publish")
+                .map(|o| o.output.content["id"].as_str().unwrap_or("missing"))
+                .collect::<Vec<_>>();
+            (
+                format!(
+                    "[确定性团队演示] 已读取共享证据并发布文件和 JSON 快照：{}。频道发言、工具回执和来源 Run 可在控制台检查。本次验证平台协作链路，不执行语义研究或外部事实核验。",
+                    ids.join("、")
+                ),
+                vec![],
+            )
+        }
+    };
+    Ok(ModelReply {
+        text,
+        calls,
+        usage: None,
+        continuation: Value::Null,
+        reasoning: None,
+    })
 }
 struct InspectText;
 #[async_trait::async_trait]
@@ -482,7 +700,9 @@ pub async fn recover(store: &Store) -> PResult<()> {
     store.recover_startup()?;
     store.reconcile_fleets()?;
     store.reconcile_research()?;
+    store.reconcile_channels()?;
     store.reconcile_messages()?;
+    store.reconcile_autonomy()?;
     store.reconcile_goals()
 }
 
@@ -522,13 +742,19 @@ pub async fn worker_loop_with_plugins(
         if let Err(error) = store.reconcile_research() {
             eprintln!("Research coordination failed: {error}");
         }
+        if let Err(error) = store.reconcile_channels() {
+            eprintln!("channel reconciliation: {}", error.1);
+        }
         if let Err(error) = store.reconcile_messages() {
             eprintln!("Message reconciliation failed: {error}");
+        }
+        if let Err(error) = store.reconcile_autonomy() {
+            eprintln!("task autonomy reconciliation: {}", error.1);
         }
         if let Err(error) = store.reconcile_goals() {
             eprintln!("Goal coordination failed: {error}");
         }
-        if tasks.len() < 4 {
+        if tasks.len() < crate::limits::WORKERS {
             match store.claim() {
                 Ok(Some(work)) => {
                     let run = work["id"].as_str().unwrap_or_default().to_string();

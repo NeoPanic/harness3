@@ -282,6 +282,53 @@ pub fn router(app: App) -> Router {
                 )
             }),
         )
+        .route("/api/v1/workspaces", get(workspace_catalog))
+        .route(
+            "/api/v1/agent-instances/{id}/workspace",
+            get(workspace_files),
+        )
+        .route(
+            "/api/v1/agent-instances/{id}/workspace/file",
+            get(workspace_file),
+        )
+        .route("/api/v1/workspace-artifacts", get(workspace_artifacts))
+        .route("/api/v1/workspace-artifacts/{id}", get(workspace_artifact))
+        .route("/api/v1/channels", get(channels).post(channel_create))
+        .route("/api/v1/channels/{id}", get(channel_show))
+        .route("/api/v1/channels/{id}/posts", post(channel_post))
+        .route("/api/v1/channels/{id}/members", post(channel_members))
+        .route(
+            "/api/v1/channels/{id}/subscription",
+            post(channel_subscription),
+        )
+        .route(
+            "/autonomy.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/autonomy.js"),
+                )
+            }),
+        )
+        .route("/api/v1/goals/{id}/autonomy", get(goal_autonomy))
+        .route(
+            "/workspaces.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/workspaces.js"),
+                )
+            }),
+        )
+        .route(
+            "/channels.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/channels.js"),
+                )
+            }),
+        )
         .route("/api/v1/events", get(events))
         .layer(DefaultBodyLimit::max(128 * 1024))
         .layer(middleware::from_fn_with_state(app.clone(), guard))
@@ -320,7 +367,7 @@ async fn logout() -> Response {
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":crate::organization::packages(),"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
+        json!({"channels":app.store.channels(None)?["channels"],"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":crate::organization::packages(),"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":crate::limits::INSTANCES,"workers":crate::limits::WORKERS,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":crate::limits::TASKS_PER_GOAL},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Value>) -> PResult<Json<Value>> {
@@ -549,7 +596,7 @@ async fn message_action(
 
 async fn research_list(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?}),
+        json!({"channels":app.store.channels(None)?["channels"],"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?}),
     ))
 }
 async fn research_create(
@@ -663,4 +710,97 @@ async fn retry_verification(
         StatusCode::ACCEPTED,
         Json(app.store.retry_verification(&id, &input, key(&headers)?)?),
     ))
+}
+
+#[derive(Deserialize, Default)]
+struct WorkspaceQuery {
+    #[serde(default)]
+    path: String,
+    goal_id: Option<String>,
+}
+async fn workspace_catalog(State(app): State<App>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.workspace_catalog()?))
+}
+async fn workspace_files(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    Query(q): Query<WorkspaceQuery>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.workspace_files(&id, &q.path)?))
+}
+async fn workspace_file(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    Query(q): Query<WorkspaceQuery>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.workspace_read(&id, &q.path)?))
+}
+async fn workspace_artifacts(
+    State(app): State<App>,
+    Query(q): Query<WorkspaceQuery>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.workspace_artifacts(q.goal_id.as_deref())?))
+}
+async fn workspace_artifact(
+    State(app): State<App>,
+    Path(id): Path<String>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.workspace_artifact(&id)?))
+}
+async fn channels(State(app): State<App>, Query(q): Query<WorkspaceQuery>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.channels(q.goal_id.as_deref())?))
+}
+async fn channel_show(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(
+        app.store.channel(crate::channels::Actor::Operator, &id)?,
+    ))
+}
+async fn channel_create(
+    State(app): State<App>,
+    headers: HeaderMap,
+    Json(input): Json<crate::channels::CreateChannel>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.create_channel(&input, key(&headers)?)?))
+}
+async fn channel_post(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::channels::ChannelPost>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.post_channel(
+        crate::channels::Actor::Operator,
+        &id,
+        &input,
+        key(&headers)?,
+    )?))
+}
+async fn channel_members(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::channels::ChannelMembers>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.set_channel_members(
+        &id,
+        &input,
+        key(&headers)?,
+    )?))
+}
+async fn channel_subscription(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::channels::ChannelSubscription>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.subscribe_channel(
+        crate::channels::Actor::Operator,
+        &id,
+        &input,
+        key(&headers)?,
+    )?))
+}
+
+async fn goal_autonomy(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.goal_autonomy(&id)?))
 }

@@ -8,43 +8,65 @@
   <script src="/goals.js" defer></script><script src="/plugins.js" defer></script>
   <script src="/collaboration.js" defer></script><script src="/artifacts.js" defer></script><script src="/research.js" defer></script><script src="/messages.js" defer></script>
   <script src="/presets.js" defer></script>
+  <script src="/channels.js" defer></script><script src="/workspaces.js" defer></script><script src="/autonomy.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#content">跳至主要内容</a>
   <div id="shell">
     <aside class="sidebar">
-      <a class="brand" href="#overview" aria-label="Harness³ 工作区总览"><img src="/mark.svg" alt=""><span>harness³</span></a>
+      <a class="brand" href="#overview" aria-label="Harness³ 控制台总览"><img src="/mark.svg" alt=""><span>harness³</span></a>
       <div class="navigation">
-      <p class="nav-label">WORKSPACE</p>
-      <nav aria-label="主导航">
-        <a href="#overview" data-page="overview"><span class="nav-icon">◈</span>总览 <small>Overview</small></a>
-        <a href="#research" data-page="research"><span class="nav-icon"></span>自主调研</a>
-        <a href="#agents" data-page="agents"><span class="nav-icon">▦</span>Agent 实例 <span id="nav-count" class="nav-count">0</span></a>
-        <a href="#fleets" data-page="fleets"><span class="nav-icon">▦</span>实例组</a>
-        <a href="#goals" data-page="goals"><span class="nav-icon">◇</span>协作目标</a>
-        <a href="#artifacts" data-page="artifacts"><span class="nav-icon"></span>协作产物</a>
-        <a href="#messages" data-page="messages"><span class="nav-icon"></span>协作消息</a>
-        <a href="#presets" data-page="presets"><span class="nav-icon">▧</span>母体 Presets</a>
-        <a href="#runs" data-page="runs"><span class="nav-icon">▷</span>执行记录</a>
-        <a href="#plugins" data-page="plugins"><span class="nav-icon">⌘</span>插件与能力</a>
-      </nav>
-      <p class="nav-label second">DEVELOPMENT</p>
-      <nav aria-label="开发导航">
-        <a href="#capabilities" data-page="capabilities"><span class="nav-icon">◫</span>实现进度</a>
-        <a href="#events" data-page="events"><span class="nav-icon">≋</span>事件日志</a>
-      </nav>
+        <section class="nav-group" aria-labelledby="nav-scenes">
+          <p class="nav-label" id="nav-scenes">场景</p>
+          <nav aria-label="场景导航">
+            <a href="#research" data-page="research"><span class="nav-icon"></span>自主调研</a>
+          </nav>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-collaboration">
+          <p class="nav-label" id="nav-collaboration">协作</p>
+          <nav aria-label="协作导航">
+            <a href="#overview" data-page="overview"><span class="nav-icon">◈</span>总览</a>
+            <a href="#goals" data-page="goals"><span class="nav-icon">◇</span>协作目标</a>
+            <a href="#artifacts" data-page="artifacts"><span class="nav-icon"></span>协作产物</a>
+            <a href="#channels" data-page="channels"><span class="nav-icon"></span>协作频道</a>
+            <a href="#workspaces" data-page="workspaces"><span class="nav-icon"></span>文件工作区</a>
+            <a href="#messages" data-page="messages"><span class="nav-icon"></span>协作消息</a>
+          </nav>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-runtime">
+          <p class="nav-label" id="nav-runtime">运行</p>
+          <nav aria-label="运行导航">
+            <a href="#agents" data-page="agents"><span class="nav-icon">▦</span>Agent 实例 <span id="nav-count" class="nav-count">0</span></a>
+            <a href="#fleets" data-page="fleets"><span class="nav-icon">▦</span>Agent 池</a>
+            <a href="#runs" data-page="runs"><span class="nav-icon">▷</span>执行记录</a>
+          </nav>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-configuration">
+          <p class="nav-label" id="nav-configuration">配置</p>
+          <nav aria-label="配置导航">
+            <a href="#presets" data-page="presets"><span class="nav-icon">▧</span>母体 Presets</a>
+            <a href="#plugins" data-page="plugins"><span class="nav-icon">⌘</span>插件与能力</a>
+          </nav>
+        </section>
+        <section class="nav-group" aria-labelledby="nav-development">
+          <p class="nav-label" id="nav-development">开发</p>
+          <nav aria-label="开发导航">
+            <a href="#capabilities" data-page="capabilities"><span class="nav-icon">◫</span>实现进度</a>
+            <a href="#events" data-page="events"><span class="nav-icon">≋</span>事件日志</a>
+          </nav>
+        </section>
       </div>
       <div class="sidebar-bottom connection-status" role="status"><span id="connection" class="connection-indicator" aria-label="正在连接">●</span><span>127.0.0.1</span><span id="app-version">v0.1.0</span></div>
     </aside>
     <section class="body">
-      <header class="topbar"><div><span class="breadcrumb">Workspace</span><span class="slash">/</span><strong id="page-title">总览</strong></div></header>
+      <header class="topbar"><div><span class="breadcrumb" id="page-group">协作</span><span class="slash">/</span><strong id="page-title">总览</strong></div></header>
       <div id="notice" role="status" aria-live="polite"></div>
-      <main id="content" tabindex="-1" aria-label="工作区内容"><div class="loading">正在读取本地内核状态…</div></main>
+      <main id="content" tabindex="-1" aria-label="控制台内容"><div class="loading">正在读取本地内核状态…</div></main>
     </section>
   </div>
-  <dialog id="login-dialog" aria-labelledby="login-title" aria-describedby="login-description"><form id="login-form"><div class="modal-brand"><img src="/mark.svg" alt=""> Harness³</div><h1 id="login-title">连接本地工作区</h1><p id="login-description">输入数据目录中 <code>token</code> 文件的内容。凭证仅用于此本地平台，不是模型 API Key。</p><label>平台访问令牌<input id="token" type="password" name="token" autocomplete="current-password" required spellcheck="false" placeholder="64 位本地 token"></label><div id="login-error" class="error" role="alert"></div><button class="button primary full" type="submit">进入控制台 <span>↗</span></button><p class="hint">默认位置：仓库目录下的 <code>.harness3/token</code></p></form></dialog>
-  <dialog id="modal" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow" id="modal-eyebrow">工作区</span><h2 id="modal-title"></h2></div><button class="icon-button" data-action="close" aria-label="关闭">×</button></div><div id="modal-error" class="error" role="alert" hidden></div><div id="modal-body"></div></dialog>
+  <dialog id="login-dialog" aria-labelledby="login-title" aria-describedby="login-description"><form id="login-form"><div class="modal-brand"><img src="/mark.svg" alt=""> Harness³</div><h1 id="login-title">连接本地平台</h1><p id="login-description">输入数据目录中 <code>token</code> 文件的内容。凭证仅用于此本地平台，不是模型 API Key。</p><label>平台访问令牌<input id="token" type="password" name="token" autocomplete="current-password" required spellcheck="false" placeholder="64 位本地 token"></label><div id="login-error" class="error" role="alert"></div><button class="button primary full" type="submit">进入控制台 <span>↗</span></button><p class="hint">默认位置：仓库目录下的 <code>.harness3/token</code></p></form></dialog>
+  <dialog id="modal" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow" id="modal-eyebrow">控制台</span><h2 id="modal-title"></h2></div><button class="icon-button" data-action="close" aria-label="关闭">×</button></div><div id="modal-error" class="error" role="alert" hidden></div><div id="modal-body"></div></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

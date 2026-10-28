@@ -47,6 +47,7 @@ fn setup(reworks: usize) -> (Store, String, Value) {
                         description: "check evidence completeness".into(),
                     }],
                     max_auto_reworks: reworks,
+                    auto_rework_scope: None,
                 }),
                 tasks: vec![TaskPlan {
                     key: "research".into(),
@@ -411,5 +412,165 @@ fn exact_check_keys_and_evidence_scope_are_enforced() {
     assert_eq!(
         s.verification_evidence(run, &a, 0, 12001).unwrap_err().1,
         "invalid_evidence_range"
+    );
+}
+
+#[test]
+fn failed_artifact_auto_repair_reruns_its_source_and_summary_and_reuses_peer_evidence() {
+    let s = Store::memory().unwrap();
+    s.publish_definition(json!({"name":"selective-review","version":"1","purpose":"check individual evidence","objective":"integrate supported facts","instructions":"inspect supplied evidence","protocol":"demo","plugins":[]})).unwrap();
+    let agents = s
+        .spawn(
+            &Spawn {
+                preset_name: "selective-review".into(),
+                preset_version: "1".into(),
+                count: 3,
+            },
+            "initial-team",
+        )
+        .unwrap();
+    let tasks = [
+        ("left", Vec::new()),
+        ("right", Vec::new()),
+        ("summary", vec!["left".into(), "right".into()]),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, (key, depends_on))| TaskPlan {
+        key: key.into(),
+        instance_id: agents["instance_ids"][i].as_str().unwrap().into(),
+        instructions: format!("contribute {key} evidence"),
+        depends_on,
+        ..Default::default()
+    })
+    .collect();
+    let goal = s
+        .create_goal(
+            &GoalPlan {
+                title: "selective repair".into(),
+                objective: "compare two independent contributions".into(),
+                acceptance: "sources support the summary".into(),
+                tasks,
+                verification: Some(Policy {
+                    preset_name: "selective-review".into(),
+                    preset_version: "1".into(),
+                    parameters: Default::default(),
+                    checks: vec![Check {
+                        key: "evidence".into(),
+                        description: "source evidence is supported".into(),
+                    }],
+                    max_auto_reworks: 1,
+                    auto_rework_scope: Some("failed-artifacts".into()),
+                }),
+            },
+            "goal",
+        )
+        .unwrap();
+    let id = goal["id"].as_str().unwrap();
+    tick(&s);
+    let left = s.claim().unwrap().unwrap();
+    let right = s.claim().unwrap().unwrap();
+    assert_ne!(left["instance_id"], right["instance_id"]);
+    assert!(s.claim().unwrap().is_none());
+    finish(&s, &left, "completed");
+    finish(&s, &right, "completed");
+    tick(&s);
+    let summary = s.claim().unwrap().unwrap();
+    finish(&s, &summary, "completed");
+    tick(&s);
+    let original = s.goal(id).unwrap();
+    let left_artifact = original["tasks"][0]["artifact"]["id"].as_str().unwrap();
+    let right_artifact = original["tasks"][1]["artifact"].clone();
+    let first_verifier = reviewer(&s);
+    read(&s, &first_verifier, left_artifact);
+    s.submit_verification(
+        first_verifier["id"].as_str().unwrap(),
+        &verdict("failed", vec![left_artifact.into()]),
+    )
+    .unwrap();
+    finish(&s, &first_verifier, "completed");
+    tick(&s);
+    let repair = s.goal(id).unwrap();
+    assert_eq!(repair["round"], 2);
+    assert_eq!(
+        repair["rounds"][1]["rework_scope"]["requested"],
+        json!(["left"])
+    );
+    assert_eq!(
+        repair["rounds"][1]["rework_scope"]["rerun"],
+        json!(["left", "summary"])
+    );
+    assert_eq!(
+        repair["rounds"][1]["rework_scope"]["reused"],
+        json!([right_artifact])
+    );
+    assert_eq!(repair["tasks"][1]["run_id"], right["id"]);
+    assert_eq!(repair["verification"]["history"][0]["auto_rework_round"], 2);
+    let corrected_left = reviewer(&s);
+    assert!(
+        s.verification_job(corrected_left["id"].as_str().unwrap())
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        ![&left, &right, &summary]
+            .iter()
+            .any(|old| old["instance_id"] == corrected_left["instance_id"])
+    );
+    finish(&s, &corrected_left, "completed");
+    tick(&s);
+    let corrected_summary = reviewer(&s);
+    assert!(
+        s.verification_job(corrected_summary["id"].as_str().unwrap())
+            .unwrap()
+            .is_none()
+    );
+    let input = corrected_summary["input"].as_str().unwrap();
+    assert!(input.contains(right["id"].as_str().unwrap()));
+    assert!(input.contains(corrected_left["id"].as_str().unwrap()));
+    finish(&s, &corrected_summary, "completed");
+    tick(&s);
+    let second_verifier = reviewer(&s);
+    let job = s
+        .verification_job(second_verifier["id"].as_str().unwrap())
+        .unwrap()
+        .unwrap();
+    let manifest = job["manifest"].as_array().unwrap();
+    assert_eq!(manifest.len(), 3);
+    assert_eq!(
+        manifest.iter().find(|a| a["task_key"] == "right").unwrap()["id"],
+        right_artifact["id"]
+    );
+    assert_eq!(
+        manifest.iter().find(|a| a["task_key"] == "right").unwrap()["version"],
+        1
+    );
+    assert_eq!(
+        manifest.iter().find(|a| a["task_key"] == "left").unwrap()["version"],
+        2
+    );
+    let citations = manifest
+        .iter()
+        .map(|a| {
+            let id = a["id"].as_str().unwrap();
+            read(&s, &second_verifier, id);
+            id.into()
+        })
+        .collect();
+    s.submit_verification(
+        second_verifier["id"].as_str().unwrap(),
+        &verdict("passed", citations),
+    )
+    .unwrap();
+    finish(&s, &second_verifier, "completed");
+    tick(&s);
+    let ready = s.goal(id).unwrap();
+    assert_eq!(ready["state"], "awaiting-review");
+    assert_eq!(ready["artifacts"].as_array().unwrap().len(), 5);
+    assert_eq!(ready["tasks"][1]["artifact"], right_artifact);
+    assert_eq!(
+        s.accept_goal_round(id, "checked corrected source and carried peer", 2)
+            .unwrap()["state"],
+        "accepted"
     );
 }

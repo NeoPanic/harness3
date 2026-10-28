@@ -42,7 +42,7 @@ fn action(kind: &str, revision: i64, count: Option<usize>) -> FleetAction {
     }
 }
 fn settle(store: &Store) {
-    for _ in 0..10 {
+    for _ in 0..harness3_platform::limits::INSTANCES {
         store.reconcile_fleets().unwrap();
     }
 }
@@ -102,7 +102,12 @@ fn maintain_replaces_same_slot_with_new_identity_and_generation() {
 #[test]
 fn pending_reservations_prevent_cross_fleet_and_legacy_overcommit() {
     let store = seeded();
-    store.create_fleet(&plan("maintain", 64), "full").unwrap();
+    store
+        .create_fleet(
+            &plan("maintain", harness3_platform::limits::INSTANCES),
+            "full",
+        )
+        .unwrap();
     assert_eq!(store.capacity().unwrap()["active"], 0);
     assert_eq!(
         store
@@ -127,7 +132,10 @@ fn pending_reservations_prevent_cross_fleet_and_legacy_overcommit() {
     );
     assert_eq!(store.fleets().unwrap().len(), 1);
     settle(&store);
-    assert_eq!(store.capacity().unwrap()["active"], 64);
+    assert_eq!(
+        store.capacity().unwrap()["active"],
+        harness3_platform::limits::INSTANCES
+    );
 }
 #[test]
 fn terminate_supersedes_pending_creation_and_does_not_spawn() {
@@ -298,7 +306,12 @@ fn rejected_scale_rolls_back_revision_slots_and_operations() {
     let store = seeded();
     let receipt = store.create_fleet(&plan("maintain", 2), "first").unwrap();
     let id = receipt["fleet_id"].as_str().unwrap();
-    store.create_fleet(&plan("maintain", 62), "rest").unwrap();
+    store
+        .create_fleet(
+            &plan("maintain", harness3_platform::limits::INSTANCES - 2),
+            "rest",
+        )
+        .unwrap();
     settle(&store);
     let before = store.fleet(id).unwrap();
     assert_eq!(

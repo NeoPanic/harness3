@@ -7,21 +7,23 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, MutexGuard},
 };
 
 #[derive(Clone)]
-pub struct Store(Arc<Mutex<Connection>>);
+pub struct Store(Arc<Mutex<Connection>>, Arc<Mutex<Option<PathBuf>>>);
 impl Store {
     pub fn open(path: &Path) -> PResult<Self> {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 13 {
+        if version > 14 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
+        connection.execute_batch(crate::channels::CHANNEL_SCHEMA)?;
+        connection.execute_batch(include_str!("autonomy/schema.sql"))?;
         if version < 4 {
             connection.execute_batch("BEGIN IMMEDIATE;
                 INSERT OR IGNORE INTO fleets(id,preset_name,preset_version,snapshot,mode,desired_count,state,revision,created_at)
@@ -32,15 +34,33 @@ impl Store {
                 SELECT fleet_id,slot,generation,1,1,instance_id FROM instance_allocations;
                 COMMIT;")?;
         }
-        let store = Self(Arc::new(Mutex::new(connection)));
+        let store = Self(Arc::new(Mutex::new(connection)), Arc::new(Mutex::new(None)));
         store.transaction(|tx| {
             tx.execute("INSERT OR IGNORE INTO goal_rounds(goal_id,number,state,review,created_at,finished_at) SELECT id,1,state,review,created_at,finished_at FROM goals",[])?;
             crate::artifacts::backfill(tx)?;
             if version < 10 { crate::claims::backfill(tx)?; }
-            tx.execute_batch("PRAGMA user_version=13;")?;
+            tx.execute_batch("PRAGMA user_version=14;")?;
             Ok(())
         })?;
         Ok(store)
+    }
+    pub fn set_workspace_root(&self, root: &Path) -> PResult<()> {
+        std::fs::create_dir_all(root).map_err(|_| fault(500, "workspace_root_unavailable"))?;
+        let root = root
+            .canonicalize()
+            .map_err(|_| fault(500, "workspace_root_unavailable"))?;
+        *self
+            .1
+            .lock()
+            .map_err(|_| fault(500, "storage_lock_poisoned"))? = Some(root);
+        Ok(())
+    }
+    pub fn workspace_root(&self) -> PResult<PathBuf> {
+        self.1
+            .lock()
+            .map_err(|_| fault(500, "storage_lock_poisoned"))?
+            .clone()
+            .ok_or_else(|| fault(409, "workspace_not_configured"))
     }
     pub fn memory() -> PResult<Self> {
         Self::open(Path::new(":memory:"))
@@ -113,7 +133,11 @@ impl Store {
         if ttl_seconds.is_some_and(|ttl| ttl == 0 || ttl > 30 * 24 * 60 * 60) {
             return Err(fault(400, "invalid_ttl"));
         }
-        if input.count == 0 || input.count > 64 || key.is_empty() || key.len() > 160 {
+        if input.count == 0
+            || input.count > crate::limits::INSTANCES
+            || key.is_empty()
+            || key.len() > 160
+        {
             return Err(fault(400, "invalid_spawn_or_idempotency_key"));
         }
         self.transaction(|tx| {
@@ -127,7 +151,7 @@ impl Store {
             }
             crate::lifecycle::reconcile(tx)?;
             let current = crate::fleets::quota_used(tx)?;
-            if current + input.count > 64 { return Err(fault(409,"instance_quota_exceeded")); }
+            if current + input.count > crate::limits::INSTANCES { return Err(fault(409,"instance_quota_exceeded")); }
             let template: String = tx.query_row("SELECT body FROM presets WHERE name=? AND version=?",params![input.preset_name,input.preset_version],|r|r.get(0)).optional()?.ok_or_else(||fault(404,"preset_not_found"))?;
             let snapshot=crate::presets::instantiate(serde_json::from_str(&template)?, &serde_json::Map::new())?.to_string();
             let fleet = id("fleet");

@@ -1,0 +1,12 @@
+{
+  "name": "file-researcher",
+  "version": "1.0.0",
+  "purpose": "保存和交换研究文件",
+  "objective": "向同一 Goal 交付可追溯的文件证据",
+  "instructions": "读取同目标已发布产物，检查来源状态。将自己的研究保存在 research/evidence.md，发布文件快照，把关键事实和快照 ID 写入最终输出。",
+  "protocol": "demo",
+  "plugins": [
+    {"id": "platform.workspace", "version": "1.0.0"},
+    {"id": "platform.context", "version": "1.0.0"}
+  ]
+}

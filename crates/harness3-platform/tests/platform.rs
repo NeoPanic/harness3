@@ -80,7 +80,7 @@ fn immutable_presets_and_atomic_idempotent_batches() {
             &Spawn {
                 preset_name: "inspector".into(),
                 preset_version: "1.0.0".into(),
-                count: 64
+                count: harness3_platform::limits::INSTANCES
             },
             "too-many"
         )),
@@ -746,7 +746,7 @@ fn ttl_is_idempotent_cancels_queue_and_releases_quota() {
     let request = Spawn {
         preset_name: "inspector".into(),
         preset_version: "1.0.0".into(),
-        count: 64,
+        count: harness3_platform::limits::INSTANCES,
     };
     let batch = store.spawn_with_ttl(&request, "ttl", Some(60)).unwrap();
     assert_eq!(
@@ -789,7 +789,10 @@ fn ttl_is_idempotent_cancels_queue_and_releases_quota() {
             .iter()
             .all(|a| a["state"] == "terminated")
     );
-    assert_eq!(spawn(&store, 64, "replacement")["count"], 64);
+    assert_eq!(
+        spawn(&store, harness3_platform::limits::INSTANCES, "replacement")["count"],
+        harness3_platform::limits::INSTANCES
+    );
     assert_eq!(
         store
             .spawn_with_ttl(&request, "invalid", Some(0))

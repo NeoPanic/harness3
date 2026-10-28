@@ -19,6 +19,8 @@ pub struct Policy {
     pub checks: Vec<Check>,
     #[serde(default)]
     pub max_auto_reworks: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_rework_scope: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -51,6 +53,10 @@ impl Policy {
         if self.checks.is_empty()
             || self.checks.len() > 8
             || self.max_auto_reworks > 2
+            || self
+                .auto_rework_scope
+                .as_deref()
+                .is_some_and(|s| !["all", "failed-artifacts"].contains(&s))
             || self.checks.iter().any(|c| {
                 !valid_name(&c.key) || c.description.trim().is_empty() || c.description.len() > 1000
             })
@@ -123,6 +129,34 @@ pub(crate) fn decorate(tx: &Transaction<'_>, goal: &mut Value) -> PResult<()> {
     goal["verification"] = json!({"policy":p,"current":current,"history":records,"stale":current.is_object()&&current["context_revision"]!=revision});
     Ok(())
 }
+fn evidence_body(tx: &Transaction<'_>, meta: &Value) -> PResult<(String, String)> {
+    if meta["workspace"] == true {
+        return crate::workspaces::evidence_content(tx, meta["id"].as_str().unwrap());
+    }
+    let (body, digest): (String, String) = tx.query_row(
+        "SELECT content,digest FROM artifacts WHERE id=?",
+        [meta["id"].as_str().unwrap()],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    if !crate::artifacts::verify_integrity(tx, meta["id"].as_str().unwrap())? {
+        return Err(fault(409, "artifact_integrity_failed"));
+    }
+    Ok((body, digest))
+}
+fn intact(tx: &Transaction<'_>, meta: &Value) -> PResult<bool> {
+    match evidence_body(tx, meta) {
+        Ok((_, digest)) => Ok(meta["digest"] == digest),
+        Err(e) if e.1 == "artifact_integrity_failed" => Ok(false),
+        Err(e) => Err(e),
+    }
+}
+fn reads_table(workspace: bool) -> &'static str {
+    if workspace {
+        "workspace_verification_reads"
+    } else {
+        "verification_reads"
+    }
+}
 pub(crate) fn start(tx: &Transaction<'_>, goal: &str) -> PResult<bool> {
     let Some(p) = policy(tx, goal)? else {
         return Ok(false);
@@ -143,6 +177,13 @@ pub(crate) fn start(tx: &Transaction<'_>, goal: &str) -> PResult<bool> {
             .ok_or_else(|| fault(409, "verification_artifacts_missing"))?;
         manifest.push(a);
     }
+    let runs = g["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["run_id"].as_str().map(str::to_owned))
+        .collect::<Vec<_>>();
+    manifest.extend(crate::workspaces::verification_manifest(tx, goal, &runs)?);
     let board = crate::collaboration::current(tx, goal)?;
     let id = id("verification");
     tx.execute("INSERT INTO goal_verifications(id,goal_id,round,attempt,state,policy,manifest,context_revision,context,created_at,expires_at) VALUES(?,?,?,?,'pending',?,?,?,?,?,?)",params![id,goal,round,attempt,serde_json::to_string(&p)?,serde_json::to_string(&manifest)?,board["revision"].as_i64().unwrap(),board.to_string(),now(),now()+180_000])?;
@@ -167,8 +208,9 @@ fn all_read(
     verification: &str,
     artifact: &str,
     total: usize,
+    workspace: bool,
 ) -> PResult<bool> {
-    let mut stmt=tx.prepare("SELECT start_pos,end_pos FROM verification_reads WHERE verification_id=? AND artifact_id=? ORDER BY start_pos,end_pos")?;
+    let mut stmt=tx.prepare(&format!("SELECT start_pos,end_pos FROM {} WHERE verification_id=? AND artifact_id=? ORDER BY start_pos,end_pos",reads_table(workspace)))?;
     let ranges = stmt
         .query_map(params![verification, artifact], |r| {
             Ok((r.get::<_, usize>(0)?, r.get::<_, usize>(1)?))
@@ -208,11 +250,11 @@ impl Store {
         }
         self.transaction(|tx|{
             let job=authorized(tx,run)?;let meta=job["manifest"].as_array().unwrap().iter().find(|a|a["id"]==artifact).ok_or_else(||fault(403,"verification_artifact_out_of_scope"))?;
-            let (body,digest):(String,String)=tx.query_row("SELECT content,digest FROM artifacts WHERE id=?",[artifact],|r|Ok((r.get(0)?,r.get(1)?)))?;
-            if meta["digest"]!=digest||!crate::artifacts::verify_integrity(tx,artifact)?{return Err(fault(409,"artifact_integrity_failed"));}
+            let (body,digest)=evidence_body(tx,meta)?;
+            if meta["digest"]!=digest{return Err(fault(409,"artifact_integrity_failed"));}
             let total=body.chars().count();if offset>total{return Err(fault(400,"invalid_evidence_range"));}
             let content:String=body.chars().skip(offset).take(limit).collect();let end=offset+content.chars().count();
-            tx.execute("INSERT OR IGNORE INTO verification_reads(verification_id,artifact_id,start_pos,end_pos) VALUES(?,?,?,?)",params![job["id"].as_str().unwrap(),artifact,offset,end])?;
+            tx.execute(&format!("INSERT OR IGNORE INTO {}(verification_id,artifact_id,start_pos,end_pos) VALUES(?,?,?,?)",reads_table(meta["workspace"]==true)),params![job["id"].as_str().unwrap(),artifact,offset,end])?;
             Ok(json!({"artifact_id":artifact,"task_key":meta["task_key"],"run_id":meta["run_id"],"digest":digest,"offset":offset,"next_offset":end,"total_characters":total,"complete":end==total,"content":content,"untrusted_evidence":true}))
         })
     }
@@ -226,7 +268,7 @@ impl Store {
                     || !["passed", "failed", "unknown"].contains(&f.status.as_str())
                     || f.reason.trim().is_empty()
                     || f.reason.len() > 600
-                    || f.artifact_ids.len() > 16
+                    || f.artifact_ids.len() > 256
                     || f.artifact_ids
                         .iter()
                         .collect::<std::collections::HashSet<_>>()
@@ -245,13 +287,13 @@ impl Store {
                 if check.status=="passed"&&check.artifact_ids.is_empty(){return Err(fault(400,"verification_evidence_required"));}
                 for id in &check.artifact_ids {
                     let a=job["manifest"].as_array().unwrap().iter().find(|a|a["id"]==*id).ok_or_else(||fault(403,"verification_artifact_out_of_scope"))?;
-                    let read:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM verification_reads WHERE verification_id=? AND artifact_id=?)",params![job["id"].as_str().unwrap(),id],|r|r.get(0))?;
+                    let read:bool=tx.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {} WHERE verification_id=? AND artifact_id=?)",reads_table(a["workspace"]==true)),params![job["id"].as_str().unwrap(),id],|r|r.get(0))?;
                     if !read{return Err(fault(409,"verification_evidence_not_read"));}
                     if check.status=="passed" {
-                        let body:String=tx.query_row("SELECT content FROM artifacts WHERE id=?",[id],|r|r.get(0))?;
-                        if !all_read(tx,job["id"].as_str().unwrap(),id,body.chars().count())?{return Err(fault(409,"verification_evidence_incomplete"));}
+                        let (body,_)=evidence_body(tx,a)?;
+                        if !all_read(tx,job["id"].as_str().unwrap(),id,body.chars().count(),a["workspace"]==true)?{return Err(fault(409,"verification_evidence_incomplete"));}
                     }
-                    if !crate::artifacts::verify_integrity(tx,a["id"].as_str().unwrap())?{return Err(fault(409,"artifact_integrity_failed"));}
+                    if !intact(tx,a)?{return Err(fault(409,"artifact_integrity_failed"));}
                 }
             }
             tx.execute("UPDATE goal_verifications SET verdict=? WHERE id=?",params![serde_json::to_string(verdict)?,job["id"].as_str().unwrap()])?;
@@ -358,7 +400,7 @@ pub(crate) fn advance(tx: &Transaction<'_>, goal: &str) -> PResult<()> {
     }
     if job["state"] == "pending" {
         for a in job["manifest"].as_array().unwrap() {
-            if !crate::artifacts::verify_integrity(tx, a["id"].as_str().unwrap())?
+            if !intact(tx, a)?
                 || a["checks"]
                     .as_array()
                     .unwrap()
@@ -490,7 +532,7 @@ pub(crate) fn advance(tx: &Transaction<'_>, goal: &str) -> PResult<()> {
         return finish(tx, &job, "failed", Some("verification_run_incomplete"));
     }
     for a in job["manifest"].as_array().unwrap() {
-        if !crate::artifacts::verify_integrity(tx, a["id"].as_str().unwrap())? {
+        if !intact(tx, a)? {
             return finish(tx, &job, "failed", Some("artifact_integrity_failed"));
         }
     }
@@ -527,12 +569,37 @@ pub(crate) fn advance(tx: &Transaction<'_>, goal: &str) -> PResult<()> {
                 .collect::<Vec<_>>()
                 .join("\n")
         );
+        let failed: Vec<_> = verdict
+            .checks
+            .iter()
+            .filter(|c| c.status == "failed")
+            .collect();
+        let task_keys = if p.auto_rework_scope.as_deref() == Some("failed-artifacts")
+            && failed.iter().all(|c| !c.artifact_ids.is_empty())
+        {
+            let mut keys = std::collections::BTreeSet::new();
+            for finding in failed {
+                for artifact in &finding.artifact_ids {
+                    if let Some(meta) = job["manifest"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|a| a["id"] == *artifact)
+                    {
+                        keys.insert(meta["task_key"].as_str().unwrap().to_owned());
+                    }
+                }
+            }
+            keys.into_iter().collect()
+        } else {
+            vec![]
+        };
         tx.execute_batch("SAVEPOINT verifier_rework;")?;
         let result = crate::artifacts::rework_in(
             tx,
             goal,
             &crate::artifacts::ReworkInput {
-                task_keys: vec![],
+                task_keys,
                 expected_round: job["round"].as_i64().unwrap(),
                 note,
                 assignments: vec![],

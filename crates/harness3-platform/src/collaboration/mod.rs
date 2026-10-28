@@ -51,15 +51,34 @@ pub(crate) fn current(tx: &Transaction<'_>, goal: &str) -> PResult<Value> {
     Ok(json!({"goal_id":goal,"revision":revision,"entries":entries}))
 }
 fn run_scope(tx: &Transaction<'_>, run: &str) -> PResult<String> {
-    let row:Option<(String,String)>=tx.query_row("SELECT w.goal_id,i.snapshot FROM work_items w JOIN goals g ON g.id=w.goal_id JOIN runs r ON r.id=w.run_id JOIN instances i ON i.id=r.instance_id WHERE r.id=? AND r.state='running' AND r.cancel_requested=0 AND i.state='busy' AND g.state='running'",[run],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
-    let (goal, snapshot) = row.ok_or_else(|| fault(403, "context_run_not_authorized"))?;
+    let snapshot: Option<String> = tx
+        .query_row(
+            "SELECT i.snapshot FROM runs r JOIN instances i ON i.id=r.instance_id
+         WHERE r.id=? AND r.state='running' AND r.cancel_requested=0 AND i.state='busy'",
+            [run],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let snapshot = snapshot.ok_or_else(|| fault(403, "context_run_not_authorized"))?;
     if !crate::presets::bindings(&serde_json::from_str(&snapshot)?)
         .iter()
         .any(|p| p == &package())
     {
         return Err(fault(403, "context_capability_required"));
     }
-    Ok(goal)
+    let direct: Option<String> = tx
+        .query_row(
+            "SELECT w.goal_id FROM work_items w JOIN goals g ON g.id=w.goal_id
+         WHERE w.run_id=? AND g.state='running'",
+            [run],
+            |r| r.get(0),
+        )
+        .optional()?;
+    match direct {
+        Some(goal) => Ok(goal),
+        None => crate::channels::notification_goal(tx, run)?
+            .ok_or_else(|| fault(403, "context_run_not_authorized")),
+    }
 }
 pub(crate) fn prompt(board: &Value) -> String {
     if board["revision"] == 0 {

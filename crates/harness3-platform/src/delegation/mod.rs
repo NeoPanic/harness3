@@ -41,9 +41,9 @@ pub struct Child {
 }
 impl Policy {
     pub(crate) fn validate(&self, tx: &Transaction<'_>) -> PResult<()> {
-        if !(1..=3).contains(&self.max_depth)
-            || !(1..=4).contains(&self.max_children)
-            || !(1..=12).contains(&self.max_descendants)
+        if !(1..=crate::limits::DELEGATION_DEPTH).contains(&self.max_depth)
+            || !(1..=crate::limits::DELEGATION_CHILDREN).contains(&self.max_children)
+            || !(1..=crate::limits::DELEGATION_DESCENDANTS).contains(&self.max_descendants)
             || self.roles.is_empty()
             || self.roles.len() > 4
             || self
@@ -122,7 +122,7 @@ fn scope(tx: &Transaction<'_>, run: &str) -> PResult<Value> {
         let remaining = policy
             .max_descendants
             .saturating_sub(used + reserved)
-            .min(16usize.saturating_sub(total))
+            .min(crate::limits::TASKS_PER_GOAL.saturating_sub(total))
             .min(policy.max_children);
         let reason = if existing {
             "already_delegated"
@@ -289,6 +289,7 @@ pub(crate) fn advance(tx: &Transaction<'_>, goal: &str, cancelling: bool) -> PRe
         for (index, (child, member)) in children.iter().zip(&members).enumerate() {
             let key = child["key"].as_str().unwrap();
             tx.execute("INSERT INTO work_items(goal_id,key,position,instance_id,instructions,depends_on,state) VALUES(?,?,?,?,?,?,'pending')",params![goal,key,position+index as i64,member,child["instructions"].as_str().unwrap(),deps])?;
+            crate::channels::join_team(tx, goal, member)?;
             tx.execute("INSERT INTO task_delegation_scopes(goal_id,task_key,root_task,depth,policy,parent_task,delegation_id,title) VALUES(?,?,?,?,?,?,?,?)",params![goal,key,root,depth+1,policy,parent,id,child["title"].as_str().unwrap()])?;
         }
         let mut deps: Vec<String> = serde_json::from_str(&deps)?;

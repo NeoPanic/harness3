@@ -157,7 +157,7 @@ impl GoalPlan {
             || self.acceptance.trim().is_empty()
             || self.acceptance.len() > 8000
             || self.tasks.is_empty()
-            || self.tasks.len() > 16
+            || self.tasks.len() > crate::limits::TASKS_PER_GOAL
         {
             return Err(fault(400, "invalid_goal"));
         }

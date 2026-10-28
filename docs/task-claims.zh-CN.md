@@ -33,7 +33,7 @@ WorkItem 描述需要完成的工作，Attempt 记录它的一次认领与执行
 | 认领并接纳执行 | `POST /api/v1/goals/{id}/tasks/{task}/claim` | `tasks claim ID TASK --file claim.json --key KEY` | `tasks_claim` |
 | 释放未开始尝试 | `POST /api/v1/goals/{id}/tasks/{task}/release` | `tasks release ID TASK --file release.json --key KEY` | `tasks_release` |
 
-两个写入口需要 `Idempotency-Key`。外部 MCP 默认只读；写入仍需 `--allow-write`。当前共 43 个工具，其中 22 个只读。四入口使用同一本地操作者身份，尚无细粒度 Principal/Grant。
+两个写入口需要 `Idempotency-Key`。外部 MCP 默认只读；写入仍需 `--allow-write`。当前共 44 个工具，其中 22 个只读。四入口使用同一本地操作者身份，尚无细粒度 Principal/Grant。
 
 创建 Goal 的任务对象可新增可选字段：
 
@@ -62,7 +62,7 @@ WorkItem 描述需要完成的工作，Attempt 记录它的一次认领与执行
 {"expected_round": 1, "expected_generation": 1, "note": "尚未开始，改由另一候选执行"}
 ```
 
-示例见 [pool-goal.json](../examples/clients/pool-goal.json)、[claim.json](../examples/clients/claim.json) 和 [release.json](../examples/clients/release.json)。先替换为实际实例 ID。创建 Goal 仍限制最多 16 项任务、32 个活动/待验收 Goal，并沿用全局实例与 Worker 容量。
+示例见 [pool-goal.json](../examples/clients/pool-goal.json)、[claim.json](../examples/clients/claim.json) 和 [release.json](../examples/clients/release.json)。先替换为实际实例 ID。创建 Goal 仍限制最多 64 项任务、32 个活动/待验收 Goal，并沿用全局实例与 Worker 容量。
 
 ## 存储与当前边界
 

@@ -28,6 +28,14 @@ cargo run --locked -p harness3-platform -- up --demo
 
 打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。实例组已支持 finite/maintain、异步创建与扩缩容、排空和 TTL。实例组与协作目标支持 Web / API / CLI / MCP stdio 同源操作；[客户端示例](examples/clients/)提供创建计划和 MCP 配置。本地可执行 Tool 插件支持在线安装、版本快照、健康检查与禁用，见[进程插件 v1](docs/process-plugins.zh-CN.md)；母体支持固定版本单继承、参数 schema/模板与多插件绑定，见[母体组合指南](docs/presets.zh-CN.md)。Agent 可通过绑定的第一方消息工具交接任务，详见[持久消息](docs/messaging.zh-CN.md)。从首页“发起调研任务”可自动规划、派生团队和汇总，详见[自主调研](docs/research.zh-CN.md)。[协作产物与评审返工](docs/artifacts.zh-CN.md)支持不可变文本版本、验收清单和最多 3 轮新团队协作。[目标共享上下文](docs/shared-context.zh-CN.md)支持多个 Agent 交换发现、版本修订与验收快照；`demo-collaborator` 可离线体验，`research-collaborator` 使用 Responses。[候选池与执行尝试](docs/task-claims.zh-CN.md)支持自动/人工认领、代次冲突与尚未开始的释放。[动态委派](docs/dynamic-delegation.zh-CN.md)支持批准角色、多层子任务与原实例续作；使用 `demo-delegator` 离线体验或 `research-delegator` 接入 Responses。任意任务图修改、费用预算、远程 MCP loader 与沙箱仍待实现。
 
+## 当前本地 P2 范围
+
+本轮已打通 [Agent 自主任务板/追加/下一任务请求](docs/autonomy.zh-CN.md)、[频道分组与订阅唤醒](docs/channels.zh-CN.md)、[实例工作区及文件/JSON 证据交接](docs/workspaces.zh-CN.md)三条主路径。完整范围与验证记录见[必要 P2 闭环](docs/current-scope.zh-CN.md)，源码落点和后续缺口见[实现进度](docs/implementation-status.zh-CN.md)。
+
+首次离线体验在“自主调研”选择 `demo-team@1.0.0`，实际调用任务板、频道、文件/JSON 与共享上下文工具；真实 Responses 调研选择 `research-team@1.1.0`，可按需要自主追加工作。导航按场景→协作→运行→配置分层；“Agent 池”负责同一母体实例的数量与生命周期，不等同于围绕目标协作的团队。
+
+本机默认 256 个实例、8 个 Worker 槽、每 Goal 64 项任务，递归委派最多 6 层、每次 8 项、每根 48 个后代。采用可信本地权限，不设团队费用硬上限；预算治理、权限强化、运维与远程部署本轮暂缓。基本扩展示例见 [HTTP 读取插件](examples/plugins/http-reader/)与[工作区母体](examples/plugins/workspace-preset/)。
+
 ## 为什么是三次方
 
 > 道生一，一生二，二生三，三生万物。——《道德经》第四十二章

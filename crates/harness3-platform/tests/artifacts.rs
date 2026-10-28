@@ -179,7 +179,7 @@ fn capacity_rejection_rolls_back_round_and_all_reservations() {
         &Spawn {
             preset_name: "worker".into(),
             preset_version: "1".into(),
-            count: 60,
+            count: harness3_platform::limits::INSTANCES - 4,
         },
         "fill",
     )
