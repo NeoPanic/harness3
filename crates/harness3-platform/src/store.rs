@@ -18,7 +18,7 @@ impl Store {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 4 {
+        if version > 5 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
@@ -32,7 +32,7 @@ impl Store {
                 SELECT fleet_id,slot,generation,1,1,instance_id FROM instance_allocations;
                 COMMIT;")?;
         }
-        connection.execute_batch("PRAGMA user_version=4;")?;
+        connection.execute_batch("PRAGMA user_version=5;")?;
         Ok(Self(Arc::new(Mutex::new(connection))))
     }
     pub fn memory() -> PResult<Self> {
@@ -55,15 +55,29 @@ impl Store {
         self.transaction(|tx| {
             let mut snapshot = serde_json::to_value(&preset)?;
             if let Some(plugin) = &preset.plugin {
-                let bundle: String = tx
+                let bundle: Option<String> = tx
                     .query_row(
                         "SELECT body FROM plugins WHERE id=? AND version=?",
                         params![plugin.id, plugin.version],
                         |r| r.get(0),
                     )
-                    .optional()?
-                    .ok_or_else(|| fault(404, "plugin_not_found"))?;
-                snapshot["plugin_snapshot"] = serde_json::from_str(&bundle)?;
+                    .optional()?;
+                snapshot["plugin_snapshot"] = if let Some(bundle) = bundle {
+                    serde_json::from_str(&bundle)?
+                } else {
+                    let (body, state): (String, String) = tx
+                        .query_row(
+                            "SELECT body,state FROM process_plugins WHERE id=? AND version=?",
+                            params![plugin.id, plugin.version],
+                            |r| Ok((r.get(0)?, r.get(1)?)),
+                        )
+                        .optional()?
+                        .ok_or_else(|| fault(404, "plugin_not_found"))?;
+                    if state != "enabled" {
+                        return Err(fault(403, "plugin_disabled"));
+                    }
+                    serde_json::from_str(&body)?
+                };
             }
             let body = serde_json::to_string(&snapshot)?;
             if let Some(existing) = tx
@@ -95,6 +109,13 @@ impl Store {
     pub fn install(&self, bundle: Bundle) -> PResult<Value> {
         bundle.validate()?;
         self.transaction(|tx| {
+            if tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM process_plugins WHERE id=?)",
+                [&bundle.id],
+                |r| r.get::<_, bool>(0),
+            )? {
+                return Err(fault(409, "plugin_kind_conflict"));
+            }
             let body = serde_json::to_string(&bundle)?;
             if let Some(existing) = tx
                 .query_row(

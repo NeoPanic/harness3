@@ -2,12 +2,12 @@
 
 本表与 Web 实现进度共享 `docs/implementation-status.json`。状态按具体能力划分，不能据条目数量计算项目完成百分比。`待验证` 表示代码已写入，尚未完成本轮集成验证。
 
-完整目标目录和不变量见 [设计文档](managed-agents.zh-CN.md#12-目标目录结构与模块职责)。当前只有根运行内核包和平台包；目标目录用于依赖拆分，不要求提前创建空包。
+完整目标目录和不变量见 [设计文档](managed-agents.zh-CN.md#12-目标目录结构与模块职责)。当前有根运行内核包、平台包、插件协议包与参考 SDK 包；其余目标目录用于依赖拆分，不要求提前创建空包。
 
 | 阶段 | 能力 | 实现状态 | 验证 | 当前行为 / 缺口 |
 | --- | --- | --- | --- | --- |
 | P1 | Harness 执行循环 | 已实现 | 既有测试；见预览指南边界 | 模型→工具→模型、会话与回执；领域中立内核保留在根包。 |
-| P1 | 不可变母体发布 | 已实现 | 既有测试；见预览指南边界 | 用途、目标、指令、模型协议和单个提示词包按版本锁定。 |
+| P1 | 不可变母体发布 | 已实现 | 既有测试；见预览指南边界 | 用途、目标、指令、模型协议和单个提示词包或进程插件包按版本锁定。 |
 | P2 | 母体继承与参数化 | 规划中 | 待实现 | 待实现继承解析、参数 schema、多个能力绑定锁和发布校验。 |
 | P1 | 有限批量实例化 | 已实现 | 原生测试 + Web 联调 | HTTP 以 202 接纳创建 Operation，每轮最多创建 8 个实例；全局 64 容量包含未创建的预留槽位，幂等重试返回原回执。 |
 | P1 | 实例生命周期与 TTL | 部分实现 | 原生测试 + Web 联调 | 暂停/恢复/终止、排空与 TTL；实例组支持 finite/maintain 扩缩容。空闲策略、stop/start、配置升级和单实例 Operation 尚未实现。 |
@@ -17,14 +17,14 @@
 | P1 | SQLite 与恢复 | 部分实现 | 既有测试；见预览指南边界 | 事务、检查点、事件、daemon 锁；已知回执保留，未知结果中断。待补迁移运维、对账与事件分页。 |
 | P1 | 三类模型协议 | 部分实现 | 既有测试；见预览指南边界 | Chat Completions / Responses / Anthropic 非流式工具循环；Responses 已真实联调。流式与分片中断契约待补。 |
 | P1 | 内置工具与提示词包 | 已实现 | 既有测试；见预览指南边界 | text.inspect 只读工具；提示词包在线安装、摘要固定，新母体绑定后生效。 |
-| P2 | 可执行插件契约与 SDK | 规划中 | 待实现 | 待实现 manifest、握手、能力 schema、调用取消、错误及作者测试工具。 |
-| P2 | 外部插件与热加载 | 规划中 | 待实现 | 待实现进程/MCP loader、新旧版本并存、排空切换、回滚与撤权。 |
+| P2 | 可执行插件契约与 SDK | 部分实现 | 原生测试 + Web 联调 | 已实现版本化 manifest/RPC、严格 schema 子集、握手/健康/进度/取消、错误分类、Rust 同步 SDK 和 Python 示例；配置/权限/依赖锁、多种能力与对账协议待补。 |
+| P2 | 外部插件与热加载 | 部分实现 | 原生测试 + Web 联调 | 进程包在线安装、内容寻址、逐调用摘要检查、版本并存、母体快照、健康检查、禁用/取消和旧版本重新绑定已实现；显式 opt-in、清空继承环境，仍以 OS 用户权限运行。MCP loader、watch、进程池/rollout、沙箱与作用域授权待补。 |
 | P2 | 显式目标与任务依赖 | 已实现 | 既有测试；见预览指南边界 | 最多 16 项任务；持久依赖图、上游输出和 Run ID 传递、取消与人工验收。 |
 | P2 | 自主规划与动态委派 | 规划中 | 待实现 | 待实现 Planner、组织插件、动态派生、依赖更新和终止条件。 |
 | P2 | 可靠协作消息 | 规划中 | 待实现 | 待实现 Inbox/Outbox、消息去重、投递确认、工作认领与 Attempts。 |
 | P2 | 产物、验证与返工 | 规划中 | 待实现 | 现有文本输出可人工验收；版本化产物、结构化贡献、验证规则、返工及重试历史待实现。 |
 | P1 | Web 执行证据检查 | 已实现 | 既有测试；见预览指南边界 | 实例、请求快照、回执、会话、事件和协作目标来自同一后端。 |
-| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 23 个工具，默认开放 12 个查询工具，写入需显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
+| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 26 个工具，默认开放 13 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
 | P2 | 实时事件与查询 | 部分实现 | 既有测试；见预览指南边界 | 持久事件游标、Web 轮询；待实现 SSE、列表游标和统一查询契约。 |
 | P2 | 预算预留与账本 | 规划中 | 待实现 | 当前只有单 Run 轮次/工具数/超时上限；待实现团队预算、原子预留、结算与费用归属。 |
 | P3 | 身份、授权与审批 | 部分实现 | 既有测试；见预览指南边界 | 当前为 loopback + 本地 token；Principal/Grant、审批等待、租户隔离与插件权限未实现。 |
@@ -47,8 +47,8 @@
 | SQLite 与恢复 | `crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/schema.sql` | `crates/harness3-storage/src/` |
 | 三类模型协议 | `crates/harness3-platform/src/models.rs` | `crates/harness3-models/src/` |
 | 内置工具与提示词包 | `crates/harness3-platform/src/runtime.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-plugins/src/catalog/` |
-| 可执行插件契约与 SDK | 尚无实现模块 | `crates/harness3-plugin-protocol/src/`<br>`crates/harness3-plugin-sdk/src/` |
-| 外部插件与热加载 | 尚无实现模块 | `crates/harness3-plugins/src/loaders/`<br>`crates/harness3-plugins/src/reload/` |
+| 可执行插件契约与 SDK | `crates/harness3-plugin-protocol/src/lib.rs`<br>`crates/harness3-plugin-sdk/src/lib.rs`<br>`crates/harness3-plugin-sdk/tests/contract.rs`<br>`examples/plugins/text-inspector/manifest.json` | `crates/harness3-plugin-protocol/src/`<br>`crates/harness3-plugin-sdk/src/` |
+| 外部插件与热加载 | `crates/harness3-platform/src/plugins/mod.rs`<br>`crates/harness3-platform/src/plugins/package.rs`<br>`crates/harness3-platform/src/plugins/process.rs`<br>`crates/harness3-platform/web/plugins.js`<br>`crates/harness3-platform/tests/process_plugins.rs` | `crates/harness3-plugins/src/loaders/`<br>`crates/harness3-plugins/src/reload/` |
 | 显式目标与任务依赖 | `crates/harness3-platform/src/coordination.rs` | `crates/harness3-platform/src/collaboration/` |
 | 自主规划与动态委派 | 尚无实现模块 | `plugins/organization/`<br>`crates/harness3-platform/src/collaboration/` |
 | 可靠协作消息 | 尚无实现模块 | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
@@ -83,6 +83,10 @@ src/
 └── work.rs
 crates/harness3-platform/
 ├── src/
+│   ├── plugins/
+│   │   ├── mod.rs
+│   │   ├── package.rs
+│   │   └── process.rs
 │   ├── api.rs
 │   ├── cli.rs
 │   ├── client.rs
@@ -98,21 +102,43 @@ crates/harness3-platform/
 │   ├── schema.sql
 │   └── store.rs
 ├── tests/
+│   ├── fixtures/
+│   │   └── process-plugin.py
 │   ├── coordination.rs
 │   ├── entrances.rs
 │   ├── fleets.rs
-│   └── platform.rs
+│   ├── platform.rs
+│   └── process_plugins.rs
 ├── web/
 │   ├── app.css
 │   ├── app.js
 │   ├── fleets.js
 │   ├── goals.js
-│   └── index.html
+│   ├── index.html
+│   └── plugins.js
+└── Cargo.toml
+crates/harness3-plugin-protocol/
+├── src/
+│   └── lib.rs
+└── Cargo.toml
+crates/harness3-plugin-sdk/
+├── examples/
+│   └── text.rs
+├── src/
+│   └── lib.rs
+├── tests/
+│   └── contract.rs
 └── Cargo.toml
 examples/clients/
 ├── README.md
 ├── fleet.json
-└── mcp.json
+├── mcp.json
+├── process-fleet.json
+└── process-preset.json
+examples/plugins/
+└── text-inspector/
+    ├── manifest.json
+    └── worker.py
 ```
 
 维护方式：修改 JSON 后运行 `python3 scripts/render-progress.py`；CI 使用 `--check` 检查文档同步、当前源码目录和路径存在。验收清单仍以设计文档为准。

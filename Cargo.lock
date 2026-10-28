@@ -459,6 +459,8 @@ dependencies = [
  "clap",
  "fs2",
  "harness3",
+ "harness3-plugin-protocol",
+ "libc",
  "reqwest",
  "rusqlite",
  "serde",
@@ -469,6 +471,22 @@ dependencies = [
  "toml",
  "tower",
  "uuid",
+]
+
+[[package]]
+name = "harness3-plugin-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "harness3-plugin-sdk"
+version = "0.1.0"
+dependencies = [
+ "harness3-plugin-protocol",
+ "serde_json",
 ]
 
 [[package]]

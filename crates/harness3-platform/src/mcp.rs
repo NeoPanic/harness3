@@ -54,7 +54,7 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
         ),
         (
             "plugins_list",
-            "List installed prompt bundles. Executable plugins are not supported yet.",
+            "List installed prompt bundles and executable plugin versions with health and state.",
             true,
             json!({}),
             vec![],
@@ -65,6 +65,27 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
             false,
             json!({"bundle":bundle}),
             vec!["bundle"],
+        ),
+        (
+            "process_plugins_install",
+            "Install and health-check a trusted local executable package from an absolute source directory. Requires daemon --allow-process-plugins. Executes code as the OS user.",
+            false,
+            json!({"source_dir":{"type":"string","minLength":1}}),
+            vec!["source_dir"],
+        ),
+        (
+            "process_plugins_show",
+            "Inspect an executable plugin version, digest, schemas, health and enabled state.",
+            true,
+            json!({"id":id,"version":id}),
+            vec!["id", "version"],
+        ),
+        (
+            "process_plugins_action",
+            "Check health, enable or disable a version. Disable stops new calls and cancels active invocations; effects already made cannot be undone.",
+            false,
+            json!({"id":id,"version":id,"action":{"type":"string","enum":["enable","disable","check"]}}),
+            vec!["id", "version", "action"],
         ),
         (
             "fleets_list",

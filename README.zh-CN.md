@@ -26,7 +26,7 @@ Harness³ 为 Agents 提供共同的执行基础：模型与工具接口、明�
 cargo run --locked -p harness3-platform -- up --demo
 ```
 
-打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。实例组已支持 finite/maintain、异步创建与扩缩容、排空和 TTL。实例组与协作目标支持 Web / API / CLI / MCP stdio 同源操作；[客户端示例](examples/clients/)提供创建计划和 MCP 配置。Agent 自主通信与外部代码插件尚未实现。
+打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。实例组已支持 finite/maintain、异步创建与扩缩容、排空和 TTL。实例组与协作目标支持 Web / API / CLI / MCP stdio 同源操作；[客户端示例](examples/clients/)提供创建计划和 MCP 配置。本地可执行 Tool 插件支持在线安装、版本快照、健康检查与禁用，见[进程插件 v1](docs/process-plugins.zh-CN.md)；自主通信、远程 MCP loader 与沙箱仍待实现。
 
 ## 为什么是三次方
 
@@ -47,7 +47,7 @@ cargo run --locked -p harness3-platform -- up --demo
 | 上下文管理 | 按预算摘要历史，保留完整交互、回执和当前用户请求。 |
 | 可观测性 | 有序 Observer 事件、进程内有界 Trace，以及可由宿主接入的 TraceSink。 |
 
-工具作为受信任的 Rust 代码在进程内执行。外部写操作需要工具侧幂等或事务保证，检查点无法单独保证任意外部操作只执行一次。接入持久化前请阅读[运行契约](docs/runtime.md)。
+独立内核工具可由受信任的 Rust 代码在进程内执行；平台还支持显式启用的本地进程工具。外部写操作需要工具侧幂等或事务保证，检查点无法单独保证任意外部操作只执行一次。接入持久化前请阅读[运行契约](docs/runtime.md)。
 
 ## 一分钟运行
 
@@ -95,7 +95,7 @@ let harness = Harness::new(Registry::default(), Limits::default());
 - API 文档：`cargo doc --locked --no-deps --open`。
 - [贡献说明](CONTRIBUTING.md)、[安全报告](SECURITY.md)、[社区行为准则](CODE_OF_CONDUCT.md)。
 
-当前版本 **0.2.7**，尚未承诺 1.0 稳定 API。内核原应用中的行为测试集尚未迁入；平台已有独立集成测试，覆盖版本、幂等、存储、生命周期、恢复与模型协议。CI 在 Rust 1.89 与 stable 上运行工作区检查、Clippy、测试、rustdoc 与离线示例；多机和外部插件故障仍需后续覆盖。
+当前版本 **0.2.7**，尚未承诺 1.0 稳定 API。内核原应用中的行为测试集尚未迁入；平台已有独立集成测试，覆盖版本、幂等、存储、生命周期、恢复与模型协议。CI 在 Rust 1.89 与 stable 上运行工作区检查、Clippy、测试、rustdoc 与离线示例；多机故障、插件作用域授权和 OS 沙箱仍需后续覆盖。
 
 ```sh
 cargo check --locked --all-targets

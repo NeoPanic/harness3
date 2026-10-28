@@ -1,0 +1,59 @@
+{
+  "api_version": "harness3.plugins/v1",
+  "id": "local.text",
+  "version": "1.0.0",
+  "description": "External process text inspection reference plugin",
+  "instructions": "Use local.text.inspect for Unicode text statistics.",
+  "runtime": {
+    "protocol": "harness3-plugin-rpc/v1",
+    "entry": "worker.py"
+  },
+  "files": {
+    "worker.py": "e6630f1ab5cb74256bc3ee4a3da04f6e1d0916e15e0ace87358808844be4ccab"
+  },
+  "tools": [
+    {
+      "name": "inspect",
+      "description": "Count Unicode scalars, lines and UTF-8 bytes in input text.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 64000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "characters": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "characters",
+          "lines",
+          "bytes"
+        ],
+        "additionalProperties": false
+      },
+      "mutates": false,
+      "parallel_safe": true
+    }
+  ],
+  "timeout_ms": 5000
+}

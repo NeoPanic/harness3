@@ -60,8 +60,18 @@ resource!(PresetArgs, PresetAction {
 resource!(PluginArgs, PluginAction {
     List,
     Install { #[arg(long)] file: PathBuf },
+    /// Install and health-check a local package (requires daemon opt-in).
+    InstallProcess { #[arg(long)] source_dir: String },
+    ShowProcess {id:String,version:String},
+    ActionProcess {id:String,version:String,#[arg(value_enum)] action: ProcessAction},
 });
 resource!(OperationArgs, OperationAction { Show { id: String } });
+#[derive(Clone, ValueEnum)]
+enum ProcessAction {
+    Enable,
+    Disable,
+    Check,
+}
 #[derive(Clone, ValueEnum)]
 enum InstanceAction {
     Pause,
@@ -160,6 +170,24 @@ pub async fn presets(args: PresetArgs) -> ClientResult<()> {
 pub async fn plugins(args: PluginArgs) -> ClientResult<()> {
     let command = match args.action {
         PluginAction::List => Command::PluginsList,
+        PluginAction::InstallProcess { source_dir } => {
+            Command::ProcessPluginsInstall { source_dir }
+        }
+        PluginAction::ShowProcess { id, version } => Command::ProcessPluginsShow { id, version },
+        PluginAction::ActionProcess {
+            id,
+            version,
+            action,
+        } => Command::ProcessPluginsAction {
+            id,
+            version,
+            action: match action {
+                ProcessAction::Enable => "enable",
+                ProcessAction::Disable => "disable",
+                ProcessAction::Check => "check",
+            }
+            .into(),
+        },
         PluginAction::Install { file } => Command::PluginsInstall {
             bundle: read_json(file)?,
         },

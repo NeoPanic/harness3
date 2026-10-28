@@ -1,0 +1,11 @@
+[package]
+name = "harness3-plugin-sdk"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+description = "Reference synchronous stdio tool authoring SDK for Harness³ process plugins"
+
+[dependencies]
+harness3-plugin-protocol = { path = "../harness3-plugin-protocol" }
+serde_json = "1"

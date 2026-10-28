@@ -1,0 +1,9 @@
+{
+  "name": "external-inspector",
+  "version": "1.0.0",
+  "purpose": "通过外部进程工具检查文本",
+  "objective": "给出实际工具返回的字符数、行数和字节数",
+  "instructions": "本次必须调用 local.text.inspect 检查用户给出的文本，不使用内置 text.inspect。引用工具实际返回的统计结果。工具失败时报告失败，不推测结果。",
+  "protocol": "openai-responses",
+  "plugin": { "id": "local.text", "version": "1.0.0" }
+}

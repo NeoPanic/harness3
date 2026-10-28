@@ -24,6 +24,7 @@ pub struct App {
     pub token: String,
     pub cancellations: Cancellations,
     pub models: Models,
+    pub plugins: crate::plugins::ProcessHost,
 }
 impl IntoResponse for Fault {
     fn into_response(self) -> Response {
@@ -119,6 +120,15 @@ pub fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/plugins.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/plugins.js"),
+                )
+            }),
+        )
+        .route(
             "/fleets.js",
             get(|| async {
                 (
@@ -156,6 +166,18 @@ pub fn router(app: App) -> Router {
         .route("/api/v1/snapshot", get(snapshot))
         .route("/api/v1/presets", post(publish))
         .route("/api/v1/plugins", post(install))
+        .route(
+            "/api/v1/process-plugins",
+            get(process_plugins).post(install_process),
+        )
+        .route(
+            "/api/v1/process-plugins/{id}/{version}",
+            get(process_plugin),
+        )
+        .route(
+            "/api/v1/process-plugins/{id}/{version}/actions",
+            post(process_plugin_action),
+        )
         .route("/api/v1/agent-fleets", get(fleets).post(spawn))
         .route("/api/v1/agent-fleets/{id}", get(fleet))
         .route("/api/v1/agent-fleets/{id}/actions", post(fleet_action))
@@ -207,7 +229,7 @@ async fn logout() -> Response {
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
+        json!({"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Preset>) -> PResult<Json<Value>> {
@@ -218,6 +240,37 @@ async fn publish(State(app): State<App>, Json(preset): Json<Preset>) -> PResult<
 }
 async fn install(State(app): State<App>, Json(bundle): Json<Bundle>) -> PResult<Json<Value>> {
     Ok(Json(app.store.install(bundle)?))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProcessInstall {
+    source_dir: std::path::PathBuf,
+}
+async fn install_process(
+    State(app): State<App>,
+    Json(input): Json<ProcessInstall>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.plugins.install(input.source_dir).await?))
+}
+async fn process_plugins(State(app): State<App>) -> PResult<Json<Value>> {
+    Ok(Json(
+        json!({"process_plugins":app.store.process_plugins()?,"execution_enabled":app.plugins.is_enabled()}),
+    ))
+}
+async fn process_plugin(
+    State(app): State<App>,
+    Path((id, version)): Path<(String, String)>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.process_plugin(&id, &version)?))
+}
+async fn process_plugin_action(
+    State(app): State<App>,
+    Path((id, version)): Path<(String, String)>,
+    Json(input): Json<Action>,
+) -> PResult<Json<Value>> {
+    Ok(Json(
+        app.plugins.action(&id, &version, &input.action).await?,
+    ))
 }
 fn key(headers: &HeaderMap) -> PResult<&str> {
     headers

@@ -43,6 +43,7 @@ impl Fixture {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let app = router(App {
+            plugins: harness3_platform::plugins::ProcessHost::disabled(store.clone()),
             store: store.clone(),
             token,
             cancellations: Arc::new(Mutex::new(HashMap::new())),

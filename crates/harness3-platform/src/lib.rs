@@ -7,5 +7,6 @@ pub mod fleets;
 pub mod lifecycle;
 pub mod mcp;
 pub mod models;
+pub mod plugins;
 pub mod runtime;
 pub mod store;

@@ -6,7 +6,7 @@ import sys
 root = Path(__file__).resolve().parents[1]
 features = json.loads((root / 'docs/implementation-status.json').read_text())
 labels = {'implemented':'已实现','partial':'部分实现','planned':'规划中'}
-lines = ['# 实现进度与目录落点', '', '本表与 Web 实现进度共享 `docs/implementation-status.json`。状态按具体能力划分，不能据条目数量计算项目完成百分比。`待验证` 表示代码已写入，尚未完成本轮集成验证。', '', '完整目标目录和不变量见 [设计文档](managed-agents.zh-CN.md#12-目标目录结构与模块职责)。当前只有根运行内核包和平台包；目标目录用于依赖拆分，不要求提前创建空包。', '', '| 阶段 | 能力 | 实现状态 | 验证 | 当前行为 / 缺口 |', '| --- | --- | --- | --- | --- |']
+lines = ['# 实现进度与目录落点', '', '本表与 Web 实现进度共享 `docs/implementation-status.json`。状态按具体能力划分，不能据条目数量计算项目完成百分比。`待验证` 表示代码已写入，尚未完成本轮集成验证。', '', '完整目标目录和不变量见 [设计文档](managed-agents.zh-CN.md#12-目标目录结构与模块职责)。当前有根运行内核包、平台包、插件协议包与参考 SDK 包；其余目标目录用于依赖拆分，不要求提前创建空包。', '', '| 阶段 | 能力 | 实现状态 | 验证 | 当前行为 / 缺口 |', '| --- | --- | --- | --- | --- |']
 ids = set()
 for feature in features:
     assert feature['id'] not in ids
@@ -28,7 +28,7 @@ def tree(path, prefix=''):
         lines.append(prefix + ('└── ' if last else '├── ') + child.name + ('/' if child.is_dir() else ''))
         if child.is_dir():
             tree(child, prefix + ('    ' if last else '│   '))
-for directory in ['src', 'crates/harness3-platform', 'examples/clients']:
+for directory in ['src', 'crates/harness3-platform', 'crates/harness3-plugin-protocol', 'crates/harness3-plugin-sdk', 'examples/clients', 'examples/plugins']:
     lines.append(directory + '/')
     tree(root / directory)
 lines += ['```', '', '维护方式：修改 JSON 后运行 `python3 scripts/render-progress.py`；CI 使用 `--check` 检查文档同步、当前源码目录和路径存在。验收清单仍以设计文档为准。', '']

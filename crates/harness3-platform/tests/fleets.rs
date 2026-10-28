@@ -430,6 +430,7 @@ async fn fleet_api_accepts_operations_and_shares_auth_idempotency_and_revisions(
     use tower::ServiceExt;
     let store = seeded();
     let app = router(App {
+        plugins: harness3_platform::plugins::ProcessHost::disabled(store.clone()),
         store: store.clone(),
         token: "a".repeat(64),
         models: Models::default(),

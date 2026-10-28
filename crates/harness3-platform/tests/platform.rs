@@ -389,8 +389,10 @@ fn anthropic_merges_adjacent_context_and_preserves_tool_results() {
 }
 #[tokio::test]
 async fn api_auth_origin_and_csrf_boundaries() {
+    let store = seeded();
     let app = router(App {
-        store: seeded(),
+        plugins: harness3_platform::plugins::ProcessHost::disabled(store.clone()),
+        store,
         token: "a".repeat(64),
         cancellations: Arc::new(Mutex::new(HashMap::new())),
         models: Models::default(),

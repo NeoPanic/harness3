@@ -17,7 +17,7 @@ jobs:
       - run: cargo check --locked --workspace --all-targets
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
-      - run: node --check crates/harness3-platform/web/app.js && node --check crates/harness3-platform/web/goals.js && node --check crates/harness3-platform/web/fleets.js
+      - run: node --check crates/harness3-platform/web/app.js && node --check crates/harness3-platform/web/goals.js && node --check crates/harness3-platform/web/fleets.js && node --check crates/harness3-platform/web/plugins.js
       - run: cargo run --locked --example quickstart
       - run: cargo doc --locked --workspace --no-deps
         env:

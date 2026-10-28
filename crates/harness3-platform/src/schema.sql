@@ -22,3 +22,4 @@ CREATE INDEX IF NOT EXISTS instances_fleet_state ON instances(fleet_id,state);
 CREATE INDEX IF NOT EXISTS runs_instance_state ON runs(instance_id,state);
 CREATE UNIQUE INDEX IF NOT EXISTS fleet_slots_instance ON fleet_slots(instance_id) WHERE instance_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS operations_active ON operations(fleet_id) WHERE state IN ('pending','running');
+CREATE TABLE IF NOT EXISTS process_plugins(id TEXT NOT NULL,version TEXT NOT NULL,body TEXT NOT NULL,digest TEXT NOT NULL,state TEXT NOT NULL,health_at INTEGER,health_error TEXT,created_at INTEGER NOT NULL,PRIMARY KEY(id,version));

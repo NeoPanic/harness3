@@ -23,6 +23,18 @@ pub enum Command {
         preset: crate::domain::Preset,
     },
     PluginsList,
+    ProcessPluginsInstall {
+        source_dir: String,
+    },
+    ProcessPluginsShow {
+        id: String,
+        version: String,
+    },
+    ProcessPluginsAction {
+        id: String,
+        version: String,
+        action: String,
+    },
     PluginsInstall {
         bundle: crate::domain::Bundle,
     },
@@ -94,6 +106,7 @@ impl Command {
             Self::Snapshot
                 | Self::PresetsList
                 | Self::PluginsList
+                | Self::ProcessPluginsShow { .. }
                 | Self::FleetsList
                 | Self::FleetsShow { .. }
                 | Self::OperationsShow { .. }
@@ -177,12 +190,43 @@ impl PlatformClient {
                     _ => "instances",
                 };
                 let snapshot = self.request(Method::GET, "/snapshot", None, None).await?;
+                if collection == "plugins" {
+                    return Ok(
+                        json!({"plugins":snapshot["plugins"],"process_plugins":snapshot["process_plugins"],"execution_enabled":snapshot["process_plugin_execution"]}),
+                    );
+                }
                 return Ok(json!({collection: snapshot[collection]}));
             }
             PresetsPublish { preset } => (
                 Method::POST,
                 "/presets".into(),
                 Some(serde_json::to_value(preset)?),
+                None,
+            ),
+            ProcessPluginsInstall { source_dir } => (
+                Method::POST,
+                "/process-plugins".into(),
+                Some(json!({"source_dir":source_dir})),
+                None,
+            ),
+            ProcessPluginsShow { id, version } => (
+                Method::GET,
+                object("process-plugins", &id, &format!("/{}", segment(&version)?))?,
+                None,
+                None,
+            ),
+            ProcessPluginsAction {
+                id,
+                version,
+                action,
+            } => (
+                Method::POST,
+                object(
+                    "process-plugins",
+                    &id,
+                    &format!("/{}/actions", segment(&version)?),
+                )?,
+                Some(json!({"action":action})),
                 None,
             ),
             PluginsInstall { bundle } => (
@@ -276,4 +320,12 @@ fn object(collection: &str, id: &str, suffix: &str) -> ClientResult<String> {
         return Err("invalid object ID".into());
     }
     Ok(format!("/{collection}/{id}{suffix}"))
+}
+
+fn segment(value: &str) -> ClientResult<&str> {
+    if !valid_name(value) || matches!(value, "." | "..") {
+        Err("invalid object version".into())
+    } else {
+        Ok(value)
+    }
 }

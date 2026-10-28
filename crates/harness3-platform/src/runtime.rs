@@ -117,6 +117,7 @@ async fn execute(
     models: &Models,
     work: &Value,
     cancel: CancellationToken,
+    plugins: &crate::plugins::ProcessHost,
 ) -> PResult<Value> {
     let agent = work["instance_id"]
         .as_str()
@@ -133,10 +134,14 @@ async fn execute(
         "{}\nPurpose: {}\nObjective: {}",
         preset.instructions, preset.purpose, preset.objective
     );
-    if let Some(plugin) = plugin {
+    let process_snapshot = plugin.as_ref().filter(|p| p["kind"] == "process").cloned();
+    if let Some(plugin) = &plugin {
         instructions.push_str(&format!(
             "\nPlugin instructions:\n{}",
-            plugin["instructions"].as_str().unwrap_or_default()
+            plugin["instructions"]
+                .as_str()
+                .or_else(|| plugin["manifest"]["instructions"].as_str())
+                .unwrap_or_default()
         ));
     }
     let model: Arc<dyn Model> = if preset.protocol == Protocol::Demo {
@@ -158,6 +163,13 @@ async fn execute(
     registry.source(Arc::new(InputSource)).map_err(core_error)?;
     registry.model("selected", model).map_err(core_error)?;
     registry.tool(Arc::new(InspectText)).map_err(core_error)?;
+    let mut tools = vec!["text.inspect".to_owned()];
+    if let Some(snapshot) = process_snapshot {
+        for tool in plugins.tools(serde_json::from_value(snapshot)?)? {
+            tools.push(tool.spec().name);
+            registry.tool(tool).map_err(core_error)?;
+        }
+    }
     registry.observer(Arc::new(RunObserver {
         store: store.clone(),
         run: run.into(),
@@ -166,7 +178,7 @@ async fn execute(
         .task(AgentProfile {
             name: "agent".into(),
             instructions,
-            tools: vec!["text.inspect".into()],
+            tools,
             required_tool: None,
             skills: vec![],
         })
@@ -220,6 +232,17 @@ pub async fn worker_loop(
     cancellations: Cancellations,
     shutdown: CancellationToken,
 ) {
+    let plugins = crate::plugins::ProcessHost::disabled(store.clone());
+    worker_loop_with_plugins(store, models, cancellations, shutdown, plugins).await
+}
+
+pub async fn worker_loop_with_plugins(
+    store: Store,
+    models: Models,
+    cancellations: Cancellations,
+    shutdown: CancellationToken,
+    plugins: crate::plugins::ProcessHost,
+) {
     let mut tasks = tokio::task::JoinSet::new();
     loop {
         if shutdown.is_cancelled() {
@@ -252,11 +275,12 @@ pub async fn worker_loop(
                     let store = store.clone();
                     let cancellations = cancellations.clone();
                     let models = models.clone();
+                    let plugins = plugins.clone();
                     tasks.spawn(async move {
                         if store.cancel_requested(&run).unwrap_or(true) {
                             cancel.cancel();
                         }
-                        let outcome = execute(&store, &models, &work, cancel).await;
+                        let outcome = execute(&store, &models, &work, cancel, &plugins).await;
                         let report = match outcome {
                             Ok(report) => report,
                             Err(error) => json!({"error":{"code":error.1}}),

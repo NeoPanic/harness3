@@ -19,7 +19,7 @@
     "name": "不可变母体发布",
     "phase": "P1",
     "status": "implemented",
-    "detail": "用途、目标、指令、模型协议和单个提示词包按版本锁定。",
+    "detail": "用途、目标、指令、模型协议和单个提示词包或进程插件包按版本锁定。",
     "source": [
       "crates/harness3-platform/src/domain.rs",
       "crates/harness3-platform/src/store.rs"
@@ -164,27 +164,38 @@
     "id": "plugin-protocol",
     "name": "可执行插件契约与 SDK",
     "phase": "P2",
-    "status": "planned",
-    "detail": "待实现 manifest、握手、能力 schema、调用取消、错误及作者测试工具。",
-    "source": [],
+    "status": "partial",
+    "detail": "已实现版本化 manifest/RPC、严格 schema 子集、握手/健康/进度/取消、错误分类、Rust 同步 SDK 和 Python 示例；配置/权限/依赖锁、多种能力与对账协议待补。",
+    "source": [
+      "crates/harness3-plugin-protocol/src/lib.rs",
+      "crates/harness3-plugin-sdk/src/lib.rs",
+      "crates/harness3-plugin-sdk/tests/contract.rs",
+      "examples/plugins/text-inspector/manifest.json"
+    ],
     "target": [
       "crates/harness3-plugin-protocol/src/",
       "crates/harness3-plugin-sdk/src/"
     ],
-    "verification": "not-implemented"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "plugin-runtime",
     "name": "外部插件与热加载",
     "phase": "P2",
-    "status": "planned",
-    "detail": "待实现进程/MCP loader、新旧版本并存、排空切换、回滚与撤权。",
-    "source": [],
+    "status": "partial",
+    "detail": "进程包在线安装、内容寻址、逐调用摘要检查、版本并存、母体快照、健康检查、禁用/取消和旧版本重新绑定已实现；显式 opt-in、清空继承环境，仍以 OS 用户权限运行。MCP loader、watch、进程池/rollout、沙箱与作用域授权待补。",
+    "source": [
+      "crates/harness3-platform/src/plugins/mod.rs",
+      "crates/harness3-platform/src/plugins/package.rs",
+      "crates/harness3-platform/src/plugins/process.rs",
+      "crates/harness3-platform/web/plugins.js",
+      "crates/harness3-platform/tests/process_plugins.rs"
+    ],
     "target": [
       "crates/harness3-plugins/src/loaders/",
       "crates/harness3-plugins/src/reload/"
     ],
-    "verification": "not-implemented"
+    "verification": "native-tests-and-browser"
   },
   {
     "id": "goal-graph",
@@ -260,7 +271,7 @@
     "name": "API / CLI / MCP 入口",
     "phase": "P2",
     "status": "partial",
-    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 23 个工具，默认开放 12 个查询工具，写入需显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
+    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 26 个工具，默认开放 13 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
     "source": [
       "crates/harness3-platform/src/api.rs",
       "crates/harness3-platform/src/client.rs",

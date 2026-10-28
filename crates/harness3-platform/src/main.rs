@@ -30,7 +30,7 @@ enum Command {
     Runs(cli::RunArgs),
     /// List or publish immutable mother-agent Presets from JSON.
     Presets(cli::PresetArgs),
-    /// Manage prompt bundles (executable plugins are not supported yet).
+    /// Manage prompt bundles and opt-in local process Tool packages.
     Plugins(cli::PluginArgs),
     /// Inspect asynchronous operation completion.
     Operations(cli::OperationArgs),
@@ -60,6 +60,9 @@ enum Command {
         model: String,
         #[arg(long)]
         demo: bool,
+        /// Allow explicitly installed local process plugins to execute as this OS user.
+        #[arg(long)]
+        allow_process_plugins: bool,
     },
     /// Check the running daemon's public health endpoint.
     Doctor {
@@ -126,6 +129,7 @@ async fn main() -> harness3_platform::client::ClientResult<()> {
             codex_config_dir,
             model,
             demo,
+            allow_process_plugins,
         } => {
             std::fs::create_dir_all(&data_dir)?;
             #[cfg(unix)]
@@ -185,6 +189,14 @@ async fn main() -> harness3_platform::client::ClientResult<()> {
             if !demo && models.responses.is_some() {
                 store.publish(Preset{name:"researcher".into(),version:"1.0.0".into(),purpose:"通用研究与分析".into(),objective:"依据可用证据回答用户问题；需要文本统计时使用 text.inspect".into(),instructions:"You are a careful research agent. Use tools when needed. Distinguish evidence from inference. Reply in the user's language. Never claim tool results without receipts.".into(),protocol:Protocol::OpenaiResponses,plugin:None})?;
             }
+            let plugins = if allow_process_plugins {
+                harness3_platform::plugins::ProcessHost::enabled(
+                    store.clone(),
+                    data_dir.join("plugins"),
+                )?
+            } else {
+                harness3_platform::plugins::ProcessHost::disabled(store.clone())
+            };
             runtime::recover(&store).await?;
             let cancellations = Arc::new(Mutex::new(HashMap::new()));
             let shutdown = CancellationToken::new();
@@ -201,17 +213,19 @@ async fn main() -> harness3_platform::client::ClientResult<()> {
                 data_dir.display(),
                 token_path.display()
             );
-            let worker = tokio::spawn(runtime::worker_loop(
+            let worker = tokio::spawn(runtime::worker_loop_with_plugins(
                 store.clone(),
                 models.clone(),
                 cancellations.clone(),
                 shutdown.clone(),
+                plugins.clone(),
             ));
             let app = router(App {
                 store,
                 token,
                 cancellations,
                 models,
+                plugins,
             });
             let stop = shutdown.clone();
             let signal = async move {
