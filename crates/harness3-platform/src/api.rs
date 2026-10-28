@@ -113,6 +113,15 @@ pub fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/goals.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/goals.js"),
+                )
+            }),
+        )
+        .route(
             "/mark.svg",
             get(|| async {
                 (
@@ -136,7 +145,12 @@ pub fn router(app: App) -> Router {
         .route("/api/v1/agent-instances/{id}/actions", post(transition))
         .route("/api/v1/agent-instances/{id}/runs", post(enqueue))
         .route("/api/v1/agent-instances/{id}/session", get(session))
+        .route("/api/v1/runs/{id}", get(run))
         .route("/api/v1/runs/{id}/cancel", post(cancel))
+        .route("/api/v1/goals", get(goals).post(create_goal))
+        .route("/api/v1/goals/{id}", get(goal))
+        .route("/api/v1/goals/{id}/cancel", post(cancel_goal))
+        .route("/api/v1/goals/{id}/accept", post(accept_goal))
         .route("/api/v1/events", get(events))
         .layer(DefaultBodyLimit::max(128 * 1024))
         .layer(middleware::from_fn_with_state(app.clone(), guard))
@@ -175,7 +189,7 @@ async fn logout() -> Response {
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200},"version":env!("CARGO_PKG_VERSION")}),
+        json!({"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Preset>) -> PResult<Json<Value>> {
@@ -255,4 +269,46 @@ async fn events(
         .map_err(|_| fault(400, "invalid_cursor"))?
         .unwrap_or(0);
     Ok(Json(json!({"events":app.store.events(after)?})))
+}
+
+async fn run(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.run(&id)?))
+}
+async fn goals(State(app): State<App>) -> PResult<Json<Value>> {
+    Ok(Json(json!({"goals":app.store.list("goals")?})))
+}
+async fn goal(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.goal(&id)?))
+}
+async fn create_goal(
+    State(app): State<App>,
+    headers: HeaderMap,
+    Json(plan): Json<GoalPlan>,
+) -> PResult<(StatusCode, Json<Value>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(app.store.create_goal(&plan, key(&headers)?)?),
+    ))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Review {
+    review: String,
+}
+async fn accept_goal(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    Json(input): Json<Review>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.accept_goal(&id, &input.review)?))
+}
+async fn cancel_goal(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    let result = app.store.cancel_goal(&id)?;
+    let cancellations = app.cancellations.lock().await;
+    for run in result["run_ids"].as_array().unwrap() {
+        if let Some(token) = cancellations.get(run.as_str().unwrap()) {
+            token.cancel();
+        }
+    }
+    Ok(Json(result))
 }

@@ -123,6 +123,57 @@ pub struct RunInput {
     pub text: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GoalPlan {
+    pub title: String,
+    pub objective: String,
+    pub acceptance: String,
+    pub tasks: Vec<TaskPlan>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TaskPlan {
+    pub key: String,
+    pub instance_id: String,
+    pub instructions: String,
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+}
+impl GoalPlan {
+    pub fn validate(&self) -> PResult<()> {
+        if self.title.trim().is_empty()
+            || self.title.len() > 200
+            || self.objective.trim().is_empty()
+            || self.objective.len() > 8000
+            || self.acceptance.trim().is_empty()
+            || self.acceptance.len() > 8000
+            || self.tasks.is_empty()
+            || self.tasks.len() > 16
+        {
+            return Err(fault(400, "invalid_goal"));
+        }
+        let mut seen = std::collections::HashSet::new();
+        for task in &self.tasks {
+            let mut dependencies = std::collections::HashSet::new();
+            if !valid_name(&task.key)
+                || !valid_name(&task.instance_id)
+                || seen.contains(&task.key)
+                || task.instructions.trim().is_empty()
+                || task.instructions.len() > 8000
+                || task
+                    .depends_on
+                    .iter()
+                    .any(|dep| !seen.contains(dep) || !dependencies.insert(dep))
+            {
+                return Err(fault(400, "invalid_task_graph"));
+            }
+            seen.insert(task.key.clone());
+        }
+        Ok(())
+    }
+}
+
 pub fn capabilities() -> Value {
     json!([
         {"id":"core","name":"Harness 执行内核","status":"implemented","detail":"真实模型 → 工具 → 模型循环、会话快照、回执与上下文预算。"},
@@ -132,7 +183,7 @@ pub fn capabilities() -> Value {
         {"id":"models","name":"三类模型协议","status":"partial","detail":"Chat Completions / Responses / Anthropic 非流式文本与工具循环。未实现多模态、流式增量和自动重试；真实账号需自行配置。"},
         {"id":"plugins","name":"插件与热加载","status":"partial","detail":"内置 text.inspect 工具，声明式提示词包可在线安装并绑定新 Preset；版本固定。外部进程/MCP 代码加载尚未实现。"},
         {"id":"inspection","name":"执行检查与 Web","status":"implemented","detail":"查看真实实例、运行、工具回执、请求快照、会话与事件；HTTP API 与同一 Web 状态源。"},
-        {"id":"collaboration","name":"Agent 组织协作","status":"planned","detail":"尚无共享任务、频道、可靠消息、委派、Review 与贡献整合。批量实例不会自动协作。"},
+        {"id":"collaboration","name":"Agent 组织协作","status":"partial","detail":"持久共同目标、显式依赖任务图、上游贡献与 Run ID 传递、取消与人工验收；Web / API / CLI 共用状态。尚无自主拆解、Agent 通信、返工和动态委派。"},
         {"id":"governance","name":"治理与隔离","status":"planned","detail":"当前仅本地 token 与内置只读工具；多租户、费用账本、工作区沙箱、审批尚未实现。"},
         {"id":"mcp","name":"MCP 与远程 Worker","status":"planned","detail":"本轮未实现 MCP 服务、外部 MCP 工具、多机 Worker 或自动恢复原 Run。"}
     ])

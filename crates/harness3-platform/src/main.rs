@@ -10,6 +10,7 @@ use harness3_platform::{
 };
 use std::{collections::HashMap, fs::OpenOptions, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
+mod client;
 
 #[derive(Parser)]
 #[command(name = "harness3", about = "Harness³ local kernel control plane")]
@@ -19,6 +20,8 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Manage shared goals through the running daemon's authenticated HTTP API.
+    Goals(client::GoalArgs),
     Up {
         #[arg(long, default_value = "7333")]
         port: u16,
@@ -39,6 +42,7 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match Cli::parse().command {
+        Command::Goals(args) => client::goals(args).await?,
         Command::Doctor { port } => {
             let response = reqwest::get(format!("http://127.0.0.1:{port}/health")).await?;
             println!("{}", response.error_for_status()?.text().await?);

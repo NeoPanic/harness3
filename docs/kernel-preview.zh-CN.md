@@ -53,8 +53,59 @@ cargo run --locked -p harness3-platform -- up \
 5. **执行记录 → 检查**：查看输出、失败原因、工具参数与回执、用量、模型请求快照、完整会话和运行事件。平台 queue Run ID 与内核 Report.run_id 分开保存，详情按 Report.run_id 关联请求快照。
 6. **插件与能力**：安装声明式提示词包，再发布一个绑定该版本的新母体。在线安装无需重启；旧实例不改变绑定。提示词包没有可执行入口，不能当作外部代码插件使用。
 7. **实现进度**：逐项显示当前版本的已实现、部分实现与规划中能力。**事件日志**读取 SQLite 事件游标，展示控制面和执行过程中的真实变化。
+8. **协作目标**：定义共同目标、验收标准和任务分工；为每项任务选择实例并勾选上游依赖。独立任务并行，依赖任务收到上游输出与 Run ID 后执行。任务全部成功进入待验收，由用户核对证据并填写验收结论。
 
 内置 `text.inspect` 工具只能统计文本的 Unicode 标量数、行数和 UTF-8 字节数，不访问文件和网络。确定性演示模型会实际调用该工具，再根据回执生成固定格式答复；界面会明确标注 Demo，不能用它验证模型推理能力。真实模型由用户任务决定是否调用工具，可输入“请调用文本统计工具检查字符串 Harness³ 并按回执报告结果”来验证完整循环。
+
+## 显式协作任务图
+
+控制面已经支持持久化共同目标（Goal）与任务（WorkItem）。这是一层有界的依赖协调器：用户提供分工计划，平台保证派发、结果传递和状态结算。模型自主拆解、动态委派、频道、可靠 Inbox、自动返工和独立验证器尚未实现。
+
+每个目标最多 16 项任务，按拓扑顺序提交：`depends_on` 只能引用计划中先出现的任务 key，拒绝重复 key、重复依赖、前向引用与循环。最多 32 个运行中、正在取消或待验收的目标；目标列表展示最近 100 条。目标标题最多 200 UTF-8 字节，目标、验收标准、任务指令与验收结论分别最多 8,000 字节，HTTP body 仍受 128 KiB 限制。
+
+- 创建计划与幂等回执在同一 SQLite 事务提交。协调器将任务与 Run 原子绑定；重启、重复协调和同键重试不会重复派发。计划发布后不可修改；重做需要创建新目标。
+- 独立任务可并行；同一实例的任务与普通运行共用串行约束，最多四个 Worker 执行。计划不预占实例，忙碌或暂停时等待，终止实例会阻断未派发任务。排队中的运行仍保持实例 busy，不能直接终止。
+- 下游仅接收直接依赖的输出、task key、实例 ID 与 Run ID，序列化为带证据身份的 JSON，作为本次运行输入的一部分持久保存。上游全文被标记为不可信证据；这不是对提示词注入的隔离证明。上游工具原始回执通过 Run 链接检查，不自动复制完整私有会话。
+- 目标与证据合计超过 64,000 UTF-8 字节时，下游明确阻断为 `dependency_context_too_large`，不会截断证据后继续。上游失败、取消或中断未知会阻断所有依赖后继；无依赖的其他任务继续结算。
+- 实例复用既有持久会话，可能影响任务输出；需要隔离目标历史时创建新实例。不同目标可以选择同一实例，按可用性串行运行；当前不承诺公平调度或专用资源。
+- 任务全部 completed 后，目标进入 `awaiting-review`；completed 只表示 Harness 执行成功，不证明任务结果满足语义要求。用户核对验收标准后提交结论，目标才成为 `accepted`。当前不支持验收后修改或撤销。
+- 取消目标会原子停止后续派发、取消排队 Run，并对正在执行的 Run 请求协作取消。等待已启动工作结算后目标为 cancelled；若运行在取消前已完成，保留 completed 和实际输出。取消不撤销既有结果。
+- 启动恢复沿用原有 Run 契约：保留已知回执，未知结果进入 interrupted，不自动重放；待派发任务和排队任务继续，未知上游阻断下游。
+
+示例计划 `goal.json`（将实例 ID 替换成实际创建的实例；可重复使用同一 ID 来串行验证）：
+
+```json
+{
+  "title": "文本统计与证据汇总",
+  "objective": "分别统计两段文本，再依据两份回执汇总",
+  "acceptance": "统计值与原始回执一致，汇总引用两个上游 Run ID",
+  "tasks": [
+    {"key":"inspect-a","instance_id":"agent_REPLACE_A","instructions":"调用 text.inspect，仅统计 Harness³","depends_on":[]},
+    {"key":"inspect-b","instance_id":"agent_REPLACE_B","instructions":"调用 text.inspect，仅统计 Agents","depends_on":[]},
+    {"key":"combine","instance_id":"agent_REPLACE_C","instructions":"根据上游证据汇总统计表，引用各自完整 Run ID","depends_on":["inspect-a","inspect-b"]}
+  ]
+}
+```
+
+三个任务都使用 Demo 母体时，可验证真实调度、工具循环和贡献传递，但汇总任务只会统计其完整输入。要验证语义汇总，应创建三个新的 Responses 实例，使用真实模型。
+
+### CLI 与 Web 共用状态
+
+CLI 只连接指定端口的本地 daemon，从 `--data-dir` 读取平台 token，经同一认证 HTTP API 操作，不直接写数据库，也不接受模型密钥参数：
+
+```sh
+# 已构建二进制，也可用 cargo run --locked -p harness3-platform -- goals ...
+./target/debug/harness3 goals create --file goal.json --key research-check-1
+./target/debug/harness3 goals list
+./target/debug/harness3 goals show goal_REPLACE
+./target/debug/harness3 goals accept goal_REPLACE --review "已核对统计与来源回执"
+./target/debug/harness3 goals cancel goal_REPLACE
+# 可在 goals 后指定 --port 7333 --data-dir .harness3
+```
+
+创建命令要求显式 `--key`，网络失败后使用相同计划和 key 可取回原接纳回执；内容改变需要新的 key。CLI 输出 JSON，HTTP 失败时以非零状态退出。MCP 入口仍待实现。
+
+本轮验证中，新建的三个 `gpt-6-luna` Responses 实例分别产生 `Harness³ = 8/1/9` 与 `Agents = 6/1/6` 的字符/行/字节回执，汇总任务引用了两个真实 Run ID。另一次复用历史实例的执行者统计错了对象，汇总者如实指出缺失证据，目标保留待验收。这说明协作链路可用，执行成功仍不能替代验收，也不能据此推断多 Agent 效果优于单 Agent。
 
 ## HTTP API
 
@@ -71,6 +122,12 @@ cargo run --locked -p harness3-platform -- up \
 | `POST /api/v1/agent-instances/{id}/runs` | 持久化执行请求，返回 202；需要 Idempotency-Key |
 | `GET /api/v1/agent-instances/{id}/session` | 完整会话、checkpoint deltas、请求、回执 |
 | `POST /api/v1/runs/{id}/cancel` | 取消排队运行或协作取消已开始运行 |
+| `GET /api/v1/runs/{id}` | 按 ID 查询完整运行，不受 snapshot 最近 100 条限制 |
+| `GET /api/v1/goals` | 最近 100 条目标摘要与任务完成数 |
+| `POST /api/v1/goals` | 提交 GoalPlan，要求 Idempotency-Key，接纳返回 202 |
+| `GET /api/v1/goals/{id}` | 目标、验收、任务、依赖与完整关联 Run |
+| `POST /api/v1/goals/{id}/cancel` | 原子停止派发并取消/排空已有工作 |
+| `POST /api/v1/goals/{id}/accept` | Body `{"review":"验收结论"}`，仅待验收目标可接受 |
 | `GET /api/v1/events?after=0` | 从指定游标增量读取最多 200 条持久事件 |
 
 批量创建 body：
@@ -91,8 +148,9 @@ cargo run --locked -p harness3-platform -- up \
 
 ## 首版边界
 
-- 已有：单机 SQLite 控制面、不可变母体和提示词绑定、独立实例/会话、有界 Worker 队列、核心工具循环、幂等与取消、原始请求/回执/事件检查、三类协议适配与 Web。
-- 尚无：Agent 组织任务与协作、可靠组织消息、自动派生、维持型实例组扩缩容、TTL、外部进程/MCP 插件、代码热切换、费用账本、审批、工作区/容器沙箱、多租户与远程 Worker。
+- 已有：单机 SQLite 控制面、不可变母体和提示词绑定、独立实例/会话、有界 Worker 队列、核心工具循环、幂等与取消、显式协作任务图/贡献传递/人工验收、原始请求/回执/事件检查、三类协议适配、Web 与目标 CLI。
+- 尚无：自主任务拆解与动态委派、可靠组织消息、自动派生、自动验收/返工、维持型实例组扩缩容、TTL、外部进程/MCP 插件、代码热切换、费用账本、审批、工作区/容器沙箱、多租户与远程 Worker。
+- SQLite schema 已由 v1 升为 v2，首次打开旧数据目录自动以增量建表保留原实例、运行、会话与事件。旧版二进制会拒绝 v2 数据目录，回退前需恢复自行备份的旧数据库；当前没有降级工具。
 - 本地 token 给予整个本地平台访问权，尚无细粒度角色授权。会话和工具结果可能含用户数据，token 与数据库不能公开分享。
 - 单 daemon 独占锁与 SQLite 修订控制适用于此本机执行模式，不构成多机租约/fencing。诊断事件已持久化，但不是防篡改的合规审计系统。
 - 工具侧外部幂等仍然必要。本版内置只读工具没有外部写效果；扩展可执行工具前必须实现其权限、取消与未知结果契约。
@@ -106,6 +164,7 @@ cargo test --locked --workspace
 cargo run --locked --example quickstart
 RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 node --check crates/harness3-platform/web/app.js
+node --check crates/harness3-platform/web/goals.js
 ```
 
 平台集成测试覆盖不可变版本、插件快照、批次幂等和配额、生命周期、取消、独立会话、SQLite stale writer、重启后的已知/未知结果、三协议映射、首条输入、工具别名、真实本地 HTTP fixture 和认证边界。测试使用本地服务与确定性模型，不依赖付费账号。真实服务 smoke test 需显式配置，不能用 fixture 通过代替供应商兼容验证。

@@ -18,7 +18,7 @@ impl Store {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 1 {
+        if version > 2 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
@@ -341,6 +341,9 @@ impl Store {
             }
             "runs" => {
                 "SELECT json_object('id',id,'instance_id',instance_id,'state',state,'input',input,'report',json(report),'created_at',created_at,'started_at',started_at,'finished_at',finished_at) FROM runs ORDER BY created_at DESC,rowid DESC LIMIT 100"
+            }
+            "goals" => {
+                "SELECT json_object('id',g.id,'title',g.title,'objective',g.objective,'state',g.state,'created_at',g.created_at,'finished_at',g.finished_at,'task_count',count(w.key),'completed_count',sum(w.state='completed')) FROM goals g JOIN work_items w ON w.goal_id=g.id GROUP BY g.id ORDER BY g.created_at DESC,g.rowid DESC LIMIT 100"
             }
             _ => return Err(fault(404, "collection_not_found")),
         };

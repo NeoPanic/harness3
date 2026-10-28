@@ -8,4 +8,7 @@ CREATE INDEX IF NOT EXISTS runs_state ON runs(state,created_at);
 CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,body TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS commands(key TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,response TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,kind TEXT NOT NULL,subject TEXT NOT NULL,body TEXT NOT NULL,at INTEGER NOT NULL);
-PRAGMA user_version=1;
+CREATE TABLE IF NOT EXISTS goals(id TEXT PRIMARY KEY,title TEXT NOT NULL,objective TEXT NOT NULL,acceptance TEXT NOT NULL,state TEXT NOT NULL,review TEXT,created_at INTEGER NOT NULL,finished_at INTEGER);
+CREATE TABLE IF NOT EXISTS work_items(goal_id TEXT NOT NULL REFERENCES goals(id),key TEXT NOT NULL,position INTEGER NOT NULL,instance_id TEXT NOT NULL REFERENCES instances(id),instructions TEXT NOT NULL,depends_on TEXT NOT NULL,state TEXT NOT NULL,run_id TEXT UNIQUE REFERENCES runs(id),error TEXT,PRIMARY KEY(goal_id,key));
+CREATE INDEX IF NOT EXISTS goals_state ON goals(state,created_at);
+PRAGMA user_version=2;

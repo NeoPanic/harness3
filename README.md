@@ -16,7 +16,7 @@
 
 Harness³ gives agents a shared execution foundation: model and tool interfaces, explicit authority, recoverable conversations, and inspectable execution. A host can compose these foundations into larger agent systems while choosing its own models, storage, channels, and coordination strategy.
 
-This repository contains the independent **runtime core** and a **local control-plane preview** with Presets, independent instances, SQLite persistence, and an embedded Web console. Multi-machine scheduling, agent collaboration, external executable plugins, and hosted deployment remain planned.
+This repository contains the independent **runtime core** and a **local control-plane preview** with Presets, independent instances, SQLite persistence, and an embedded Web console. Explicit task graphs now coordinate multiple instances with dependency evidence and human acceptance. Multi-machine scheduling, autonomous delegation, external executable plugins, and hosted deployment remain planned.
 
 ## Local kernel platform preview
 
@@ -24,7 +24,7 @@ This repository contains the independent **runtime core** and a **local control-
 cargo run --locked -p harness3-platform -- up --demo
 ```
 
-Open [http://127.0.0.1:7333](http://127.0.0.1:7333) and sign in with the local `.harness3/token` file. Publish Presets, create independent instances, run the real Harness loop, and inspect requests, receipts, sessions, events, and implementation status. The platform supports non-streaming OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages adapters. See the [platform guide (中文)](docs/kernel-preview.zh-CN.md) for model configuration, API endpoints, and current limits. Agent collaboration and external code plugins are not implemented yet.
+Open [http://127.0.0.1:7333](http://127.0.0.1:7333) and sign in with the local `.harness3/token` file. Publish Presets, create independent instances, run the real Harness loop, and inspect requests, receipts, sessions, events, and implementation status. The platform supports non-streaming OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages adapters. See the [platform guide (中文)](docs/kernel-preview.zh-CN.md) for model configuration, API endpoints, and current limits. Shared goals support explicit task dependencies, contribution handoff, and human review through Web, API, and the goals CLI. Autonomous agent messaging and external code plugins remain planned.
 
 ## Why the cube?
 

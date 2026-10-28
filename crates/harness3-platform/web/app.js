@@ -5,6 +5,7 @@ const short = s => String(s ?? '').slice(0, 15);
 const time = value => value ? new Date(value).toLocaleTimeString('zh-CN', {hour12:false}) : '—';
 const labels = {ready:'就绪',busy:'执行中',suspended:'已暂停',terminated:'已终止',queued:'排队中',running:'运行中',completed:'已完成',failed:'失败',interrupted:'中断 · 结果未知',cancelled:'已取消',implemented:'已实现',partial:'部分实现',planned:'规划中'};
 const badge = (s, text) => `<span class="badge ${esc(s)}">${esc(text || labels[s] || s)}</span>`;
+Object.assign(labels,{pending:'等待派发',blocked:'依赖阻断','awaiting-review':'待验收',accepted:'已验收',cancelling:'正在取消'});
 let data = null, events = [], cursor = 0, authenticated = false, modalContext = null, refreshTask = null;
 let toastTimer;
 
@@ -12,6 +13,7 @@ let toastTimer;
 const iconPaths = {
   overview:'<path d="m12 3 9 5v8l-9 5-9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5"/>',
   agents:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  goals:'<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4H5v4m7-4h7v4"/>',
   presets:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   runs:'<path d="m9 5 11 7-11 7Z"/><path d="M4 5v14"/>',
   plugins:'<path d="M9 3v5m6-5v5M6 8h12v3a6 6 0 0 1-12 0ZM12 17v4"/>',
@@ -53,13 +55,14 @@ async function api(path, body, method = 'POST', key = null) {
   if (!response.ok) {
     const code=value.error?.code || value.rejection || `HTTP ${response.status}`;
     const messages={unauthorized:'访问令牌无效或会话已过期，请重新登录。',preset_version_immutable:'这个母体版本已发布，请更换版本号。',plugin_version_immutable:'这个插件版本已安装，请更换版本号。',instance_not_ready:'实例当前无法接收任务，请刷新并选择就绪实例。',instance_quota_exceeded:'实例配额已满，请减少数量或终止闲置实例。',invalid_transition_or_instance_busy:'实例状态已变化或仍在执行，请刷新后重试。',idempotency_conflict:'上次请求的内容已更改，请关闭后重新打开表单提交。',invalid_preset:'请检查名称、版本号和必填内容；文本长度按 UTF-8 字节计算。',invalid_prompt_bundle:'请检查插件 ID、版本号和必填内容。'};
+    Object.assign(messages,{invalid_goal:'请填写目标名称、共同目标、验收标准及 1–16 项任务；检查 UTF-8 字节上限。',invalid_task_graph:'任务 key 必须唯一，依赖只能引用前面的任务，且不能重复。',goal_quota_exceeded:'运行中或待验收目标已达 32 个，请先验收或取消已有目标。',goal_instance_terminated:'计划包含已终止的实例，请重新选择执行实例。',goal_not_reviewable:'目标尚未完成或已经结算，请刷新后核对状态。',goal_not_cancellable:'目标已经结算，无法再取消。',invalid_goal_review:'请填写验收结论，最多 8,000 个 UTF-8 字节。',goal_not_found:'没有找到该目标，请返回目标列表。'});
     throw new Error(messages[code] || `操作未完成（${code}），请检查配置后重试。`);
   }
   return value;
 }
-function page() { return ['overview','agents','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
+function page() { return goalId()?'goals':['overview','agents','goals','presets','runs','plugins','capabilities','events'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'; }
 function head(eyebrow, title, description, buttons = '') { return `<div class="page-head"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1><p>${description}</p></div><div class="head-actions">${buttons}</div></div>`; }
-function button(label, action, primary = false, extra = '') { return `<button class="button ${primary ? 'primary' : ''}" data-action="${action}" ${extra}>${label}</button>`; }
+function button(label, action, primary = false, extra = '') { return `<button type="button" class="button ${primary ? 'primary' : ''}" data-action="${action}" ${extra}>${label}</button>`; }
 function empty(title, text, action = '') { return `<div class="empty"><b>${title}</b>${text}${action ? `<br>${action}` : ''}</div>`; }
 function panel(title, body, link = '', suffix = '') { return `<section class="panel"><div class="panel-head"><span class="panel-title">${title}${suffix}</span>${link}</div>${body}</section>`; }
 function table(headers, rows) { return `<div class="table-wrap" tabindex="0" role="region" aria-label="数据表，可横向滚动"><table><thead><tr>${headers.map(h=>`<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`; }
@@ -88,24 +91,27 @@ function overview() {
 }
 function render() {
   if (!data || composing) return;
-  const p=page(), names={overview:'总览',agents:'Agent 实例',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
+  const p=page(), names={overview:'总览',agents:'Agent 实例',goals:'协作目标',presets:'母体 Presets',runs:'执行记录',plugins:'插件与能力',capabilities:'实现进度',events:'事件日志'};
   $('#page-title').textContent=names[p]; $('#nav-count').textContent=data.instances.filter(a=>a.state!=='terminated').length;
   document.querySelectorAll('nav a').forEach(a=>{a.classList.toggle('active',a.dataset.page===p);if(a.dataset.page===p)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.title=`${names[p]} · Harness³`;
   let html='';
   if(p==='overview') html=overview();
-  if(p==='agents') html=head('MANAGED INSTANCES','Agent 实例','同一母体可创建多个独立实例；当前支持有限批次，本轮尚无自动协作与扩缩容。',button('＋ 批量创建','spawn',true))+filterBar('agents')+panel('实例目录',`<div id="directory-results">${directory('agents')}</div>`,badge('neutral',`共 ${data.instances.length} 个实例`));
+  if(p==='goals') html=goalsPage();
+  if(p==='agents') html=head('MANAGED INSTANCES','Agent 实例','同一母体可创建多个独立实例；当前支持有限批次，可在协作目标中编排分工，尚无自主委派与扩缩容。',button('＋ 批量创建','spawn',true))+filterBar('agents')+panel('实例目录',`<div id="directory-results">${directory('agents')}</div>`,badge('neutral',`共 ${data.instances.length} 个实例`));
   if(p==='presets') html=head('AGENT DEFINITIONS','母体 Presets','定义用途、目标、指令、模型协议与提示词插件，发布后按版本固定。',button('＋ 发布母体','preset-form',true))+`<div class="cards">${data.presets.map(p=>`<article class="card"><div class="card-top"><span class="agent-glyph">${icon('presets')}</span><span class="mono">${esc(p.version)}</span>${badge('good','已发布')}</div><h3>${esc(p.name)}</h3><p>${esc(p.definition.purpose)}</p><p>${esc(p.definition.objective)}</p><div class="card-bottom"><span class="protocol">${esc(p.definition.protocol)}</span><span><button class="text-button" data-action="preset-detail" data-id="${esc(p.name)}" data-version="${esc(p.version)}">定义 ↗</button><button class="text-button" data-action="spawn" data-id="${esc(p.name)}" data-version="${esc(p.version)}">创建实例</button></span></div></article>`).join('')}</div>`;
   if(p==='runs') html=head('DURABLE EXECUTION','执行记录','展示最近 100 条运行；检查模型请求、工具回执、用量与失败原因。')+filterBar('runs')+panel('运行历史',`<div id="directory-results">${directory('runs')}</div>`,badge('neutral',`${data.runs.length} 条`));
   if(p==='plugins') html=head('CAPABILITIES & BINDINGS','插件与能力','第一版支持内置只读工具与不可变提示词包，新包可在运行时安装并绑定新母体。',button('＋ 安装提示词包','plugin-form',true))+`<div class="callout">外部进程、远程 MCP、代码热替换尚未实现。安装提示词包不会改变已发布母体或既有实例；使用新版本需发布新母体并创建实例。</div><div class="cards"><article class="card"><div class="card-top"><span class="agent-glyph">${icon('plugins')}</span>${badge('implemented','内置工具')}</div><h3>text.inspect</h3><p>统计输入文本的 Unicode 标量、行数和 UTF-8 字节数。只读，不访问文件、不执行代码。</p><div class="card-bottom"><span class="protocol">builtin / v1</span>${badge('good','可调用')}</div></article>${data.plugins.map(p=>`<article class="card"><div class="card-top"><span class="agent-glyph">${icon('presets')}</span>${badge('good','提示词包')}</div><h3>${esc(p.id)}</h3><p>${esc(p.definition.description)}</p><span class="mono wrap">${esc(p.digest)}</span><div class="card-bottom"><span class="protocol">${esc(p.version)}</span><button class="text-button" data-action="plugin-detail" data-id="${esc(p.id)}" data-version="${esc(p.version)}">检查定义 ↗</button></div></article>`).join('')}</div>`;
-  if(p==='capabilities') html=head('IMPLEMENTATION MAP','实现进度','状态由当前版本的能力清单提供；部分实现会列出已交付行为与剩余边界。')+`<div class="callout">当前交付：本地内核平台预览。多个实例可以独立运行，组织协作、外部可执行插件和分布式控制面仍在规划中。</div><div class="grid-two">${data.capabilities.map(c=>`<article class="capability"><h3>${esc(c.name)} ${badge(c.status)}</h3><p>${esc(c.detail)}</p></article>`).join('')}</div>`;
+  if(p==='capabilities') html=head('IMPLEMENTATION MAP','实现进度','状态由当前版本的能力清单提供；部分实现会列出已交付行为与剩余边界。')+`<div class="callout">当前交付：本地内核平台预览。多个实例可以独立运行，已支持显式任务图的依赖调度与人工验收；自主委派、外部可执行插件和分布式控制面仍在规划中。</div><div class="grid-two">${data.capabilities.map(c=>`<article class="capability"><h3>${esc(c.name)} ${badge(c.status)}</h3><p>${esc(c.detail)}</p></article>`).join('')}</div>`;
   if(p==='events') html=head('PERSISTENT EVENT LOG','事件日志','来自 SQLite 的有序平台事件；包含生命周期与真实执行事件，按游标增量读取。')+panel('平台事件',events.length?table(['序号','事件','对象','时间','载荷'],events.slice(-150).reverse().map(e=>`<tr><td class="mono">#${e.seq}</td><td class="mono">${esc(e.kind)}</td><td class="mono">${esc(short(e.subject))}</td><td>${time(e.at)}</td><td><button class="text-button" data-action="event-detail" data-id="${e.seq}">JSON ↗</button></td></tr>`)):empty('暂无事件','开始操作后查看完整变化。'),badge('neutral',`cursor ${cursor}`))+`<p class="scroll-note">控制台保留最近 500 条已读取事件，列表展示最近 150 条；更早事件可使用 API 的 after 游标查询。</p>`;
   // Do not replace an unchanged view during polling: preserve focus and scroll.
   if(renderedMarkup!==html) {
     const focused=document.activeElement, focusId=focused?.id, action=focused?.dataset.action, itemId=focused?.dataset.id;
     const range=focused instanceof HTMLInputElement && ['search','text'].includes(focused.type)?[focused.selectionStart,focused.selectionEnd]:null;
     const scrolls=[...document.querySelectorAll('.table-wrap')].map(el=>el.scrollLeft);
+    const openDetails=new Set([...$('#content').querySelectorAll('details[open][id]')].map(el=>el.id));
     $('#content').innerHTML=html;
+    if(renderedPage===p)$('#content').querySelectorAll('details[id]').forEach(el=>{el.open=openDetails.has(el.id);});
     document.querySelectorAll('.table-wrap').forEach((el,i)=>{el.scrollLeft=scrolls[i]||0;});
     if(renderedPage===p && !$('#modal').open) {
       const restore=focusId?document.getElementById(focusId):action?[...$('#content').querySelectorAll('[data-action]')].find(el=>el.dataset.action===action&&el.dataset.id===itemId):null;
@@ -122,6 +128,10 @@ async function refresh(force=false) {
 async function readState() {
   try {
     data=await api('/api/v1/snapshot'); authenticated=true;
+    if(goalId()) {
+      try {selectedGoal=await api(`/api/v1/goals/${encodeURIComponent(goalId())}`);}
+      catch(error) {selectedGoal={id:goalId(),loadError:error.message};}
+    }
     // Drain a bounded page per tick; the cursor always advances only after a successful read.
     const chunk=await api(`/api/v1/events?after=${cursor}`);
     if(chunk.events.length){events=events.concat(chunk.events).slice(-500);cursor=chunk.events.at(-1).seq;}
@@ -146,7 +156,7 @@ function openModal(title, html, eyebrow='工作区') {
   focus.focus({preventScroll:true});$('#modal').scrollTop=0;
 }
 function jsonView(value) { return `<pre tabindex="0" aria-label="JSON 数据">${esc(JSON.stringify(value,null,2))}</pre>`; }
-function identity(label,value) { return `<div class="identity"><span>${esc(label)}</span><code>${esc(value)}</code><button class="text-button" data-action="copy" data-value="${esc(value)}" aria-label="复制${esc(label)}">复制</button></div>`; }
+function identity(label,value) { return `<div class="identity"><span>${esc(label)}</span><code>${esc(value)}</code><button type="button" class="text-button" data-action="copy" data-value="${esc(value)}" aria-label="复制${esc(label)}">复制</button></div>`; }
 function rawView(value,label='原始 JSON') { return `<details class="raw-data"><summary>${label}</summary>${jsonView(value)}</details>`; }
 function formEnd(label) { return `<div class="error" id="form-error" role="alert"></div><div class="form-actions">${button('取消','close')}<button class="button primary" type="submit">${label} ↗</button></div>`; }
 function spawnForm(name,version) {
@@ -178,13 +188,13 @@ function definitionView(definition) {
   return `<dl class="definition"><dt>主要功能</dt><dd>${esc(definition.purpose)}</dd><dt>预期目标</dt><dd>${esc(definition.objective)}</dd><dt>模型协议</dt><dd class="mono">${esc(definition.protocol)}</dd><dt>系统指令</dt><dd class="instructions">${esc(definition.instructions)}</dd></dl>${rawView(definition,'完整配置 JSON')}`;
 }
 async function runDetail(id, preserve=false) {
-  const r=data.runs.find(r=>r.id===id);if(!r)return;
   const request=++inspectionRequest;
+  const r=await api(`/api/v1/runs/${encodeURIComponent(id)}`);
   const selected=preserve&&modalContext?.id===id?modalContext.tab||'output':'output';
   const scroll=preserve?$('#modal').scrollTop:0;
   const session=await api(`/api/v1/agent-instances/${encodeURIComponent(r.instance_id)}/session`);
   if(request!==inspectionRequest)return;
-  modalContext={type:'run',id,session,tab:selected};
+  modalContext={type:'run',id,session,run:r,tab:selected};
   const duration=r.report?.execution_ms ?? (r.finished_at&&r.started_at?r.finished_at-r.started_at:null);
   openModal('执行详情',`<div class="inspector-summary"><div><span>运行状态</span>${badge(r.state)}</div><div><span>执行耗时</span><strong>${duration===null?'待结算':`${duration.toLocaleString()} <small>ms</small>`}</strong></div><div><span>模型用量</span><strong>${r.report?.usage?`${r.report.usage.input.toLocaleString()} <small>输入 / ${r.report.usage.output.toLocaleString()} 输出</small>`:'<small>未提供计费用量</small>'}</strong></div></div>${identity('Run ID',id)}<div class="inspector-actions"><span class="hint">详情按需刷新；列表每 1.5 秒同步。</span>${['queued','running'].includes(r.state)?`<button class="button danger" data-action="cancel-run" data-id="${esc(id)}">取消运行</button>`:''}${button('刷新详情','refresh-run',false,`data-id="${esc(id)}"`)}</div><div class="tabs">${[['output','输出'],['report','工具与回执'],['requests','请求快照'],['session','完整会话'],['events','运行事件']].map(([key,label])=>`<button data-action="run-tab" data-tab="${key}" aria-pressed="${key===selected}" class="${key===selected?'active':''}">${label}</button>`).join('')}</div><div id="detail-view">${runTabView(r,selected)}</div><details class="raw-data"><summary>关联实例</summary>${identity('Agent ID',r.instance_id)}</details>`,'运行与证据');
   if(preserve){$('#modal [data-action="refresh-run"]').focus({preventScroll:true});$('#modal').scrollTop=scroll;}
@@ -208,6 +218,17 @@ function runOutput(r) {
 }
 async function handleAction(action, element) {
   const id=element.dataset.id;
+  if(action==='goal-form')return goalForm();
+  if(action==='goal-review')return goalReview(id);
+  if(action==='goal-cancel')return goalCancel(id);
+  if(action==='goal-add-task'||action==='goal-remove-task') {
+    const fields=$('#goal-task-fields'),count=fields.children.length;
+    if(action==='goal-add-task'&&count<16){fields.insertAdjacentHTML('beforeend',taskFields(count));fields.lastElementChild.querySelector('select').focus();}
+    if(action==='goal-remove-task'&&count>1){fields.lastElementChild.remove();fields.lastElementChild.querySelector('select').focus();}
+    $('#modal [data-action="goal-add-task"]').disabled=fields.children.length>=16;
+    $('#modal [data-action="goal-remove-task"]').disabled=fields.children.length<=1;
+    return;
+  }
   if(action==='copy') {
     try {await navigator.clipboard.writeText(element.dataset.value);element.textContent='已复制';setTimeout(()=>{if(element.isConnected)element.textContent='复制';},1800);}
     catch {throw new Error('浏览器未允许复制，请选中 ID 后手动复制。');}return;
@@ -238,21 +259,24 @@ async function handleAction(action, element) {
     $('#detail-view').innerHTML=element.dataset.tab==='session'?jsonView(modalContext.session):definitionView(a.snapshot);
   }
   if(action==='run-tab') {
-    const r=data.runs.find(r=>r.id===modalContext.id), tab=element.dataset.tab;
+    const r=modalContext.run, tab=element.dataset.tab;
     modalContext.tab=tab;
     $('#detail-view').innerHTML=runTabView(r,tab);
   }
   if(['agent-tab','run-tab'].includes(action)) element.parentElement.querySelectorAll('button').forEach(b=>{b.classList.toggle('active',b===element);b.setAttribute('aria-pressed',String(b===element));});
 }
 document.addEventListener('click',async event=>{
+  const anchor=event.target.closest('[data-task-anchor]');
+  if(anchor){event.preventDefault();const heading=document.getElementById(`task-heading-${anchor.dataset.taskAnchor}`);if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});heading.scrollIntoView({block:'center'});}return;}
   const element=event.target.closest('[data-action]');if(!element)return;
+  if(element.closest('form')?.getAttribute('aria-busy')==='true')return;
   if(element.disabled)return;
   if(!$('#modal').open)modalTrigger=element;
   element.disabled=true;element.setAttribute('aria-busy','true');
   try {await handleAction(element.dataset.action,element);} catch(error){
     if($('#modal').open){$('#modal-error').textContent=error.message;$('#modal-error').hidden=false;}
     else toast(error.message);
-  } finally {element.disabled=false;element.removeAttribute('aria-busy');}
+  } finally {if(!['goal-add-task','goal-remove-task'].includes(element.dataset.action))element.disabled=false;element.removeAttribute('aria-busy');}
 });
 document.addEventListener('submit',async event=>{
   const form=event.target;
@@ -266,7 +290,7 @@ document.addEventListener('submit',async event=>{
   }
   if(!form.dataset.form)return;
   event.preventDefault();if(form.getAttribute('aria-busy')==='true')return;
-  const byteLimits={purpose:2000,objective:8000,instructions:32000,description:2000,text:64000};
+  const byteLimits={purpose:2000,objective:8000,instructions:32000,description:2000,text:64000,review:8000};
   for(const [name,limit] of Object.entries(byteLimits)) {
     const field=form.elements.namedItem(name);
     if(field&&new TextEncoder().encode(field.value).length>limit){$('#form-error').textContent=`内容过长：${field.closest('label').firstChild.textContent.trim()}最多 ${limit.toLocaleString()} 个 UTF-8 字节。`;field.focus();return;}
@@ -277,6 +301,9 @@ document.addEventListener('submit',async event=>{
   form.dataset.commandKey ||= crypto.randomUUID();
   try {
     let result;
+    if(form.dataset.form==='goal') {result=await api('/api/v1/goals',goalPlanFromForm(form),'POST',form.dataset.commandKey);location.hash=`goal/${result.id}`;}
+    if(form.dataset.form==='goal-review') {result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/accept`,{review:values.review});}
+    if(form.dataset.form==='goal-cancel') {result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/cancel`,{});}
     if(form.dataset.form==='terminate') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/actions`,{action:'terminate'});}
     if(form.dataset.form==='spawn') {const preset=JSON.parse(values.preset);result=await api('/api/v1/agent-fleets',{preset_name:preset.name,preset_version:preset.version,count:Number(values.count)},'POST',form.dataset.commandKey);location.hash='agents';}
     if(form.dataset.form==='preset') {const plugin=values.plugin===''?null:JSON.parse(values.plugin);result=await api('/api/v1/presets',{name:values.name,version:values.version,purpose:values.purpose,objective:values.objective,instructions:values.instructions,protocol:values.protocol,plugin:plugin?{id:plugin.id,version:plugin.version}:null});location.hash='presets';}
@@ -284,11 +311,11 @@ document.addEventListener('submit',async event=>{
     if(form.dataset.form==='run') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/runs`,{text:values.text},'POST',form.dataset.commandKey);location.hash='runs';}
     $('#modal').close();await refresh(true);
     if(form.dataset.form==='run'&&data.runs.some(r=>r.id===result.id)){await runDetail(result.id);}
-    toast(result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
+    toast(result?.count ? `已创建 ${result.count} 个独立实例` : form.dataset.form==='goal'?'目标已接纳，将按依赖派发任务。':form.dataset.form==='goal-review'?'验收结论已保存。':form.dataset.form==='goal-cancel'?'取消请求已保存，已开始的运行将协作收尾。':form.dataset.form==='run'?'任务已接纳，可在执行详情中检查结果。':form.dataset.form==='terminate'?'实例已终止，历史记录已保留。':'版本已保存');
   }catch(error){const target=form.querySelector('#form-error');if(target){target.textContent=error.message;target.tabIndex=-1;target.focus();}}
   finally {submit.disabled=false;submit.textContent=label;form.removeAttribute('aria-busy');}
 });
-document.querySelectorAll('nav a').forEach(a=>{a.title=a.textContent.replace(/[◈▦▧▷⌘◫≋0]/g,'').trim();a.querySelector('.nav-icon').innerHTML=icon(a.dataset.page);});
+document.querySelectorAll('nav a').forEach(a=>{a.title=a.textContent.replace(/[◈▦▧▷⌘◫≋◇0]/g,'').trim();a.querySelector('.nav-icon').innerHTML=icon(a.dataset.page);});
 document.addEventListener('compositionstart',()=>{composing=true;});
 document.addEventListener('compositionend',()=>{composing=false;});
 document.addEventListener('input',event=>{
@@ -308,6 +335,6 @@ $('#modal').addEventListener('close',()=>{
 });
 $('#modal').addEventListener('cancel',event=>{if($('#modal form[aria-busy="true"]'))event.preventDefault();});
 $('.skip-link').addEventListener('click',event=>{event.preventDefault();$('#content').focus();});
-window.addEventListener('hashchange',()=>{render();$('#content').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});});
+window.addEventListener('hashchange',()=>{render();if(goalId())refresh(true);$('#content').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});});
 refresh();setInterval(()=>{if(authenticated&&!document.hidden)refresh();},1500);
 window.addEventListener('focus',()=>{if(authenticated)refresh();});

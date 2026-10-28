@@ -40,7 +40,7 @@ impl Model for DemoModel {
                 .ok_or_else(|| Error::new("missing_tool_result"))?;
             (
                 format!(
-                    "[确定性演示 / Demo]\n已通过 text.inspect 检查输入。\n\n字符数：{}\n行数：{}\nUTF-8 字节数：{}\n\n这是一次真实 Harness 工具循环；当前演示模型不执行语义推理，也未与其他 Agent 协作。",
+                    "[确定性演示 / Demo]\n已通过 text.inspect 检查输入。\n\n字符数：{}\n行数：{}\nUTF-8 字节数：{}\n\n这是一次真实 Harness 工具循环；演示模型不执行语义推理；任务依赖调度与贡献传递由平台负责。",
                     evidence.output.content["characters"],
                     evidence.output.content["lines"],
                     evidence.output.content["bytes"]
@@ -209,7 +209,8 @@ pub async fn recover(store: &Store) -> PResult<()> {
                 .map_err(core_error)?;
         }
     }
-    store.recover_startup()
+    store.recover_startup()?;
+    store.reconcile_goals()
 }
 
 pub async fn worker_loop(
@@ -222,6 +223,9 @@ pub async fn worker_loop(
     loop {
         if shutdown.is_cancelled() {
             break;
+        }
+        if let Err(error) = store.reconcile_goals() {
+            eprintln!("Goal coordination failed: {error}");
         }
         if tasks.len() < 4 {
             match store.claim() {

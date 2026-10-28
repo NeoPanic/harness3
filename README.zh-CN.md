@@ -16,7 +16,7 @@
 
 Harness³ 为 Agents 提供共同的执行基础：模型与工具接口、明确的权限边界、可恢复的会话、可追踪的执行过程。宿主应用可以把这些基础组合成更大的 Agent 系统，自行选择模型、存储、通信渠道和协作方式。
 
-当前仓库包含独立的**运行时内核**和可本地运行的**控制面预览**。控制面提供 Preset、独立实例、SQLite 与 Web；集群调度、Agent 间协作、远程部署和托管服务仍在规划中。
+当前仓库包含独立的**运行时内核**和可本地运行的**控制面预览**。控制面提供 Preset、独立实例、SQLite 与 Web；新增显式协作任务图、贡献传递与人工验收；集群调度、Agent 自主通信、远程部署和托管服务仍在规划中。
 
 ## 本地内核平台预览
 
@@ -26,7 +26,7 @@ Harness³ 为 Agents 提供共同的执行基础：模型与工具接口、明�
 cargo run --locked -p harness3-platform -- up --demo
 ```
 
-打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。Agent 协作与外部代码插件尚未实现。
+打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。协作目标已支持显式依赖、贡献传递、人工验收及 Web / API / CLI 同源操作；Agent 自主通信与外部代码插件尚未实现。
 
 ## 为什么是三次方
 
