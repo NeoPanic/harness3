@@ -10,7 +10,7 @@ repository = "https://github.com/NeoPanic/harness3"
 homepage = "https://github.com/NeoPanic/harness3"
 keywords = ["agent", "harness", "multi-agent", "llm", "runtime"]
 categories = ["asynchronous"]
-include = ["src/**", "examples/**", "Cargo.toml", "README.md", "README.zh-CN.md", "GUIDE.zh-CN.md", "docs/**", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "LICENSE"]
+include = ["src/**", "examples/**", "Cargo.toml", "README.md", "README.zh-CN.md", "docs/**", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "LICENSE"]
 
 [dependencies]
 serde_yaml_ng = "0.10"

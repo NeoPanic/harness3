@@ -1,8 +1,8 @@
 # HTTP 读取插件示例
 
-`http@1.0.0` 提供只读工具 `http.read`，使用 Python 标准库执行 HTTP/HTTPS GET。无需安装第三方依赖，不执行 shell。允许 localhost，便于读取本地资料服务和运行 fixture。
+`local.http@1.0.0` 提供只读工具 `local.http.read`，使用 Python 标准库执行 HTTP/HTTPS GET。无需安装第三方依赖，不执行 shell。允许 localhost，便于读取本地资料服务和运行 fixture。
 
-启动平台时启用本地进程插件，然后在 Web“插件与能力”安装本目录的绝对路径。发布新母体时绑定 `http@1.0.0`，创建实例后可要求它读取 URL；旧实例不会自动更换插件版本。
+启动平台时启用本地进程插件，然后在 Web“插件与能力”安装本目录的绝对路径。发布新母体时绑定 `local.http@1.0.0`，创建实例后可要求它读取 URL；旧实例不会自动更换插件版本。
 
 工具输入：
 

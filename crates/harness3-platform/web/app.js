@@ -105,7 +105,7 @@ function progressPage() {
   return head('IMPLEMENTATION MAP','实现进度','对照完整目标架构检查具体能力。实现状态与验证状态分别列出，目录是当前代码到规划模块的映射。')+
     `<div class="callout">本轮 P2 聚焦三条闭环：自主接续任务、频道协作、文件与结构化产物。P1 控制面继续作为基础；预算、细粒度权限、运维和远程部署暂缓。</div><div class="progress-summary">${['implemented','partial','planned'].map(status=>`<span>${badge(status)} <strong>${counts(status)}</strong> 项</span>`).join('')}<span>条目数量不代表完成百分比</span></div>`+
     phases.map(phase=>panel(`${phase} · ${ {P1:'持久化控制面',P2:'本地 Managed Agents MVP',P3:'恢复与隔离',P4:'远程与生态'}[phase] }`, `<div class="progress-list">${data.capabilities.filter(c=>c.phase===phase).map(c=>`<article class="progress-item"><div class="progress-title"><h3>${esc(c.name)}</h3>${badge(c.status)}${c.scope?badge('neutral',({current:'本轮重点',extension:'后续扩展',deferred:'暂缓'})[c.scope]||c.scope):''}${c.verification==='pending'?badge('neutral','本轮待验证'):c.verification==='native-tests-and-browser'?badge('neutral','原生测试 · Web 联调'):''}</div><p>${esc(c.detail)}</p><details><summary>代码位置与目标目录</summary><dl class="detail-kv"><dt>当前代码</dt><dd>${c.source.length?c.source.map(path=>`<code class="wrap">${esc(path)}</code>`).join('<br>'):'尚无实现模块'}</dd><dt>规划目录</dt><dd>${c.target.map(path=>`<code class="wrap">${esc(path)}</code>`).join('<br>')}</dd></dl></details></article>`).join('')}</div>`)).join('')+
-    `<p class="hint">清单：docs/implementation-status.json · 本轮范围：docs/current-scope.zh-CN.md · 完整设计：docs/managed-agents.zh-CN.md。后续扩展不作为本轮验收门槛。</p>`;
+    `<p class="hint">清单：docs/implementation-status.json · 当前状态：docs/status.zh-CN.md · 完整设计：docs/managed-agents.zh-CN.md。</p>`;
 }
 function render() {
   if (!data || composing) return;

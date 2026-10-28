@@ -1,82 +1,87 @@
-<p align="center">
-  <img src="docs/brand/banner.svg" alt="Harness³ — 为 Agent 集群打造的可组合执行平台" width="960">
-</p>
-
-<p align="center">
-  <a href="https://github.com/NeoPanic/harness3/actions/workflows/check.yml"><img src="https://github.com/NeoPanic/harness3/actions/workflows/check.yml/badge.svg" alt="持续集成"></a>
-  <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Rust-1.89%2B-DEA584" alt="Rust 1.89 及以上"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-5BD6C5" alt="MIT 许可证"></a>
-</p>
-
-<p align="center"><a href="README.md">English</a> · <a href="GUIDE.zh-CN.md">技术导读</a> · <a href="docs/runtime.md">运行契约</a> · <a href="CONTRIBUTING.md">参与贡献</a></p>
+<p align="center"><img src="docs/brand/mark.svg" width="64" alt="Harness³"></p>
 
 # Harness³
 
-**为 Agent 集群打造的可组合 harness 平台，以 Rust 构建。**
+**为 Agent 集群打造的本地 Managed Agents 平台，基于可组合的 Rust 运行内核。**
 
-Harness³ 为 Agents 提供共同的执行基础：模型与工具接口、明确的权限边界、可恢复的会话、可追踪的执行过程。宿主应用可以把这些基础组合成更大的 Agent 系统，自行选择模型、存储、通信渠道和协作方式。
+用 Preset 定义 Agent 母体，启动独立实例，围绕共同目标组建团队。Harness³ 在统一控制面管理实例生命周期、任务依赖、协作频道、文件产物、独立验证与人工验收，让每次执行都有可检查的过程和证据。
 
-当前仓库包含独立的**运行时内核**和可本地运行的**控制面预览**。控制面提供 Preset、独立实例、SQLite 与 Web；已支持显式协作任务图、持久消息、母体组合与自主调研：一次目标自动创建有界团队，模型规划分工，多位研究者并行，独立汇总与人工验收。已支持受控递归委派与原 Agent 续作；多机器调度、远程部署和托管服务仍在规划中。
+[English](README.md) · [文档导航](docs/README.md) · [架构设计](docs/managed-agents.zh-CN.md) · [当前状态](docs/status.zh-CN.md) · [参与贡献](CONTRIBUTING.md)
 
-## 本地内核平台预览
+![Harness³ 桌面控制台总览](docs/images/console-overview.png)
 
-已有可运行的 SQLite 控制面与 Web 检查台，支持发布母体、批量创建独立实例、提交真实 Harness 执行，以及查看请求快照、工具回执和实现进度：
+## 本地启动
+
+需要 **Rust 1.89+**。确定性 Demo 无需模型账号或 API Key；首次编译由 Cargo 下载依赖。
 
 ```sh
+git clone https://github.com/NeoPanic/harness3.git
+cd harness3
 cargo run --locked -p harness3-platform -- up --demo
 ```
 
-打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。实例组已支持 finite/maintain、异步创建与扩缩容、排空和 TTL。实例组与协作目标支持 Web / API / CLI / MCP stdio 同源操作；[客户端示例](examples/clients/)提供创建计划和 MCP 配置。本地可执行 Tool 插件支持在线安装、版本快照、健康检查与禁用，见[进程插件 v1](docs/process-plugins.zh-CN.md)；母体支持固定版本单继承、参数 schema/模板与多插件绑定，见[母体组合指南](docs/presets.zh-CN.md)。Agent 可通过绑定的第一方消息工具交接任务，详见[持久消息](docs/messaging.zh-CN.md)。从首页“发起调研任务”可自动规划、派生团队和汇总，详见[自主调研](docs/research.zh-CN.md)。[协作产物与评审返工](docs/artifacts.zh-CN.md)支持不可变文本版本、验收清单和最多 3 轮新团队协作。[目标共享上下文](docs/shared-context.zh-CN.md)支持多个 Agent 交换发现、版本修订与验收快照；`demo-collaborator` 可离线体验，`research-collaborator` 使用 Responses。[候选池与执行尝试](docs/task-claims.zh-CN.md)支持自动/人工认领、代次冲突与尚未开始的释放。[动态委派](docs/dynamic-delegation.zh-CN.md)支持批准角色、多层子任务与原实例续作；使用 `demo-delegator` 离线体验或 `research-delegator` 接入 Responses。任意任务图修改、费用预算、远程 MCP loader 与沙箱仍待实现。
+打开 [localhost:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 的内容登录。本地状态保存在 `.harness3/`。
 
-## 当前本地 P2 范围
+1. 进入 **自主调研**，选择 `demo-team@1.0.0` 创建任务。
+2. 检查规划、参与 Agent、任务依赖与各自的 Run。
+3. 沿着频道讨论与文件 / JSON 证据，查看汇总、验证和验收过程。
 
-本轮已打通 [Agent 自主任务板/追加/下一任务请求](docs/autonomy.zh-CN.md)、[频道分组与订阅唤醒](docs/channels.zh-CN.md)、[实例工作区及文件/JSON 证据交接](docs/workspaces.zh-CN.md)三条主路径。完整范围与验证记录见[必要 P2 闭环](docs/current-scope.zh-CN.md)，源码落点和后续缺口见[实现进度](docs/implementation-status.zh-CN.md)。
+Demo 使用确定性响应运行真实控制面，输出明确标记为演示；它不执行外部调研，也不自主追加任务。配置真实 Responses 模型后，可选择 `research-team@1.1.0`，让 Agent 按需要请求追加工作。
 
-首次离线体验在“自主调研”选择 `demo-team@1.0.0`，实际调用任务板、频道、文件/JSON 与共享上下文工具；真实 Responses 调研选择 `research-team@1.1.0`，可按需要自主追加工作。导航按场景→协作→运行→配置分层；“Agent 池”负责同一母体实例的数量与生命周期，不等同于围绕目标协作的团队。
+真实模型支持 **OpenAI-compatible Chat Completions、OpenAI Responses、Anthropic Messages** 三种协议。模型配置、CLI / API / MCP 用法与可信本地进程插件设置见[入门指南](docs/getting-started.zh-CN.md)。
 
-本机默认 256 个实例、8 个 Worker 槽、每 Goal 64 项任务，递归委派最多 6 层、每次 8 项、每根 48 个后代。采用可信本地权限，不设团队费用硬上限；预算治理、权限强化、运维与远程部署本轮暂缓。基本扩展示例见 [HTTP 读取插件](examples/plugins/http-reader/)与[工作区母体](examples/plugins/workspace-preset/)。
+## 当前可以做什么
 
-## 为什么是三次方
-
-> 道生一，一生二，二生三，三生万物。——《道德经》第四十二章
-
-**³** 寄托着从基础能力生发复杂系统的含义：一个 harness 支撑一个执行单元，多个 harness 相互组合，构成 Agents 的协作网络。立方也代表相乘的关系：harness × harness × harness，可以继续扩展到 N 个 harness。无限组合是设计愿景，实际规模受宿主架构与资源限制。
-
-品牌展示名为 **Harness³**，小写形式为 `harness³`；GitHub 仓库、Cargo 包和 Rust 导入统一使用 **`harness3`**。Logo 与使用规范见[品牌目录](docs/brand/README.md)。
-
-## 内核提供什么
-
-| 能力 | 实际行为 |
+| 范围 | 可用行为 |
 | --- | --- |
-| 能力组合 | 通过 Registry 注册模型、工具、技能、提示词、策略和类型化服务，扩展能力无需修改执行循环。 |
-| 会话持久化契约 | 带版本栅栏的检查点、输入事件去重、原始请求快照、回放与分叉；内置内存存储，生产持久化由宿主实现。 |
-| 执行边界 | 按任务授权工具，支持有序策略、取消、截止时间和显式对外发送。 |
-| 工具并发 | 安全的只读工具可主动声明并行能力，每批最多四个；写操作和带执行策略的调用保持顺序。 |
-| 上下文管理 | 按预算摘要历史，保留完整交互、回执和当前用户请求。 |
-| 可观测性 | 有序 Observer 事件、进程内有界 Trace，以及可由宿主接入的 TraceSink。 |
+| Agent 定义 | 版本化母体、固定版本继承、参数、模型与插件绑定。 |
+| 生命周期 | 独立实例；Agent 池统一创建、扩缩容、排空回收与 TTL。 |
+| 团队执行 | 规划、任务依赖、候选实例领取、有限递归委派与后续任务追加。 |
+| 协作空间 | 点对点消息、目标频道、显式成员、订阅唤醒与共享上下文。 |
+| 工作成果 | 私有文件工作区、不可变文本 / 文件 / JSON 快照、跨 Agent 证据交接。 |
+| 质量闭环 | 独立验证、证据驱动的局部修复、评审轮次与人工验收。 |
+| 能力扩展 | 提示词包、本地进程工具插件、固定版本绑定与健康检查。 |
+| 使用入口 | 桌面 Web、HTTP API、CLI、对外 MCP stdio 共用本地持久状态。 |
 
-独立内核工具可由受信任的 Rust 代码在进程内执行；平台还支持显式启用的本地进程工具。外部写操作需要工具侧幂等或事务保证，检查点无法单独保证任意外部操作只执行一次。接入持久化前请阅读[运行契约](docs/runtime.md)。
+Agent 池管理同一母体的实例资源，团队围绕 Goal 协作。创建池不会自动启动协作任务。
 
-## 一分钟运行
+<details>
+<summary>展开查看当前 Demo：团队协作与文件产物</summary>
 
-要求 **Rust 1.89+**。示例采用确定性的本地模型与内存会话存储；依赖安装完成后，运行不需要 API Key、网络或数据库。
+**团队协作。** 团队回收后仍可检查成员、订阅关系和讨论记录。
+
+![确定性 Demo 的团队协作频道](docs/images/team-collaboration.png)
+
+**工作区证据。** 共享快照保留来源 Agent 与 Run，实例私有文件单独列出。
+
+![文件工作区与共享证据](docs/images/workspace-artifacts.png)
+
+</details>
+
+当前为面向**可信本地环境的 pre-1.0 平台**。默认上限为 256 个实例、8 个执行槽和每个 Goal 64 项任务；这些是配置限制，不代表实测容量。分布式调度、托管部署、强多租户隔离和远程 MCP 插件加载尚未提供。准确边界见[当前状态](docs/status.zh-CN.md)与[能力及源码索引](docs/capabilities.zh-CN.md)。
+
+## 架构分层
+
+```mermaid
+flowchart LR
+    Entry[Web / API / CLI / MCP] --> Control[本地控制面]
+    Preset[版本化母体] --> Control
+    Control --> Team[目标 / 任务 / Agent 实例]
+    Team --> Runtime[Harness 运行内核]
+    Runtime <--> Models[三种模型协议]
+    Runtime <--> Plugins[工具与插件]
+    Control <--> State[SQLite / 会话 / 产物]
+```
+
+控制面负责协作与生命周期；独立内核负责模型 / 工具执行、策略、会话检查点、取消和执行回执。检查点不能独自保证外部副作用恰好执行一次，工具需提供自己的幂等或事务契约。详见[运行契约](docs/runtime.md)与[目标架构](docs/managed-agents.zh-CN.md)。
+
+## 单独使用 Rust 内核
 
 ```sh
-git clone git@github.com:NeoPanic/harness3.git
-cd harness3
 cargo run --locked --example quickstart
 ```
 
-预期输出：
-
-```text
-Harness³: 8 characters.
-Duplicate delivery reused the settled run: true
-```
-
-[完整示例](examples/quickstart.rs) 注册输入源、模型、字符计数工具和 Agent 配置，完成“模型 → 工具 → 模型”循环，再次投递同一事件以验证回执复用。接入真实供应商时替换模型适配器即可。
-
-## 在 Rust 项目中使用
+[离线示例](examples/quickstart.rs)演示模型 → 工具 → 模型循环，再重复投递同一事件，验证会话去重。
 
 ```toml
 [dependencies]
@@ -89,33 +94,16 @@ use harness3::{Harness, Limits, Registry};
 let harness = Harness::new(Registry::default(), Limits::default());
 ```
 
-执行请求前需要按示例注册能力。连续会话使用 `Harness::run_session` 与 `SessionStore`，`Harness::run` 创建独立的临时会话。下游生产构建建议固定 Git revision；这里使用 Git 依赖，未声明已发布至 crates.io。
+完整能力注册参照示例。下游项目应固定 Git revision，保证构建可复现。API 文档：`cargo doc --locked --workspace --no-deps --open`。
 
-旧版本的 Cargo 包名 `agent-harness` 和导入名 `agent_harness` 统一改为 `harness3`；`Harness` 等 Rust 类型名称与执行契约保持原有命名。
+## 为什么是立方？
 
-## 文档与项目状态
+> 道生一，一生二，二生三，三生万物。——《道德经》第四十二章
 
-- [Managed Agents 目标架构](docs/managed-agents.zh-CN.md)：母体 Presets、N 实例控制面、插件热加载、三类模型接入、完整目录结构与本地体验路线；完整目标以逐项验收为准。
-- [实现进度与目录落点](docs/implementation-status.zh-CN.md)：与 Web 共用清单，区分已实现行为、缺口、验证状态和规划路径。
-- [中文技术导读](GUIDE.zh-CN.md)：时序图、逐文件说明、设计取舍。
-- [运行契约](docs/runtime.md)：恢复、权限、上下文压缩、交付与追踪的详细语义。
-- [可运行示例](examples/quickstart.rs)：从能力注册到工具执行与会话去重。
-- API 文档：`cargo doc --locked --no-deps --open`。
-- [贡献说明](CONTRIBUTING.md)、[安全报告](SECURITY.md)、[社区行为准则](CODE_OF_CONDUCT.md)。
+**³** 同时表达“三生万物”和组合相乘：harness × harness × harness，延伸到 N 个协作的 harness。正文品牌为 **Harness³**，代码与仓库标识为 `harness3`。[品牌素材与使用规范](docs/brand/README.md)。
 
-当前版本 **0.2.7**，尚未承诺 1.0 稳定 API。内核原应用中的行为测试集尚未迁入；平台已有独立集成测试，覆盖版本、幂等、存储、生命周期、恢复与模型协议。CI 在 Rust 1.89 与 stable 上运行工作区检查、Clippy、测试、rustdoc 与离线示例；多机故障、插件作用域授权和 OS 沙箱仍需后续覆盖。
+## 参与项目
 
-```sh
-cargo check --locked --all-targets
-cargo test --locked
-cargo run --locked --example quickstart
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
-```
+参阅[开发与检查流程](CONTRIBUTING.md)、[安全报告](SECURITY.md)和[行为准则](CODE_OF_CONDUCT.md)。[文档导航](docs/README.md)按入门、当前能力、设计目标和专题契约组织资料。
 
-欢迎提交可复现的问题、适配器经验、文档修订与针对运行契约的测试。涉及持久化格式、授权或取消语义的变更，请先通过 Issue 讨论约束。
-
-## 许可证
-
-采用 [MIT](LICENSE)，保留原有版权声明。品牌资产随仓库提供，使用与署名约定见[品牌说明](docs/brand/README.md)。
-
-独立验证与授权自动返工的配置、证据约束及入口见[验证指南](docs/verification.zh-CN.md)。
+[MIT 许可证](LICENSE)。

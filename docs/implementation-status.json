@@ -4,7 +4,7 @@
     "name": "Harness 执行循环",
     "phase": "P1",
     "status": "implemented",
-    "detail": "模型→工具→模型、会话与回执；领域中立内核保留在根包。",
+    "detail": "模型→工具→模型循环、独立会话、观察与持久回执；运行内核可脱离平台使用。",
     "source": [
       "src/engine.rs",
       "src/session.rs"
@@ -20,7 +20,7 @@
     "name": "不可变母体发布",
     "phase": "P1",
     "status": "implemented",
-    "detail": "用途、目标、指令、模型协议与多个插件按版本锁定；保留原始发布定义、单继承来源与能力摘要。",
+    "detail": "用途、目标、指令、模型协议与插件按版本锁定；保存原始发布定义、单继承来源和能力摘要。",
     "source": [
       "crates/harness3-platform/src/domain.rs",
       "crates/harness3-platform/src/store.rs",
@@ -37,7 +37,7 @@
     "name": "母体继承与参数化",
     "phase": "P2",
     "status": "partial",
-    "detail": "固定版本单继承（最多 16 层）、严格参数 schema/默认值、创建时模板展开、最多 16 个插件的能力锁与冲突校验已实现；Web 可定义与实例化。按主体的权限收窄、预算/资源锁与配置升级待补。",
+    "detail": "固定版本单继承最多 16 层，参数 schema/默认值与创建时模板展开，最多 16 个插件的能力锁及冲突校验。没有主体权限收窄、预算/资源锁或在线升级。",
     "source": [
       "crates/harness3-platform/src/presets/mod.rs",
       "crates/harness3-platform/web/presets.js",
@@ -54,7 +54,7 @@
     "name": "有限批量实例化",
     "phase": "P1",
     "status": "implemented",
-    "detail": "HTTP 以 202 接纳创建 Operation，每轮最多创建 8 个实例；全局 256 容量包含未创建的预留槽位，幂等重试返回原回执。",
+    "detail": "HTTP 以 202 接纳创建 Operation，协调器分批创建，每批最多 8 个实例；256 容量含待创建预留，幂等重试复用原回执。",
     "source": [
       "crates/harness3-platform/src/fleets.rs",
       "crates/harness3-platform/src/store.rs"
@@ -70,7 +70,7 @@
     "name": "实例生命周期与 TTL",
     "phase": "P1",
     "status": "partial",
-    "detail": "暂停/恢复/终止、排空与 TTL；实例组支持 finite/maintain 扩缩容。空闲策略、stop/start、配置升级和单实例 Operation 尚未实现。",
+    "detail": "支持暂停、恢复、终止、排空和 TTL，Agent 池支持 finite/maintain 扩缩容。没有空闲策略、stop/start、配置升级或单实例 Operation。",
     "source": [
       "crates/harness3-platform/src/lifecycle.rs",
       "crates/harness3-platform/src/store.rs"
@@ -84,10 +84,10 @@
   },
   {
     "id": "fleet",
-    "name": "维持型实例组与异步 Operation",
+    "name": "Agent 池与异步 Operation",
     "phase": "P2",
     "status": "partial",
-    "detail": "finite/maintain、异步创建/扩缩容/终止、持久槽位与代际、容量预留、分批协调、重启续作已落地；尚无排空期限、Operation 单独取消与远程执行配置。",
+    "detail": "Agent 池提供异步创建/扩缩容/终止、持久槽位与代际、容量预留和重启协调；没有排空期限、Operation 单独取消或远程执行配置。",
     "source": [
       "crates/harness3-platform/src/fleets.rs",
       "crates/harness3-platform/web/fleets.js",
@@ -105,7 +105,7 @@
     "name": "受限 Agent 派生",
     "phase": "P2",
     "status": "partial",
-    "detail": "自主调研的初始团队之外，Agent 可按批准母体/参数主动派生子任务；宿主固定父任务/Run/实例，支持最多 6 层、每次 8 项子任务、每根 48 个后代、整 Goal 64 项与自动回收。任意子树生命周期授权、迁移与分布式租约待补。",
+    "detail": "Agent 按批准母体/参数派生子任务，宿主绑定父任务、Run 和实例；最多 6 层、单次 8 项、每根 48 个后代，Goal 共 64 项。没有任意子树授权、迁移或分布式租约。",
     "source": [
       "crates/harness3-platform/src/research/mod.rs",
       "crates/harness3-platform/web/research.js",
@@ -122,7 +122,7 @@
     "name": "持久队列与取消",
     "phase": "P1",
     "status": "implemented",
-    "detail": "8 个本地并发槽、单实例串行、幂等提交、协作取消。",
+    "detail": "持久 Run 队列提供 8 个本地并发槽、单实例串行、幂等提交与协作取消。",
     "source": [
       "crates/harness3-platform/src/store.rs",
       "crates/harness3-platform/src/runtime.rs"
@@ -138,7 +138,7 @@
     "name": "SQLite 与恢复",
     "phase": "P1",
     "status": "partial",
-    "detail": "事务、检查点、事件、daemon 锁；已知回执保留，未知结果中断。待补迁移运维、对账与事件分页。",
+    "detail": "SQLite 事务、检查点、事件和 daemon 独占锁；恢复时保留已知回执，未知结果进入中断。没有完整备份运维、外部对账或事件分页。",
     "source": [
       "crates/harness3-platform/src/store.rs",
       "crates/harness3-platform/src/schema.sql"
@@ -154,7 +154,7 @@
     "name": "三类模型协议",
     "phase": "P1",
     "status": "partial",
-    "detail": "Chat Completions / Responses / Anthropic 非流式工具循环；Responses 已真实联调。流式与分片中断契约待补。",
+    "detail": "提供 Chat Completions、Responses、Anthropic 三类非流式工具循环；Responses 经过真实服务验证。没有流式输出或分片中断契约。",
     "source": [
       "crates/harness3-platform/src/models.rs"
     ],
@@ -169,7 +169,7 @@
     "name": "内置工具与提示词包",
     "phase": "P1",
     "status": "implemented",
-    "detail": "text.inspect 只读工具；提示词包在线安装、摘要固定，新母体绑定后生效。",
+    "detail": "提供 text.inspect 只读工具与在线提示词包安装；摘要固定，新母体显式绑定版本后生效。",
     "source": [
       "crates/harness3-platform/src/runtime.rs",
       "crates/harness3-platform/src/store.rs"
@@ -185,7 +185,7 @@
     "name": "可执行插件契约与 SDK",
     "phase": "P2",
     "status": "partial",
-    "detail": "已实现版本化 manifest/RPC、严格 schema 子集、握手/健康/进度/取消、错误分类、Rust 同步 SDK 和 Python 示例；配置/权限/依赖锁、多种能力与对账协议待补。 本轮以 text-inspector、http-reader 和 workspace-preset 基本示例覆盖统计、资料抓取与文件交接；高级生态不作为当前P2门槛。",
+    "detail": "版本化 manifest/RPC、严格 schema 子集、握手、健康、进度、取消、错误分类、Rust SDK 与 Python 示例；示例覆盖统计、HTTP 读取和文件交接。没有配置/权限/依赖锁、多能力包或完整对账协议。",
     "source": [
       "crates/harness3-plugin-protocol/src/lib.rs",
       "crates/harness3-plugin-sdk/src/lib.rs",
@@ -207,7 +207,7 @@
     "name": "外部插件与热加载",
     "phase": "P2",
     "status": "partial",
-    "detail": "进程包在线安装、内容寻址、逐调用摘要检查、版本并存、母体快照、健康检查、禁用/取消和旧版本重新绑定已实现；显式 opt-in、清空继承环境，仍以 OS 用户权限运行。MCP loader、watch、进程池/rollout、沙箱与作用域授权待补。",
+    "detail": "本地进程包在线安装、内容寻址、调用前摘要检查、版本并存、母体快照、健康检查及禁用/取消。需显式启用，以系统用户运行；没有 MCP loader、watch、进程池、rollout、沙箱或作用域授权。",
     "source": [
       "crates/harness3-platform/src/plugins/mod.rs",
       "crates/harness3-platform/src/plugins/package.rs",
@@ -227,7 +227,7 @@
     "name": "显式目标与任务依赖",
     "phase": "P2",
     "status": "implemented",
-    "detail": "最多 64 项任务；持久依赖图、上游输出和 Run ID 传递、取消与人工验收。 支持任务候选实例池，自动选择就绪成员或等待人工认领。",
+    "detail": "持久依赖图最多 64 项任务，传递上游输出与 Run ID，支持取消、候选池及人工验收；可自动选择就绪候选或等待人工认领。",
     "source": [
       "crates/harness3-platform/src/coordination.rs"
     ],
@@ -242,7 +242,7 @@
     "name": "自主规划与动态委派",
     "phase": "P2",
     "status": "partial",
-    "detail": "已有自动规划、并行研究/汇总、递归委派、原实例续作、独立验证与人工局部返工；新增Agent任务板、来源成功后自主领取下一任务/追加任务，以及按失败证据选择局部修复范围。主流链路已通过原生测试、Web 与真实 Responses 验证；删除/重写已运行节点、任意子树迁移与通用自主修复策略后置。",
+    "detail": "自动规划、并行研究/汇总、递归委派、原实例续作与独立验证；Agent 可查看任务板，来源成功后追加任务或领取下一项，验证器按失败证据选择局部返工。没有已运行节点重写、任意子树迁移或通用自主修复。",
     "source": [
       "crates/harness3-platform/src/research/mod.rs",
       "crates/harness3-platform/src/research/tools.rs",
@@ -268,7 +268,7 @@
     "name": "候选池认领与执行尝试",
     "phase": "P2",
     "status": "partial",
-    "detail": "任务显式批准最多 16 位候选，自动分配或人工认领；认领/Run/Attempt 同事务，单任务 generation、幂等回执、仅未开始尝试可释放、每轮最多 8 次、跨轮历史和重启保留已实现。四入口可检查与操作；新增 platform.tasks.board/claim 支持Agent查看任务板并请求下一任务，成功结束当前Run后由控制面事务认领；分布式租约、执行后对账与预算预留后置。",
+    "detail": "任务最多 16 位候选；认领、Run 和 Attempt 同事务，记录 generation 与幂等回执，每轮最多 8 次尝试，仅未开始可释放。platform.tasks.board/claim 提供任务板及下一任务请求；没有分布式租约、执行后对账或预算预留。",
     "source": [
       "crates/harness3-platform/src/claims.rs",
       "crates/harness3-platform/src/coordination.rs",
@@ -288,7 +288,7 @@
     "name": "可靠协作消息",
     "phase": "P2",
     "status": "partial",
-    "detail": "本地持久 Outbox/Inbox、稳定消息 ID/幂等去重、投递/派发确认/消费分离、暂停积压、未知结果人工处置和内置 platform.messaging 发送工具已落地；四入口共用。频道及订阅唤醒见独立能力；远程投递与 Grant 本轮暂缓；WorkItem 候选认领与 Attempt 台账见独立能力。",
+    "detail": "持久 Outbox/Inbox、稳定消息 ID、幂等去重、投递与消费分离、暂停积压和未知结果人工处置；Agent 使用 platform.messaging 交接，四入口共用。没有远程投递或 Grant 授权。",
     "source": [
       "crates/harness3-platform/src/messaging/mod.rs",
       "crates/harness3-platform/src/messaging/tools.rs",
@@ -308,7 +308,7 @@
     "phase": "P2",
     "status": "partial",
     "scope": "current",
-    "detail": "同 Goal 成员分组、持久发言、显式订阅与新消息唤醒；绑定插件的参与者自动加入团队讨论，订阅默认关，显式移除不补回。通知回复不再广播。跨机器投递、全文分页和自动冲突裁决后置。",
+    "detail": "同 Goal 成员分组、持久发言、显式订阅与消息唤醒；参与者自动进入团队讨论，订阅默认关，显式移除不补回，通知回复不再广播。没有跨机器投递、全文分页或自动冲突裁决。",
     "source": [
       "crates/harness3-platform/src/channels/mod.rs",
       "crates/harness3-platform/src/channels/tools.rs",
@@ -326,7 +326,7 @@
     "name": "共享上下文与版本化黑板",
     "phase": "P2",
     "status": "partial",
-    "detail": "Goal 内发现/决策/疑问、宿主发布身份、CAS 修订/撤回、来源与产物引用、派发快照和验收版本绑定已实现，四入口可查改。默认提供共享协作母体；频道分组与订阅唤醒见独立能力，黑板自动冲突裁决后置；认领台账见独立能力。",
+    "detail": "Goal 内发现、决策和疑问支持宿主身份、CAS 修订/撤回、来源及产物引用、派发快照与验收版本绑定；四入口可读写。没有黑板自动冲突裁决。",
     "source": [
       "crates/harness3-platform/src/collaboration/mod.rs",
       "crates/harness3-platform/src/collaboration/tools.rs",
@@ -347,7 +347,7 @@
     "phase": "P2",
     "status": "partial",
     "scope": "current",
-    "detail": "新增实例独立本地目录、UTF-8文件读写、文件/JSON不可变快照、同Goal共享读取、Web预览与下载；文件发布保留来源状态和摘要，成功来源快照可纳入独立验证。OS沙箱和通用执行环境本轮不建设；文件交接已通过原生测试、Web 与真实 Responses 验证。",
+    "detail": "实例独立目录、UTF-8 文件读写、文件/JSON 不可变快照、同 Goal 共享读取与 Web 预览/下载；保留来源状态和摘要，成功来源可进入独立验证。没有 OS 沙箱或通用代码执行环境。",
     "source": [
       "crates/harness3-platform/src/workspaces/mod.rs",
       "crates/harness3-platform/src/workspaces/tools.rs",
@@ -365,7 +365,7 @@
     "name": "产物、验证与返工",
     "phase": "P2",
     "status": "partial",
-    "detail": "已有文本贡献版本、摘要、来源、独立验证、有界自动返工和人工局部返工；新增实例文件/结构化JSON不可变快照，同Goal成员可读，当前成功任务的文件与JSON纳入验证冻结清单。自动返工可按失败产物来源选择任务及下游；本轮主流链路已通过原生测试与 Web 验证。外部抓取示例提供可引用资料，不构成事实认证。",
+    "detail": "文本贡献、文件/JSON 快照保存版本、摘要与来源；当前成功任务证据进入冻结验证清单，支持有界自动返工、人工局部返工及按失败产物定位任务和下游。给定证据与抓取回执不构成外部事实认证。",
     "source": [
       "crates/harness3-platform/src/artifacts.rs",
       "crates/harness3-platform/src/coordination.rs",
@@ -392,7 +392,7 @@
     "name": "Web 执行证据检查",
     "phase": "P1",
     "status": "implemented",
-    "detail": "实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。 新增协作产物、原文下载、版本/评审历史和新团队返工。 共享区支持结构化修订、历史、来源检查和并发冲突草稿保留。 任务卡片增加候选池、人工认领/排队释放和完整执行尝试台账。 目标/调研表单可批准委派角色和规模，任务卡片显示子任务、来源与续作；规划 Run 不冒充最终贡献。 本轮导航按场景→协作→运行→配置分组，Agent池解释批量实例生命周期；新增频道、工作区、任务自主操作和失败证据修复范围配置，已通过 1024/1440/1920 px Web 验证。",
+    "detail": "桌面导航按场景、协作、运行、配置分层；展示团队任务、频道、共享区、文件产物、验证返工，以及实例、Run、请求快照、回执和事件。详情、下载、候选认领与自主操作共用后端状态。",
     "source": [
       "crates/harness3-platform/web/app.js",
       "crates/harness3-platform/web/goals.js",
@@ -416,7 +416,7 @@
     "name": "API / CLI / MCP 入口",
     "phase": "P2",
     "status": "partial",
-    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 44 个工具，默认开放 22 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
+    "detail": "HTTP/Web、共享本地客户端、CLI 与 MCP stdio 共用状态；44 个 MCP 工具，默认开放 22 个查询工具。没有 MCP resources、Streamable HTTP、细粒度授权、并发取消或 CLI --wait。",
     "source": [
       "crates/harness3-platform/src/api.rs",
       "crates/harness3-platform/src/client.rs",
@@ -439,7 +439,7 @@
     "name": "实时事件与查询",
     "phase": "P2",
     "status": "partial",
-    "detail": "本轮暂缓。持久事件游标、Web 轮询；待实现 SSE、列表游标和统一查询契约。",
+    "detail": "持久事件游标与 Web 轮询；没有 SSE、通用列表游标或统一事件订阅契约。",
     "source": [
       "crates/harness3-platform/src/api.rs"
     ],
@@ -454,7 +454,7 @@
     "name": "预算预留与账本",
     "phase": "P2",
     "status": "planned",
-    "detail": "本轮暂缓。当前只有单 Run 轮次/工具数/超时上限；待实现团队预算、原子预留、结算与费用归属。",
+    "detail": "提供单 Run 轮次、工具次数及超时限制；没有团队费用硬上限、原子预算预留、结算账本或费用归属。",
     "source": [],
     "target": [
       "crates/harness3-platform/src/accounting/",
@@ -468,7 +468,7 @@
     "name": "身份、授权与审批",
     "phase": "P3",
     "status": "partial",
-    "detail": "本轮暂缓。当前为 loopback + 本地 token；Principal/Grant、审批等待、租户隔离与插件权限未实现。",
+    "detail": "loopback、本地 token 与浏览器会话认证；没有 Principal/Grant、持久审批、租户隔离或插件作用域授权。",
     "source": [
       "crates/harness3-platform/src/api.rs"
     ],
@@ -484,7 +484,7 @@
     "name": "监督 Worker 与执行隔离",
     "phase": "P3",
     "status": "planned",
-    "detail": "本轮暂缓。待实现独立进程、所有权 fencing、租约、工作区沙箱与故障注入。",
+    "detail": "使用嵌入式本地 Worker；没有独立进程、所有权 fencing、跨进程租约或执行沙箱。",
     "source": [],
     "target": [
       "crates/harness3-worker/src/"
@@ -497,7 +497,7 @@
     "name": "远程控制面与 PostgreSQL",
     "phase": "P4",
     "status": "planned",
-    "detail": "本轮暂缓。待实现多机器 Worker、网络分区对账、背压和升级兼容。",
+    "detail": "没有多机器 Worker、网络分区对账、分布式背压或滚动升级兼容契约。",
     "source": [],
     "target": [
       "crates/harness3-storage/src/",
@@ -511,10 +511,10 @@
     "name": "发行、生态与验收套件",
     "phase": "P4",
     "status": "partial",
-    "detail": "本轮暂缓。已有社区文档、CI 与本地启动；待补 release/容器、插件分发、参考模板和端到端评估。",
+    "detail": "提供社区文档、CI 和源码本地启动；没有完整发行物/容器交付、插件分发生态或单/多 Agent 对照评估。",
     "source": [
       ".github/workflows/check.yml",
-      "docs/kernel-preview.zh-CN.md"
+      "docs/getting-started.zh-CN.md"
     ],
     "target": [
       "deploy/",

@@ -16,10 +16,11 @@ The Cargo package and import are `harness3`. The user-facing brand is Harness³.
 
 1. Open an issue first for changes to checkpoint formats, recovery, authorization, cancellation, or public trait contracts. Describe the failure mode and proposed compatibility behavior.
 2. Keep changes focused. A runtime behavior change should include a deterministic regression test that exercises the affected contract, using a local model/tool or memory store where practical.
-3. Update [runtime contracts](docs/runtime.md) and the [Chinese guide](GUIDE.zh-CN.md) when semantics change. Keep the English and Chinese README setup steps consistent.
+3. Update [runtime contracts](docs/runtime.md) and the [Chinese guide](docs/runtime-guide.zh-CN.md) when semantics change. Keep the English and Chinese README setup steps consistent.
 4. Run the checks below and report the result in the pull request. Disclose checks you could not run.
 
 ```sh
+python3 scripts/render-progress.py --check
 cargo check --locked --workspace --all-targets
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
@@ -33,7 +34,7 @@ Format new Rust code with `rustfmt --edition 2024 path/to/file.rs`. Avoid unrela
 
 Explain the concrete trigger and resulting behavior, with a before/after example when useful. Include compatibility consequences for downstream users and persisted sessions. Keep external writes explicit and preserve uncertain outcomes during recovery. New tool implementations must validate their own inputs and document idempotency assumptions.
 
-This repository is pre-1.0. The platform has standalone integration tests; the original host application's core behavior suite has not been migrated. New tests should expand standalone coverage. See the [local platform guide](docs/kernel-preview.zh-CN.md) for the current implementation boundary.
+This repository is pre-1.0. Deterministic workspace tests cover runtime contracts and platform integration. Extend this coverage when changing behavior. See the [local platform guide](docs/getting-started.zh-CN.md) for the current implementation boundary.
 
 ## Reporting issues
 

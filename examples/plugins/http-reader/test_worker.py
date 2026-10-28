@@ -75,7 +75,7 @@ class HTTPReaderTest(unittest.TestCase):
         responses = [json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual(len(responses), 4)
         self.assertEqual(responses[0]["result"]["protocol"], "harness3-plugin-rpc/v1")
-        self.assertEqual(responses[0]["result"]["id"], "http")
+        self.assertEqual(responses[0]["result"]["id"], "local.http")
         self.assertTrue(responses[1]["result"]["healthy"])
         self.assertTrue(responses[3]["result"]["closed"])
         return responses[2]

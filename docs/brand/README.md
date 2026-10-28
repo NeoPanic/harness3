@@ -1,6 +1,6 @@
 # Harness³ brand
 
-Harness³ is a composable harness platform for agent collectives. Its current implementation is a Rust runtime core. The brand connects the generative meaning of 三 in Chinese philosophy with multiplication through composition.
+Harness³ is a composable harness platform for agent collectives. The repository includes a Rust runtime core and a local Managed Agents control plane. The brand connects the generative meaning of 三 in Chinese philosophy with multiplication through composition.
 
 > 道生一，一生二，二生三，三生万物。——《道德经》第四十二章
 
@@ -24,7 +24,7 @@ Use the actual superscript character **³** (U+00B3) in prose. Use ASCII `harnes
 
 | Asset | Intended use |
 | --- | --- |
-| [banner.svg](banner.svg) | Dark README header; includes mark, wordmark, and descriptor. |
+| [banner.svg](banner.svg) | Brand presentation; includes mark, wordmark, and descriptor. |
 | [mark.svg](mark.svg) | Transparent three-color symbol, optimized for dark backgrounds. |
 | [mark-mono.svg](mark-mono.svg) | Dark symbol with white interior detail, for light backgrounds. |
 

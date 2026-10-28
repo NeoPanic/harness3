@@ -2,7 +2,7 @@
 
 本地 daemon 在数据目录的 `workspaces/<instance_id>/` 保存实例文件。每个 Agent 通过 `platform.workspace` 插件读写自己的相对路径；需要让同一 Goal 的其他 Agent 使用某份文件时，发布不可变快照。文件工具不会直接共享整个实例目录。
 
-## 主流链路
+## 文件交接流程
 
 1. 使用绑定 `platform.workspace@1.0.0` 的母体创建两个或更多实例。
 2. 研究 Agent 用 `platform.workspace.write` 写入 `research/evidence.md`。
@@ -48,7 +48,7 @@
 
 快照保留 `instance_id`、`run_id`、`goal_id`、格式、名称、原路径、SHA-256、大小和创建时间。`source_state` 来自真实 Run：运行中发布的文件是临时证据；来源失败、取消或结果未知时，不得把其文字当成已验证结论。读取会显示摘要是否匹配，下载保存原文且不执行 HTML。
 
-文件快照使用独立的 `workspace_artifacts` 存储，原有最终文本产物和轮次验收保持原契约。启用独立验证时，本轮当前成功任务 Run 发布的文件与 JSON 快照会进入冻结证据清单，与最终文本产物一同供验证 Agent 读取和引用；旧轮次被替换的 Run 所发布文件不会混入新清单，沿用任务的原始成功 Run 快照可继续纳入。验证仍依赖给定证据，不会主动联网核对外部事实。原有人工验收清单继续固定最终文本产物，文件快照由对应验证清单和发布记录追溯。
+文件快照使用独立的 `workspace_artifacts` 存储，最终文本产物与文件快照分别保存。启用独立验证时，本轮成功任务 Run 发布的文件与 JSON 快照会进入冻结证据清单，与最终文本产物一同供验证 Agent 读取和引用；旧轮次被替换的 Run 所发布文件不会混入新清单，沿用任务的原始成功 Run 快照可继续纳入。验证仍依赖给定证据，不会主动联网核对外部事实。人工验收清单固定最终文本产物，文件快照由对应验证清单和发布记录追溯。
 
 ## Web 与 HTTP
 
@@ -64,15 +64,4 @@ Web“文件工作区”提供实例目录、文本预览、发布快照目录�
 
 平台身份来自当前 Run，工具参数不能伪造其他实例或来源 Run。HTTP 操作者使用既有本地认证，工作区文件操作暂未增加独立 CLI/MCP 写入口。
 
-## 当前目录
-
-```text
-crates/harness3-platform/
-├── src/workspaces/
-│   ├── mod.rs       # 本地目录、文件写入和不可变快照
-│   └── tools.rs     # platform.workspace 六项工具
-├── web/workspaces.js # 目录、文本预览、来源与下载
-└── tests/workspaces.rs # 多 Agent 文件交接与 JSON 来源契约
-```
-
-数据库使用 `workspace_artifacts` 和 `workspace_commands` 保存快照与幂等回执；实例文件位于独立数据目录，不随 SQLite 备份自动打包。工作区不是容器文件系统，不包含通用 shell、二进制文件编辑、外部网页检索或代码执行环境。
+数据库使用 `workspace_artifacts` 和 `workspace_commands` 保存快照与幂等回执；实例文件位于独立数据目录，不随 SQLite 备份自动打包。工作区提供 UTF-8 文件与 JSON 操作，不包含通用 shell、二进制文件编辑或代码执行环境。

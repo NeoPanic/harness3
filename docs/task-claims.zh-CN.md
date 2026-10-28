@@ -1,4 +1,4 @@
-# 任务候选池、认领与执行尝试 v1
+# 任务候选池、认领与执行尝试
 
 WorkItem 描述需要完成的工作，Attempt 记录它的一次认领与执行，Run 保存那次实际模型/工具调用。释放或下一轮返工会生成新的尝试，旧 Run 的结算状态与来源记录保留，不被覆盖。
 
@@ -33,9 +33,9 @@ WorkItem 描述需要完成的工作，Attempt 记录它的一次认领与执行
 | 认领并接纳执行 | `POST /api/v1/goals/{id}/tasks/{task}/claim` | `tasks claim ID TASK --file claim.json --key KEY` | `tasks_claim` |
 | 释放未开始尝试 | `POST /api/v1/goals/{id}/tasks/{task}/release` | `tasks release ID TASK --file release.json --key KEY` | `tasks_release` |
 
-两个写入口需要 `Idempotency-Key`。外部 MCP 默认只读；写入仍需 `--allow-write`。当前共 44 个工具，其中 22 个只读。四入口使用同一本地操作者身份，尚无细粒度 Principal/Grant。
+两个写入口需要 `Idempotency-Key`。外部 MCP 默认只读；写入仍需 `--allow-write`。四入口使用同一本地操作者身份，尚无细粒度 Principal/Grant。
 
-创建 Goal 的任务对象可新增可选字段：
+创建 Goal 的任务对象支持以下可选字段：
 
 ```json
 {
@@ -48,7 +48,7 @@ WorkItem 描述需要完成的工作，Attempt 记录它的一次认领与执行
 }
 ```
 
-`candidates` 仅列备用实例，不重复主实例；最多 15 个且不可重复。所有候选必须存在且未终止/排空，认领时重新校验状态与到期时间。没有新字段的旧创建请求保留原序列化指纹，升级后重放同一幂等键不会重复创建。
+`candidates` 仅列备用实例，不重复主实例；最多 15 个且不可重复。所有候选必须存在且未终止/排空，认领时重新校验状态与到期时间。
 
 认领输入：
 
@@ -64,14 +64,8 @@ WorkItem 描述需要完成的工作，Attempt 记录它的一次认领与执行
 
 示例见 [pool-goal.json](../examples/clients/pool-goal.json)、[claim.json](../examples/clients/claim.json) 和 [release.json](../examples/clients/release.json)。先替换为实际实例 ID。创建 Goal 仍限制最多 64 项任务、32 个活动/待验收 Goal，并沿用全局实例与 Worker 容量。
 
-## 存储与当前边界
+## 自主接续与执行边界
 
-schema v10 新增认领策略与 Attempt 台账。旧数据库从历史产物及当前 WorkItem/Run 补建可证实的尝试，来源标记为 legacy；不补造早期未保存的释放记录。旧版已验收快照仍保持原文，当前任务详情提供补建台账。迁移完成与版本号在事务中提交，旧版二进制拒绝较新 schema。
+绑定 `platform.tasks@1.0.0` 的 Agent 可以读取任务板，并在当前 Run 中请求自己候选池内的下一项任务。请求持久化后，平台等待来源 Run 成功和实例释放，再按相同的认领事务创建 Attempt 与 Run。工具不允许模型自称其他实例，也不能绕过候选、generation 与依赖检查；详见[自主任务板](autonomy.zh-CN.md)。
 
-当前以单 daemon、SQLite 和本地 Worker 为边界。尚无 Agent 自主认领工具、远程任务队列、租约/续租、跨机器 fencing、开始后的安全重试/对账、自动再平衡、认领预算预留或候选角色匹配。Attempt 台账为后续动态委派与恢复提供身份基础，不宣称这些功能已经实现。
-
-## 验证记录
-
-原生测试覆盖候选选择、竞争认领、独立 SQLite 连接的幂等回执、排队释放、旧代次/错误身份拒绝、依赖/取消/轮次、尝试上限、旧 schema 补建和重启后的未知结果。真实 Demo Worker 完成共享候选池的并行任务与依赖汇总；HTTP、CLI 与 MCP 验证同一接纳回执和历史。
-
-隔离 Demo 服务的浏览器流程实际完成：UI 创建带候选的两项任务 → 人工领取备用实例 → 未开始时释放 g1 → 重新领取主实例 g2 → Worker 完成并自动运行下游任务。过期 g1 释放请求返回 409，旧取消 Run 可独立检查；1024/1440/1920 px 无页面横向溢出，Escape 关闭详情正常，未发生脚本错误。浏览器验证未使用付费模型，不证明多机租约或长时间运行后的安全重试。
+认领以单 daemon、SQLite 和本地 Worker 为边界。没有跨机器租约/续租、fencing、开始后的安全重试/对账或自动角色匹配。当前不设任务费用预算，候选是否具备完成任务的能力由操作者选择母体与插件时确定。

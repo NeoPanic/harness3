@@ -1,6 +1,6 @@
-# 本地可执行插件 v1
+# 本地可执行插件
 
-当前实现覆盖外部 **Tool**：在线安装本地包、能力发现、版本快照、逐调用独立进程、健康检查、进度、取消与禁用。提示词包仍走原有 `/api/v1/plugins`。远程 MCP loader、多类型能力、插件依赖解析、配置/凭证授权、进程池、自动 rollout 和 OS 沙箱尚未实现。
+本地进程插件提供外部工具，支持在线安装、能力发现、固定版本绑定、逐调用独立进程、健康检查、进度、取消与禁用。声明式提示词包使用 `/api/v1/plugins`；进程插件按以下包协议安装，不使用外部 MCP loader。
 
 ## 启动与安装
 
@@ -35,7 +35,7 @@ Python 示例使用 `/usr/bin/python3`，不需要第三方包。其他语言可
 
 包内禁止绝对路径、`.` / `..`、符号链接和特殊文件；声明文件合计最多 8 MiB，manifest 最多 128 KiB。安装先读取并校验字节，再写入 `.harness3/plugins/<digest>/`；缓存只包含 manifest 与明确列出的文件，未列出的源文件不参与运行。包摘要对规范化 manifest 计算，manifest 固定每个文件的摘要。缓存损坏或丢失会拒绝执行，需要操作者修复/重新部署缓存，不自动退回未验证源路径。
 
-安装成功后，发布 Preset 时用原有 `plugin: {id, version}` 引用。平台将完整 manifest、工具 schema、文件摘要与包摘要物化到 `plugin_snapshot`，既有实例和 Session 不随安装新版本变化。母体可使用 plugins 数组绑定多个提示词包与进程包；同 ID 只允许一个版本，工具重名会拒绝发布。继承、参数与多个绑定规则见 [母体组合](presets.zh-CN.md)。提示词包与进程包不能占用相同 ID。
+安装成功后，发布 Preset 时用 `plugin: {id, version}` 或 `plugins` 数组引用。平台将完整 manifest、工具 schema、文件摘要与包摘要物化到 `plugin_snapshot`，既有实例和 Session 不随安装新版本变化。母体可使用 plugins 数组绑定多个提示词包与进程包；同 ID 只允许一个版本，工具重名会拒绝发布。继承、参数与多个绑定规则见 [母体组合](presets.zh-CN.md)。提示词包与进程包不能占用相同 ID。
 
 每次工具调用前再次核验缓存摘要、版本和禁用状态。每次调用有独立进程与工作目录，同一包多个版本可并存。新版本健康检查失败不会修改已安装版本；切换/回滚通过发布引用目标版本的新 Preset 并创建新实例完成，不修改旧 Session 或撤销外部效果。
 
@@ -52,7 +52,7 @@ Python 示例使用 `/usr/bin/python3`，不需要第三方包。其他语言可
 ./target/debug/harness3 runs show run_REPLACE
 ```
 
-Web 的“插件与能力”可完成安装、检查契约、健康检查、启用/禁用；“母体 Presets”可选择进程包版本；Run 的请求快照、工具回执和运行事件可检查实际调用。Demo 模型固定调用内置 `text.inspect`，不能用它证明任意外部工具选择。测试使用本地 Responses fixture 验证模型→外部进程→模型的真实执行路径，不产生供应商费用。
+Web 的“插件与能力”可完成安装、检查契约、健康检查、启用/禁用；“母体 Presets”可选择进程包版本；Run 的请求快照、工具回执和运行事件可检查实际调用。`demo-inspector` 固定调用内置 `text.inspect`，不能用它证明模型会选择外部工具。
 
 ## RPC 与生命周期
 
@@ -74,6 +74,6 @@ Web 的“插件与能力”可完成安装、检查契约、健康检查、启�
 
 ## schema 子集与作者 SDK
 
-v1 支持 object/array/string/integer/number/boolean/null、properties、required、明确的 additionalProperties、items、enum、minimum/maximum、minLength/maxLength、minItems/maxItems，以及 description/title。每项 schema 最多 512 节点、16 层、每个 object 最多 64 个属性。输入必须是 object。`$ref`、组合 schema、pattern、format 及所有其他关键词会拒绝安装，不能静默忽略。字节与帧上限独立于字符串的 Unicode 长度约束。
+工具 schema 支持 object/array/string/integer/number/boolean/null、properties、required、明确的 additionalProperties、items、enum、minimum/maximum、minLength/maxLength、minItems/maxItems，以及 description/title。每项 schema 最多 512 节点、16 层、每个 object 最多 64 个属性。输入必须是 object。`$ref`、组合 schema、pattern、format 及所有其他关键词会拒绝安装，不能静默忽略。字节与帧上限独立于字符串的 Unicode 长度约束。
 
 Rust 作者可依赖 `crates/harness3-plugin-sdk`，使用 `serve(manifest, handler)`；示例位于 `crates/harness3-plugin-sdk/examples/text.rs`。`serve_io` 支持自定义输入/输出流做作者契约测试。SDK 是同步参考实现，长调用不能在 handler 执行期间读取取消；需自行实现协作取消协议或接受宿主的硬期限。发布前应测试健康失败、非法参数、输出 schema、断连、超时与副作用未知结果。不存在“安全重放”或平台沙箱保证。

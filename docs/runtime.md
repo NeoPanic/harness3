@@ -1,6 +1,6 @@
 # Harness³ runtime contracts
 
-Detailed behavior and integration boundaries for the Rust runtime. Start with the [README](../README.md), [offline example](../examples/quickstart.rs), or [中文导读](../GUIDE.zh-CN.md).
+Detailed behavior and integration boundaries for the Rust runtime. Start with the [README](../README.md), [offline example](../examples/quickstart.rs), or [中文导读](runtime-guide.zh-CN.md).
 
 ## Composition
 
