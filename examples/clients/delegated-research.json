@@ -1,0 +1,15 @@
+{
+  "title": "Demo · 研究者主动委派与续作",
+  "objective": "验证研究者执行时创建子任务、独立实例完成贡献后原 Agent 续作的链路。Demo 不进行语义研究。",
+  "acceptance": "研究者有委派规划和续作两个 Run，子任务来源可检查，汇总在原研究任务完成后执行。",
+  "preset_name": "demo-delegator",
+  "preset_version": "1.0.0",
+  "researchers": 2,
+  "parameters": {},
+  "delegation": {
+    "max_depth": 1,
+    "max_children": 2,
+    "max_descendants": 2,
+    "roles": [{"name": "analyst", "preset_name": "demo-delegator", "preset_version": "1.0.0", "parameters": {}}]
+  }
+}

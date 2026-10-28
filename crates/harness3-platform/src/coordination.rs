@@ -46,6 +46,7 @@ pub(crate) fn goal_json(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
         .collect::<PResult<Vec<_>>>()?;
     for task in &mut tasks {
         crate::claims::decorate(tx, id, task)?;
+        crate::delegation::decorate(tx, id, task)?;
         if let Some(run) = task["run_id"].as_str() {
             task["run"] = run_json(tx, run)?;
         }
@@ -95,6 +96,7 @@ fn goal_state(tx: &Transaction<'_>, goal: &str, state: &str) -> PResult<()> {
     .contains(&state)
     {
         crate::artifacts::retire_allocations(tx, goal)?;
+        crate::delegation::retire(tx, goal)?;
     }
     tx.execute(
         "UPDATE goal_rounds SET state=?,finished_at=? WHERE goal_id=? AND number=?",
@@ -179,12 +181,25 @@ fn reconcile(
     cancelling: bool,
     requested: Option<(&str, &str)>,
 ) -> PResult<()> {
+    crate::delegation::advance(tx, id, cancelling)?;
     let goal = goal_json(tx, id)?;
     let mut tasks = goal["tasks"].as_array().unwrap().clone();
     // Plan order is topological, so failures can propagate to every descendant in one pass.
     for position in 0..tasks.len() {
         let task = tasks[position].clone();
         let key = task["key"].as_str().unwrap();
+        if let Some(run) = task["run_id"].as_str() {
+            if crate::delegation::pending(tx, run)? {
+                if task["state"] != "delegating" {
+                    task_state(tx, id, key, "delegating", None)?;
+                }
+                tasks[position]["state"] = json!("delegating");
+                continue;
+            }
+            if task["state"] == "blocked" && crate::delegation::is_planning_run(tx, run)? {
+                continue;
+            }
+        }
         if let Some(state) = task["run"]["state"].as_str() {
             if let Some(artifact) = crate::artifacts::capture(tx, id, &task)? {
                 tasks[position]["artifact"] = artifact;
@@ -280,6 +295,10 @@ fn reconcile(
         } else {
             input
         };
+        let input = format!(
+            "{input}{}",
+            crate::delegation::continuation_prompt(tx, id, key)?
+        );
         let board = crate::collaboration::current(tx, id)?;
         let input = format!("{input}{}", crate::collaboration::prompt(&board));
         if input.len() > 64000 {
@@ -314,7 +333,8 @@ fn reconcile(
         tasks[position]["state"] = json!("queued");
     }
     if tasks.iter().all(|t| {
-        !["pending", "queued", "running"].contains(&t["state"].as_str().unwrap_or_default())
+        !["pending", "queued", "running", "delegating"]
+            .contains(&t["state"].as_str().unwrap_or_default())
     }) {
         let state = if cancelling {
             "cancelled"
@@ -378,6 +398,7 @@ pub(crate) fn create_in(tx: &Transaction<'_>, plan: &GoalPlan, key: &str) -> PRe
     )?;
     for (position, task) in plan.tasks.iter().enumerate() {
         crate::claims::create_policy(tx, &goal, task)?;
+        crate::delegation::authorize(tx, &goal, task)?;
         tx.execute("INSERT INTO work_items(goal_id,key,position,instance_id,instructions,depends_on,state) VALUES(?,?,?,?,?,?,'pending')",params![goal,task.key,position,task.instance_id,task.instructions,serde_json::to_string(&task.depends_on)?])?;
     }
     event(
@@ -395,6 +416,7 @@ pub(crate) fn create_in(tx: &Transaction<'_>, plan: &GoalPlan, key: &str) -> PRe
 }
 
 pub(crate) fn cancel_in(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
+    crate::delegation::advance(tx, id, true)?;
     let goal = goal_json(tx, id)?;
     if goal["state"] == "cancelled" {
         return Ok(json!({"id":id,"state":"cancelled","run_ids":[]}));

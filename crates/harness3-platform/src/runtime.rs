@@ -66,6 +66,68 @@ impl Model for DemoModel {
         if input
             .tools
             .iter()
+            .any(|s| s.name == "platform.delegation.read")
+        {
+            let previous = if let Some(Turn::Tools(items)) = input.turns.last() {
+                items.first()
+            } else {
+                None
+            };
+            let (text, calls) = match previous {
+                Some(o) if o.call.name == "platform.delegation.submit" => (
+                    "[确定性演示] 已提交分工，结束本次规划执行；原任务等待子 Agent 贡献后继续。"
+                        .into(),
+                    vec![],
+                ),
+                Some(o)
+                    if o.call.name == "platform.delegation.read"
+                        && o.output.content["can_delegate"] == true =>
+                {
+                    let count = o.output.content["remaining_children"]
+                        .as_u64()
+                        .unwrap_or(0)
+                        .min(2);
+                    let role = o.output.content["roles"][0]["name"]
+                        .as_str()
+                        .ok_or_else(|| Error::new("missing_delegation_role"))?;
+                    (
+                        String::new(),
+                        vec![Call {
+                            id: "demo-delegate".into(),
+                            name: "platform.delegation.submit".into(),
+                            arguments: json!({"tasks":(0..count).map(|i|json!({"role":role,"title":format!("演示子任务 {}",i+1),"instructions":"确定性演示：按允许深度继续分工，抵达上限后完成本项检查；不进行真实研究。"})).collect::<Vec<_>>(),"continuation":"检查所有子任务贡献及 Run 来源，完成原任务；不得将规划交接文本作为最终成果。"}),
+                        }],
+                    )
+                }
+                Some(o) if o.call.name == "platform.delegation.read" => (
+                    format!(
+                        "[确定性演示] 任务 {} 在深度 {} 完成。委派状态：{}。本次执行验证真实调度、依赖贡献和原 Agent 续作，不进行语义研究。",
+                        o.output.content["task_key"].as_str().unwrap_or("当前任务"),
+                        o.output.content["depth"].as_u64().unwrap_or(0),
+                        o.output.content["reason"].as_str().unwrap_or("not_enabled")
+                    ),
+                    vec![],
+                ),
+                _ => (
+                    String::new(),
+                    vec![Call {
+                        id: "demo-delegation-read".into(),
+                        name: "platform.delegation.read".into(),
+                        arguments: json!({}),
+                    }],
+                ),
+            };
+            return Ok(ModelReply {
+                text,
+                calls,
+                usage: None,
+                continuation: Value::Null,
+                reasoning: None,
+            });
+        }
+        if input
+            .tools
+            .iter()
             .any(|s| s.name == "platform.context.read")
         {
             let previous = if let Some(Turn::Tools(observations)) = input.turns.last() {

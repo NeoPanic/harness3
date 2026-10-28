@@ -134,6 +134,8 @@ pub struct GoalPlan {
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TaskPlan {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation: Option<crate::delegation::Policy>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub candidates: Vec<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

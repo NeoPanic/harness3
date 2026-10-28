@@ -1200,3 +1200,83 @@ async fn task_claims_and_attempts_share_cli_http_mcp_receipts_and_ownership_conf
         "completed"
     );
 }
+
+#[tokio::test]
+async fn delegation_policy_and_runtime_expansion_are_visible_across_cli_http_and_mcp() {
+    let f = Fixture::new().await;
+    f.store.publish_definition(json!({"name":"delegate","version":"1","purpose":"coordinate","objective":"collect evidence","instructions":"delegate","protocol":"demo","plugins":[{"id":"platform.delegation","version":"1.0.0"}]})).unwrap();
+    let fleet = f
+        .store
+        .spawn(
+            &harness3_platform::domain::Spawn {
+                preset_name: "delegate".into(),
+                preset_version: "1".into(),
+                count: 1,
+            },
+            "parent",
+        )
+        .unwrap();
+    let plan = json!({"title":"cross-entry delegation","objective":"fan out then resume","acceptance":"verify children and original continuation","tasks":[{"key":"root","instance_id":fleet["instance_ids"][0],"instructions":"compare evidence","delegation":{"max_depth":1,"max_children":2,"max_descendants":2,"roles":[{"name":"worker","preset_name":"worker","preset_version":"1"}]}}]});
+    let file = f.root.join("delegation.json");
+    std::fs::write(&file, plan.to_string()).unwrap();
+    let output = f
+        .cli(&[
+            "goals",
+            "create",
+            "--file",
+            file.to_str().unwrap(),
+            "--key",
+            "delegate-cli",
+        ])
+        .await;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let receipt: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let goal = receipt["id"].as_str().unwrap();
+    f.store.reconcile_goals().unwrap();
+    let run = f.store.claim().unwrap().unwrap();
+    let delegated = f
+        .store
+        .submit_delegation(
+            run["id"].as_str().unwrap(),
+            &harness3_platform::delegation::Plan {
+                tasks: vec![harness3_platform::delegation::Child {
+                    role: "worker".into(),
+                    title: "independent child".into(),
+                    instructions: "inspect".into(),
+                }],
+                continuation: "check evidence".into(),
+            },
+        )
+        .unwrap();
+    f.store
+        .finish(
+            run["id"].as_str().unwrap(),
+            run["instance_id"].as_str().unwrap(),
+            "completed",
+            json!({"output":"handoff"}),
+        )
+        .unwrap();
+    f.store.reconcile_fleets().unwrap();
+    f.store.reconcile_goals().unwrap();
+    let http = f
+        .client()
+        .execute(Command::GoalsShow { id: goal.into() })
+        .await
+        .unwrap();
+    assert_eq!(http["tasks"].as_array().unwrap().len(), 2);
+    let mut server = McpServer::new(f.client(), false);
+    initialize(&mut server).await;
+    let reply = call(&mut server, "tasks_show", json!({"id":goal,"task":"root"})).await;
+    let text = reply["result"]["content"][0]["text"].as_str().unwrap();
+    let body: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(body["delegations"][0]["id"], delegated["id"]);
+    assert_eq!(
+        body["delegation_scope"]["policy"]["roles"][0]["name"],
+        "worker"
+    );
+    assert_eq!(body["state"], "pending");
+}

@@ -19,3 +19,5 @@ The outward MCP adapter exposes tools over stdio. It does not load third-party M
 Local process Tool packages have a separate daemon opt-in. See [the plugin guide](../../docs/process-plugins.zh-CN.md); `process-preset.json` and `process-fleet.json` bind the supplied executable reference package.
 
 母体继承、多插件与参数示例：`composed-preset.json` / `parameterized-fleet.json`，依赖与操作顺序见 [母体组合指南](../../docs/presets.zh-CN.md)。
+
+`delegated-research.json` 可通过 `harness3 research create --file examples/clients/delegated-research.json --key demo-delegated-research` 发起离线动态委派；查询方式与普通调研一致。角色参数和策略契约见[动态委派](../../docs/dynamic-delegation.zh-CN.md)。

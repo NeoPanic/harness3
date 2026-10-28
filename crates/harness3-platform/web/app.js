@@ -5,7 +5,7 @@ const short = s => String(s ?? '').slice(0, 15);
 const time = value => value ? new Date(value).toLocaleTimeString('zh-CN', {hour12:false}) : '—';
 const labels = {ready:'就绪',draining:'排空中',busy:'执行中',suspended:'已暂停',terminated:'已终止',queued:'排队中',running:'运行中',completed:'已完成',failed:'失败',interrupted:'中断 · 结果未知',cancelled:'已取消',implemented:'已实现',partial:'部分实现',planned:'规划中'};
 const badge = (s, text) => `<span class="badge ${esc(s)}">${esc(text || labels[s] || s)}</span>`;
-Object.assign(labels,{active:'已协调',provisioning:'协调中',superseded:'已被替代',pending:'等待派发',blocked:'依赖阻断','awaiting-review':'待验收',accepted:'已验收',cancelling:'正在取消'});
+Object.assign(labels,{delegating:'委派准备中',active:'已协调',provisioning:'协调中',superseded:'已被替代',pending:'等待派发',blocked:'依赖阻断','awaiting-review':'待验收',accepted:'已验收',cancelling:'正在取消'});
 let data = null, events = [], cursor = 0, authenticated = false, modalContext = null, refreshTask = null;
 let toastTimer;
 
@@ -361,7 +361,7 @@ document.addEventListener('submit',async event=>{
   try {
     let result;
     if(form.dataset.form==='research') {
-      const ref=JSON.parse(values.preset);result=await api('/api/v1/research-jobs',{title:values.title,objective:values.objective,acceptance:values.acceptance,preset_name:ref.name,preset_version:ref.version,researchers:Number(values.researchers),parameters:instanceParameters(form)},'POST',form.dataset.commandKey);location.hash=`research/${result.id}`;
+      const ref=JSON.parse(values.preset);result=await api('/api/v1/research-jobs',{title:values.title,objective:values.objective,acceptance:values.acceptance,preset_name:ref.name,preset_version:ref.version,researchers:Number(values.researchers),parameters:instanceParameters(form),delegation:researchDelegation(form,ref)},'POST',form.dataset.commandKey);location.hash=`research/${result.id}`;
     }
     if(form.dataset.form==='research-cancel')result=await api(`/api/v1/research-jobs/${encodeURIComponent(form.dataset.id)}/cancel`,{});
     if(form.dataset.form==='message-send') {

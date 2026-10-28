@@ -4,11 +4,16 @@ use harness3::Tool;
 use serde_json::Value;
 use std::sync::Arc;
 pub fn packages() -> Vec<Value> {
-    vec![crate::messaging::package(), crate::collaboration::package()]
+    vec![
+        crate::messaging::package(),
+        crate::collaboration::package(),
+        crate::delegation::package(),
+    ]
 }
 pub fn package(id: &str) -> Option<Value> {
     match id {
         "platform.messaging" => Some(crate::messaging::package()),
+        "platform.delegation" => Some(crate::delegation::package()),
         "platform.context" => Some(crate::collaboration::package()),
         _ => None,
     }
@@ -20,6 +25,7 @@ pub fn tools(snapshot: &Value, store: Store, run: &str) -> PResult<Vec<Arc<dyn T
     }
     Ok(match id {
         "platform.messaging" => vec![crate::messaging::tool(store, run)],
+        "platform.delegation" => crate::delegation::tools(store, run),
         "platform.context" => crate::collaboration::tools(store, run),
         _ => unreachable!(),
     })

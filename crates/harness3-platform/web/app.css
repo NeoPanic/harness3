@@ -343,3 +343,12 @@ form input[type="checkbox"],form input[type="radio"] {accent-color:var(--ink)}
 .topbar{position:sticky;top:0;z-index:2;flex-shrink:0}.brand{padding-bottom:28px;letter-spacing:-.8px}.connection-status{padding:16px 8px 4px;gap:8px;font:11px var(--mono);white-space:nowrap}.connection-status #app-version{margin-left:auto;color:#b8b8b8}.connection-indicator{color:#a3a3a3;font-size:10px}.connection-indicator.disconnected{color:#ddd;outline:1px solid #888;outline-offset:3px;border-radius:50%}
 
 .research-plan{padding-left:20px;display:grid;gap:16px}.research-plan p{margin:5px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+
+.delegation-record { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 8px; }
+.delegation-children { padding-left: 20px; display: grid; gap: 8px; }
+.delegation-children li { overflow-wrap: anywhere; }
+
+.delegation-depth-0 td:first-child { padding-left: 16px; }
+.delegation-depth-1 td:first-child { padding-left: 32px; }
+.delegation-depth-2 td:first-child { padding-left: 48px; }
+.delegation-depth-3 td:first-child { padding-left: 64px; }

@@ -44,6 +44,9 @@ pub(crate) fn capture(tx: &Transaction<'_>, goal: &str, task: &Value) -> PResult
         return Ok(None);
     }
     let run = task["run_id"].as_str().unwrap();
+    if crate::delegation::is_planning_run(tx, run)? {
+        return Ok(None);
+    }
     if let Some(body) = tx
         .query_row(
             &format!("SELECT {META} FROM artifacts WHERE run_id=?"),
@@ -268,22 +271,27 @@ pub(crate) fn retire_allocations(tx: &Transaction<'_>, goal: &str) -> PResult<()
         .collect::<Result<Vec<_>, _>>()?;
     drop(stmt);
     for fleet in fleets {
-        tx.execute("UPDATE fleets SET state='draining',desired_count=0,revision=revision+1 WHERE id=? AND state NOT IN ('draining','terminated')",[&fleet])?;
-        tx.execute(
-            "UPDATE fleet_slots SET enabled=0 WHERE fleet_id=?",
-            [&fleet],
-        )?;
-        tx.execute("UPDATE operations SET state='superseded',finished_at=? WHERE fleet_id=? AND state IN ('pending','running')",params![now(),fleet])?;
-        let mut stmt = tx.prepare(
-            "SELECT id FROM instances WHERE fleet_id=? AND state NOT IN ('terminated','draining')",
-        )?;
-        let agents = stmt
-            .query_map([&fleet], |r| r.get::<_, String>(0))?
-            .collect::<Result<Vec<_>, _>>()?;
-        drop(stmt);
-        for agent in agents {
-            crate::lifecycle::drain(tx, &agent, false)?;
-        }
+        retire_fleet(tx, &fleet)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn retire_fleet(tx: &Transaction<'_>, fleet: &str) -> PResult<()> {
+    tx.execute("UPDATE fleets SET state='draining',desired_count=0,revision=revision+1 WHERE id=? AND state NOT IN ('draining','terminated')",[&fleet])?;
+    tx.execute(
+        "UPDATE fleet_slots SET enabled=0 WHERE fleet_id=?",
+        [&fleet],
+    )?;
+    tx.execute("UPDATE operations SET state='superseded',finished_at=? WHERE fleet_id=? AND state IN ('pending','running')",params![now(),fleet])?;
+    let mut stmt = tx.prepare(
+        "SELECT id FROM instances WHERE fleet_id=? AND state NOT IN ('terminated','draining')",
+    )?;
+    let agents = stmt
+        .query_map([&fleet], |r| r.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+    for agent in agents {
+        crate::lifecycle::drain(tx, &agent, false)?;
     }
     Ok(())
 }

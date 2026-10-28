@@ -12,6 +12,8 @@ pub use tools::tool;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResearchInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation: Option<crate::delegation::Policy>,
     pub title: String,
     pub objective: String,
     pub acceptance: String,
@@ -41,6 +43,17 @@ fn detail(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
         .ok_or_else(|| fault(404, "research_not_found"))?;
     let mut result: Value = serde_json::from_str(&body)?;
     let mut stmt=tx.prepare("SELECT json_object('instance_id',m.instance_id,'role',m.role,'position',m.position,'parent_instance_id',m.parent_instance_id,'state',i.state) FROM research_members m JOIN instances i ON i.id=m.instance_id WHERE m.research_id=? ORDER BY m.position")?;
+    let delegation: Option<String> = tx
+        .query_row(
+            "SELECT policy FROM research_delegation_policies WHERE research_id=?",
+            [id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    result["delegation"] = delegation
+        .map(|s| serde_json::from_str::<Value>(&s))
+        .transpose()?
+        .unwrap_or(Value::Null);
     result["members"] = stmt
         .query_map([id], |r| r.get::<_, String>(0))?
         .map(|v| Ok(serde_json::from_str::<Value>(&v?)?))
@@ -123,6 +136,12 @@ impl Store {
    let fleet=crate::fleets::create_in(tx,&FleetPlan{preset_name:input.preset_name.clone(),preset_version:input.preset_version.clone(),count:input.researchers+2,mode:"finite".into(),ttl_seconds:Some(1800),parameters:input.parameters.clone()},&format!("research-{}",id("allocation")))?;
    let job=id("research");
    tx.execute("INSERT INTO research_jobs(id,title,objective,acceptance,researchers,fleet_id,state,created_at,expires_at) VALUES(?,?,?,?,?,?,'provisioning',?,?)",params![job,input.title,input.objective,input.acceptance,input.researchers,fleet["fleet_id"].as_str().unwrap(),now(),now()+900_000])?;
+   if let Some(policy)=&input.delegation {
+       policy.validate(tx)?;
+       let snapshot:String=tx.query_row("SELECT snapshot FROM fleets WHERE id=?",[fleet["fleet_id"].as_str().unwrap()],|r|r.get(0))?;
+       if !crate::presets::bindings(&serde_json::from_str(&snapshot)?).iter().any(|p|p==&crate::delegation::package()){return Err(fault(400,"delegation_capability_required"));}
+       tx.execute("INSERT INTO research_delegation_policies(research_id,policy) VALUES(?,?)",params![job,serde_json::to_string(policy)?])?;
+   }
    let response=json!({"id":job,"state":"provisioning","fleet_id":fleet["fleet_id"],"researchers":input.researchers,"instance_count":input.researchers+2});
    tx.execute("INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",params![command,fingerprint,response.to_string()])?;
    event(tx,"research.created",&job,json!({"fleet_id":fleet["fleet_id"],"researchers":input.researchers}))?;Ok(response)
@@ -209,7 +228,8 @@ impl Store {
      if ["queued","running"].contains(&runstate.as_str()){continue;}
      if runstate!="completed"||job["plan"].is_null(){let error=report.and_then(|r|serde_json::from_str::<Value>(&r).ok()).and_then(|r|r["error"]["code"].as_str().map(str::to_owned)).unwrap_or_else(||"research_plan_missing_or_interrupted".into());transition(tx,&id,"failed",Some(&error))?;retire(tx,&job)?;continue;}
      let plan:Plan=serde_json::from_value(job["plan"].clone())?;let members=job["members"].as_array().unwrap();
-     let mut tasks:Vec<TaskPlan>=plan.tasks.iter().enumerate().map(|(i,t)|TaskPlan{key:format!("research-{}",i+1),instance_id:members[i+1]["instance_id"].as_str().unwrap().into(),instructions:format!("Research assignment: {}\n{}\nWork independently on this dimension. Use only tools actually available to you. Separate sourced evidence, inference and unknowns. If retrieval tools are absent, explicitly say that this is analysis of supplied material or model knowledge, not live research.",t.title,t.instructions),depends_on:vec![], ..Default::default() }).collect();
+     let delegation:Option<crate::delegation::Policy>=serde_json::from_value(job["delegation"].clone())?;
+     let mut tasks:Vec<TaskPlan>=plan.tasks.iter().enumerate().map(|(i,t)|TaskPlan{key:format!("research-{}",i+1),instance_id:members[i+1]["instance_id"].as_str().unwrap().into(),instructions:format!("Research assignment: {}\n{}\nWork independently on this dimension. Use only tools actually available to you. Separate sourced evidence, inference and unknowns. If retrieval tools are absent, explicitly say that this is analysis of supplied material or model knowledge, not live research.",t.title,t.instructions),depends_on:vec![], delegation:delegation.clone(), ..Default::default() }).collect();
      tasks.push(TaskPlan{key:"synthesis".into(),instance_id:members.last().unwrap()["instance_id"].as_str().unwrap().into(),instructions:format!("{}\nSynthesize all upstream contributions, cite their Run IDs, reconcile disagreements, preserve evidence gaps, and check the user's acceptance criteria. Do not invent references or claim access to tools you did not use.",plan.synthesis),depends_on:tasks.iter().map(|t|t.key.clone()).collect(), ..Default::default() });
      let result=crate::coordination::create_in(tx,&GoalPlan{title:job["title"].as_str().unwrap().into(),objective:job["objective"].as_str().unwrap().into(),acceptance:job["acceptance"].as_str().unwrap().into(),tasks},&format!("research:{id}"));
      match result {Ok(goal)=>{tx.execute("UPDATE research_jobs SET goal_id=? WHERE id=?",params![goal["id"].as_str().unwrap(),id])?;transition(tx,&id,"running",None)?;},Err(error) if error.0<500=>{transition(tx,&id,"failed",Some(&error.1))?;retire(tx,&job)?;},Err(error)=>return Err(error)}

@@ -29,10 +29,11 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
     let bundle = json!({"type":"object","additionalProperties":false,"properties":{
         "id":id,"version":id,"description":text,"instructions":text
     },"required":["id","version","description","instructions"]});
+    let delegation = json!({"type":"object","additionalProperties":false,"properties":{"max_depth":{"type":"integer","minimum":1,"maximum":3},"max_children":{"type":"integer","minimum":1,"maximum":4},"max_descendants":{"type":"integer","minimum":1,"maximum":12},"roles":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"object","additionalProperties":false,"properties":{"name":id,"preset_name":id,"preset_version":id,"parameters":{"type":"object"}},"required":["name","preset_name","preset_version"]}}},"required":["max_depth","max_children","max_descendants","roles"]});
     let goal = json!({"type":"object","additionalProperties":false,"properties":{
         "title":text,"objective":text,"acceptance":text,
         "tasks":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"object","additionalProperties":false,
-        "properties":{"key":id,"instance_id":id,"instructions":text,"candidates":{"type":"array","maxItems":15,"items":id},"manual_claim":{"type":"boolean","default":false},"depends_on":{"type":"array","items":id}},"required":["key","instance_id","instructions"]}}
+        "properties":{"delegation":delegation,"key":id,"instance_id":id,"instructions":text,"candidates":{"type":"array","maxItems":15,"items":id},"manual_claim":{"type":"boolean","default":false},"depends_on":{"type":"array","items":id}},"required":["key","instance_id","instructions"]}}
     },"required":["title","objective","acceptance","tasks"]});
     let claim_input = json!({"type":"object","additionalProperties":false,"properties":{"expected_round":{"type":"integer","minimum":1,"maximum":3},"expected_generation":{"type":"integer","minimum":0},"instance_id":id},"required":["expected_round","expected_generation","instance_id"]});
     let release_input = json!({"type":"object","additionalProperties":false,"properties":{"expected_round":{"type":"integer","minimum":1,"maximum":3},"expected_generation":{"type":"integer","minimum":1},"note":{"type":"string","minLength":1,"maxLength":2000}},"required":["expected_round","expected_generation","note"]});
@@ -293,7 +294,7 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
             "research_create",
             "Launch a bounded research team from an immutable Preset: one planner, 2–6 independent researchers and one synthesizer. Automatically calls models and may incur costs; no browsing tools are added by this command.",
             false,
-            json!({"input":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":200},"objective":text,"acceptance":text,"preset_name":id,"preset_version":id,"researchers":{"type":"integer","minimum":2,"maximum":6},"parameters":{"type":"object"}},"required":["title","objective","acceptance","preset_name","preset_version","researchers"],"additionalProperties":false},"key":key}),
+            json!({"input":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":200},"objective":text,"acceptance":text,"preset_name":id,"preset_version":id,"delegation":delegation,"researchers":{"type":"integer","minimum":2,"maximum":6},"parameters":{"type":"object"}},"required":["title","objective","acceptance","preset_name","preset_version","researchers"],"additionalProperties":false},"key":key}),
             vec!["input", "key"],
         ),
         (

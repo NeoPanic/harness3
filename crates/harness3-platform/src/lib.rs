@@ -5,6 +5,7 @@ pub mod claims;
 pub mod client;
 pub mod collaboration;
 pub mod coordination;
+pub mod delegation;
 pub mod domain;
 pub mod fleets;
 pub mod lifecycle;

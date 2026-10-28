@@ -49,3 +49,8 @@ CREATE TABLE IF NOT EXISTS goal_context_reviews(goal_id TEXT NOT NULL REFERENCES
 CREATE TABLE IF NOT EXISTS task_claim_policies(goal_id TEXT NOT NULL REFERENCES goals(id),task_key TEXT NOT NULL,round INTEGER NOT NULL,candidates TEXT NOT NULL,mode TEXT NOT NULL,PRIMARY KEY(goal_id,task_key,round));
 CREATE TABLE IF NOT EXISTS task_attempts(id TEXT PRIMARY KEY,goal_id TEXT NOT NULL REFERENCES goals(id),task_key TEXT NOT NULL,round INTEGER NOT NULL,generation INTEGER NOT NULL,instance_id TEXT NOT NULL REFERENCES instances(id),run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),origin TEXT NOT NULL,created_at INTEGER NOT NULL,released_at INTEGER,release_note TEXT,UNIQUE(goal_id,task_key,generation));
 CREATE INDEX IF NOT EXISTS task_attempts_goal ON task_attempts(goal_id,task_key,round);
+
+CREATE TABLE IF NOT EXISTS task_delegation_scopes(goal_id TEXT NOT NULL REFERENCES goals(id),task_key TEXT NOT NULL,root_task TEXT NOT NULL,depth INTEGER NOT NULL,policy TEXT NOT NULL,parent_task TEXT,delegation_id TEXT,title TEXT,PRIMARY KEY(goal_id,task_key));
+CREATE TABLE IF NOT EXISTS task_delegations(id TEXT PRIMARY KEY,goal_id TEXT NOT NULL REFERENCES goals(id),parent_task TEXT NOT NULL,root_task TEXT NOT NULL,round INTEGER NOT NULL,source_run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),source_instance_id TEXT NOT NULL REFERENCES instances(id),depth INTEGER NOT NULL,plan TEXT NOT NULL,children TEXT NOT NULL,state TEXT NOT NULL,error TEXT,created_at INTEGER NOT NULL,activated_at INTEGER,UNIQUE(goal_id,parent_task));
+CREATE INDEX IF NOT EXISTS task_delegations_goal ON task_delegations(goal_id,state);
+CREATE TABLE IF NOT EXISTS research_delegation_policies(research_id TEXT PRIMARY KEY REFERENCES research_jobs(id),policy TEXT NOT NULL);
