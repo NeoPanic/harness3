@@ -23,6 +23,7 @@ enum Command {
     /// Manage shared goals through the running daemon's authenticated HTTP API.
     Goals(cli::GoalArgs),
     Artifacts(cli::ArtifactArgs),
+    Context(cli::ContextArgs),
     Messages(cli::MessageArgs),
     Research(cli::ResearchArgs),
     /// Manage durable fleets and asynchronous operation receipts.
@@ -92,6 +93,7 @@ async fn main() -> harness3_platform::client::ClientResult<()> {
         Command::Messages(args) => cli::messages(args).await?,
         Command::Goals(args) => cli::goals(args).await?,
         Command::Artifacts(args) => cli::artifacts(args).await?,
+        Command::Context(args) => cli::context(args).await?,
         Command::Fleets(args) => cli::fleets(args).await?,
         Command::Instances(args) => cli::instances(args).await?,
         Command::Runs(args) => cli::runs(args).await?,
@@ -192,8 +194,20 @@ async fn main() -> harness3_platform::client::ClientResult<()> {
                 protocol: Protocol::Demo,
                 plugin: None,
             })?;
+            store.publish_definition(serde_json::json!({
+                "name":"demo-collaborator","version":"1.0.0",
+                "extends":{"name":"demo-inspector","version":"1.0.0"},
+                "purpose":"无需模型账号的多实例共享上下文验证",
+                "plugins":[{"id":"platform.context","version":"1.0.0"}]
+            }))?;
             if !demo && models.responses.is_some() {
                 store.publish(Preset{name:"researcher".into(),version:"1.0.0".into(),purpose:"通用研究与分析".into(),objective:"依据可用证据回答用户问题；需要文本统计时使用 text.inspect".into(),instructions:"You are a careful research agent. Use tools when needed. Distinguish evidence from inference. Reply in the user's language. Never claim tool results without receipts.".into(),protocol:Protocol::OpenaiResponses,plugin:None})?;
+                store.publish_definition(serde_json::json!({
+                    "name":"research-collaborator","version":"1.0.0",
+                    "extends":{"name":"researcher","version":"1.0.0"},
+                    "purpose":"共享证据与对照结论的协作研究",
+                    "plugins":[{"id":"platform.context","version":"1.0.0"}]
+                }))?;
             }
             let plugins = if allow_process_plugins {
                 harness3_platform::plugins::ProcessHost::enabled(

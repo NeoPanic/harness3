@@ -860,3 +860,159 @@ async fn artifact_versions_and_rework_share_http_cli_mcp_and_stale_review_guards
         false
     );
 }
+
+#[tokio::test]
+async fn shared_context_uses_one_version_contract_across_http_cli_and_mcp() {
+    use harness3_platform::domain::{GoalPlan, Spawn, TaskPlan};
+    let f = Fixture::new().await;
+    let fleet = f
+        .store
+        .spawn(
+            &Spawn {
+                preset_name: "worker".into(),
+                preset_version: "1".into(),
+                count: 1,
+            },
+            "context-worker",
+        )
+        .unwrap();
+    let goal = f
+        .store
+        .create_goal(
+            &GoalPlan {
+                title: "shared findings".into(),
+                objective: "compare".into(),
+                acceptance: "review sources".into(),
+                tasks: vec![TaskPlan {
+                    key: "report".into(),
+                    instance_id: fleet["instance_ids"][0].as_str().unwrap().into(),
+                    instructions: "report".into(),
+                    depends_on: vec![],
+                }],
+            },
+            "context-goal",
+        )
+        .unwrap();
+    let id = goal["id"].as_str().unwrap();
+    let input = json!({"key":"scope","expected_revision":0,"title":"Research scope","body":"Only supplied material","kind":"decision"});
+    let file = f.root.join("context.json");
+    std::fs::write(&file, input.to_string()).unwrap();
+    let cli = f
+        .cli(&[
+            "context",
+            "publish",
+            id,
+            "--file",
+            file.to_str().unwrap(),
+            "--key",
+            "initial",
+        ])
+        .await;
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let receipt: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    let mut mcp = McpServer::new(f.client(), true);
+    initialize(&mut mcp).await;
+    assert_eq!(
+        call(
+            &mut mcp,
+            "context_publish",
+            json!({"id":id,"input":input,"key":"initial"})
+        )
+        .await["result"]["structuredContent"],
+        receipt
+    );
+    let board = f
+        .client()
+        .execute(Command::ContextRead { id: id.into() })
+        .await
+        .unwrap();
+    assert_eq!(board["revision"], 1);
+    assert_eq!(board["entries"][0]["author_kind"], "operator");
+    let mut revised = input.clone();
+    revised["expected_revision"] = json!(1);
+    revised["body"] = json!("Scope clarified by operator");
+    assert_eq!(
+        call(
+            &mut mcp,
+            "context_publish",
+            json!({"id":id,"input":revised,"key":"revision"})
+        )
+        .await["result"]["isError"],
+        false
+    );
+    let stale = call(
+        &mut mcp,
+        "context_publish",
+        json!({"id":id,"input":input,"key":"stale"}),
+    )
+    .await;
+    assert!(stale.to_string().contains("context_revision_conflict"));
+    let cli = f.cli(&["context", "history", id, "scope"]).await;
+    assert!(cli.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&cli.stdout).unwrap()["versions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let mut readonly = McpServer::new(f.client(), false);
+    initialize(&mut readonly).await;
+    assert_eq!(
+        call(&mut readonly, "context_read", json!({"id":id})).await["result"]["structuredContent"]
+            ["revision"],
+        2
+    );
+    assert!(
+        call(
+            &mut readonly,
+            "context_publish",
+            json!({"id":id,"input":revised,"key":"denied"})
+        )
+        .await
+        .get("error")
+        .is_some()
+    );
+    f.store.reconcile_goals().unwrap();
+    let run = f.store.claim().unwrap().unwrap();
+    f.store
+        .finish(
+            run["id"].as_str().unwrap(),
+            run["instance_id"].as_str().unwrap(),
+            "completed",
+            json!({"output":"verified contribution"}),
+        )
+        .unwrap();
+    f.store.reconcile_goals().unwrap();
+    let stale = call(
+        &mut mcp,
+        "goals_accept",
+        json!({"id":id,"review":"stale","expected_context_revision":1}),
+    )
+    .await;
+    assert!(stale.to_string().contains("context_revision_conflict"));
+    let cli = f
+        .cli(&[
+            "goals",
+            "accept",
+            id,
+            "--review",
+            "checked shared scope",
+            "--expected-context-revision",
+            "2",
+        ])
+        .await;
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    assert_eq!(
+        f.store.goal(id).unwrap()["rounds"][0]["shared_context"]["revision"],
+        2
+    );
+}

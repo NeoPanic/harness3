@@ -11,7 +11,27 @@ fn run_json(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
         "SELECT json_object('id',id,'instance_id',instance_id,'state',state,'input',input,'report',json(report),'created_at',created_at,'started_at',started_at,'finished_at',finished_at) FROM runs WHERE id=?",
         [id], |r| r.get(0),
     ).optional()?.ok_or_else(|| fault(404, "run_not_found"))?;
-    Ok(serde_json::from_str(&body)?)
+    let mut run: Value = serde_json::from_str(&body)?;
+    let context: Option<String> = tx
+        .query_row(
+            "SELECT body FROM goal_context_snapshots WHERE run_id=?",
+            [id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    run["shared_context"] = context
+        .map(|s| serde_json::from_str(&s))
+        .transpose()?
+        .unwrap_or(Value::Null);
+    let input = run["input"].as_str().unwrap();
+    run["task_input"] = json!(if run["shared_context"].is_object() {
+        input
+            .strip_suffix(&crate::collaboration::prompt(&run["shared_context"]))
+            .unwrap_or(input)
+    } else {
+        input
+    });
+    Ok(run)
 }
 pub(crate) fn goal_json(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
     let body: String = tx.query_row(
@@ -90,6 +110,7 @@ impl Store {
         self.transaction(|tx| {
             let mut goal = goal_json(tx, id)?;
             crate::artifacts::decorate(tx, &mut goal)?;
+            crate::collaboration::decorate(tx, &mut goal)?;
             Ok(goal)
         })
     }
@@ -100,6 +121,15 @@ impl Store {
         self.accept_goal_round(id, review, 1)
     }
     pub fn accept_goal_round(&self, id: &str, review: &str, expected_round: i64) -> PResult<Value> {
+        self.accept_goal_context(id, review, expected_round, 0)
+    }
+    pub fn accept_goal_context(
+        &self,
+        id: &str,
+        review: &str,
+        expected_round: i64,
+        expected_context_revision: i64,
+    ) -> PResult<Value> {
         if review.trim().is_empty() || review.len() > 8000 {
             return Err(fault(400, "invalid_goal_review"));
         }
@@ -112,6 +142,7 @@ impl Store {
             if goal["state"] != "awaiting-review" {
                 return Err(fault(409, "goal_not_reviewable"));
             }
+            crate::collaboration::pin_review(tx,id,expected_round,expected_context_revision)?;
             let mut manifest=Vec::new();
             for task in goal["tasks"].as_array().unwrap(){
                 let artifact=crate::artifacts::capture(tx,id,task)?.ok_or_else(||fault(409,"goal_artifacts_missing"))?;
@@ -247,6 +278,8 @@ fn reconcile(tx: &Transaction<'_>, id: &str, cancelling: bool) -> PResult<()> {
         } else {
             input
         };
+        let board = crate::collaboration::current(tx, id)?;
+        let input = format!("{input}{}", crate::collaboration::prompt(&board));
         if input.len() > 64000 {
             task_state(tx, id, key, "blocked", Some("dependency_context_too_large"))?;
             tasks[position]["state"] = json!("blocked");
@@ -257,6 +290,7 @@ fn reconcile(tx: &Transaction<'_>, id: &str, cancelling: bool) -> PResult<()> {
             "INSERT INTO runs(id,instance_id,state,input,created_at) VALUES(?,?,'queued',?,?)",
             params![run, agent, input, now()],
         )?;
+        crate::collaboration::snapshot_run(tx, id, &run, &board)?;
         tx.execute("UPDATE instances SET state='busy' WHERE id=?", [agent])?;
         tx.execute(
             "UPDATE work_items SET state='queued',run_id=? WHERE goal_id=? AND key=?",

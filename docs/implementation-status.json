@@ -256,6 +256,25 @@
     "verification": "native-tests-and-browser"
   },
   {
+    "id": "shared-context",
+    "name": "共享上下文与版本化黑板",
+    "phase": "P2",
+    "status": "partial",
+    "detail": "Goal 内发现/决策/疑问、宿主发布身份、CAS 修订/撤回、来源与产物引用、派发快照和验收版本绑定已实现，四入口可查改。默认提供共享协作母体；频道/可见性分组、订阅唤醒、认领/Attempts 与自动冲突裁决待补。",
+    "source": [
+      "crates/harness3-platform/src/collaboration/mod.rs",
+      "crates/harness3-platform/src/collaboration/tools.rs",
+      "crates/harness3-platform/src/organization.rs",
+      "crates/harness3-platform/web/collaboration.js",
+      "crates/harness3-platform/tests/collaboration.rs"
+    ],
+    "target": [
+      "crates/harness3-domain/src/collaboration/",
+      "crates/harness3-platform/src/collaboration/"
+    ],
+    "verification": "native-tests-and-browser"
+  },
+  {
     "id": "artifacts",
     "name": "产物、验证与返工",
     "phase": "P2",
@@ -278,13 +297,14 @@
     "name": "Web 执行证据检查",
     "phase": "P1",
     "status": "implemented",
-    "detail": "实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。 新增协作产物、原文下载、版本/评审历史和新团队返工。",
+    "detail": "实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。 新增协作产物、原文下载、版本/评审历史和新团队返工。 共享区支持结构化修订、历史、来源检查和并发冲突草稿保留。",
     "source": [
       "crates/harness3-platform/web/app.js",
       "crates/harness3-platform/web/goals.js",
       "crates/harness3-platform/web/fleets.js",
       "crates/harness3-platform/web/messages.js",
-      "crates/harness3-platform/web/artifacts.js"
+      "crates/harness3-platform/web/artifacts.js",
+      "crates/harness3-platform/web/collaboration.js"
     ],
     "target": [
       "web/src/features/"
@@ -296,7 +316,7 @@
     "name": "API / CLI / MCP 入口",
     "phase": "P2",
     "status": "partial",
-    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 37 个工具，默认开放 19 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
+    "detail": "HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 40 个工具，默认开放 21 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。",
     "source": [
       "crates/harness3-platform/src/api.rs",
       "crates/harness3-platform/src/client.rs",

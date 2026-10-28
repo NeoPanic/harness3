@@ -26,7 +26,7 @@ Harness³ 为 Agents 提供共同的执行基础：模型与工具接口、明�
 cargo run --locked -p harness3-platform -- up --demo
 ```
 
-打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。实例组已支持 finite/maintain、异步创建与扩缩容、排空和 TTL。实例组与协作目标支持 Web / API / CLI / MCP stdio 同源操作；[客户端示例](examples/clients/)提供创建计划和 MCP 配置。本地可执行 Tool 插件支持在线安装、版本快照、健康检查与禁用，见[进程插件 v1](docs/process-plugins.zh-CN.md)；母体支持固定版本单继承、参数 schema/模板与多插件绑定，见[母体组合指南](docs/presets.zh-CN.md)。Agent 可通过绑定的第一方消息工具交接任务，详见[持久消息](docs/messaging.zh-CN.md)。从首页“发起调研任务”可自动规划、派生团队和汇总，详见[自主调研](docs/research.zh-CN.md)。[协作产物与评审返工](docs/artifacts.zh-CN.md)支持不可变文本版本、验收清单和最多 3 轮新团队协作。递归派生、动态任务图、远程 MCP loader 与沙箱仍待实现。
+打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 登录。真实模型支持 OpenAI-compatible、OpenAI Responses、Anthropic 三类协议；可从现有配置目录读取 Responses 地址与 API Key。启动配置、HTTP API 与首版限制见[平台预览指南](docs/kernel-preview.zh-CN.md)。实例组已支持 finite/maintain、异步创建与扩缩容、排空和 TTL。实例组与协作目标支持 Web / API / CLI / MCP stdio 同源操作；[客户端示例](examples/clients/)提供创建计划和 MCP 配置。本地可执行 Tool 插件支持在线安装、版本快照、健康检查与禁用，见[进程插件 v1](docs/process-plugins.zh-CN.md)；母体支持固定版本单继承、参数 schema/模板与多插件绑定，见[母体组合指南](docs/presets.zh-CN.md)。Agent 可通过绑定的第一方消息工具交接任务，详见[持久消息](docs/messaging.zh-CN.md)。从首页“发起调研任务”可自动规划、派生团队和汇总，详见[自主调研](docs/research.zh-CN.md)。[协作产物与评审返工](docs/artifacts.zh-CN.md)支持不可变文本版本、验收清单和最多 3 轮新团队协作。[目标共享上下文](docs/shared-context.zh-CN.md)支持多个 Agent 交换发现、版本修订与验收快照；`demo-collaborator` 可离线体验，`research-collaborator` 使用 Responses。递归派生、动态任务图、远程 MCP loader 与沙箱仍待实现。
 
 ## 为什么是三次方
 

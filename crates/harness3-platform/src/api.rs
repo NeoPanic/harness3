@@ -228,6 +228,20 @@ pub fn router(app: App) -> Router {
         .route("/api/v1/goals/{id}", get(goal))
         .route("/api/v1/goals/{id}/cancel", post(cancel_goal))
         .route("/api/v1/goals/{id}/accept", post(accept_goal))
+        .route(
+            "/api/v1/goals/{id}/context",
+            get(goal_context).post(context_publish),
+        )
+        .route("/api/v1/goals/{id}/context/{key}", get(context_history))
+        .route(
+            "/collaboration.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/collaboration.js"),
+                )
+            }),
+        )
         .route("/api/v1/goals/{id}/rework", post(rework_goal))
         .route("/api/v1/artifacts", get(artifacts))
         .route("/api/v1/artifacts/{id}", get(artifact))
@@ -278,7 +292,7 @@ async fn logout() -> Response {
 }
 async fn snapshot(State(app): State<App>) -> PResult<Json<Value>> {
     Ok(Json(
-        json!({"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":[crate::messaging::package()],"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
+        json!({"artifacts":app.store.recent_artifacts()?,"research_jobs":app.store.researches()?,"messages":app.store.recent_messages()?,"builtin_plugins":crate::organization::packages(),"process_plugins":app.store.process_plugins()?,"process_plugin_execution":app.plugins.is_enabled(),"capacity":app.store.capacity()?,"fleets":app.store.fleets()?,"presets":app.store.list("presets")?,"plugins":app.store.list("plugins")?,"instances":app.store.list("instances")?,"runs":app.store.list("runs")?,"goals":app.store.list("goals")?,"capabilities":capabilities(),"models":app.models.describe(),"limits":{"instances":64,"workers":4,"runs_displayed":100,"collection_limit":200,"active_goals":32,"tasks_per_goal":16},"version":env!("CARGO_PKG_VERSION")}),
     ))
 }
 async fn publish(State(app): State<App>, Json(preset): Json<Value>) -> PResult<Json<Value>> {
@@ -438,6 +452,8 @@ struct Review {
     review: String,
     #[serde(default = "first_round")]
     expected_round: i64,
+    #[serde(default)]
+    expected_context_revision: i64,
 }
 fn first_round() -> i64 {
     1
@@ -447,10 +463,11 @@ async fn accept_goal(
     Path(id): Path<String>,
     Json(input): Json<Review>,
 ) -> PResult<Json<Value>> {
-    Ok(Json(app.store.accept_goal_round(
+    Ok(Json(app.store.accept_goal_context(
         &id,
         &input.review,
         input.expected_round,
+        input.expected_context_revision,
     )?))
 }
 async fn cancel_goal(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
@@ -552,4 +569,27 @@ async fn artifacts(State(app): State<App>, Query(q): Query<ArtifactQuery>) -> PR
 }
 async fn artifact(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
     Ok(Json(app.store.artifact(&id)?))
+}
+
+async fn goal_context(State(app): State<App>, Path(id): Path<String>) -> PResult<Json<Value>> {
+    Ok(Json(app.store.goal_context(&id)?))
+}
+async fn context_history(
+    State(app): State<App>,
+    Path((id, key)): Path<(String, String)>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.context_history(&id, &key)?))
+}
+async fn context_publish(
+    State(app): State<App>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    Json(input): Json<crate::collaboration::ContextInput>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.publish_context(
+        crate::collaboration::Author::Operator,
+        Some(&id),
+        &input,
+        key(&headers)?,
+    )?))
 }

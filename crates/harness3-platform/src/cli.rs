@@ -102,7 +102,7 @@ resource!(GoalArgs, GoalAction {
     Show { id: String },
     Create { #[arg(long)] file: PathBuf, #[arg(long)] key: String },
     Cancel { id: String },
-    Accept { id: String, #[arg(long)] review: String, #[arg(long,default_value="1")] expected_round:i64 },
+    Accept { id: String, #[arg(long)] review: String, #[arg(long,default_value="1")] expected_round:i64,#[arg(long,default_value="0")] expected_context_revision:i64 },
     /// Repeat the full graph with a reviewer note and fresh managed instances by default.
     Rework {id:String,#[arg(long)] file:PathBuf,#[arg(long)] key:String},
 });
@@ -173,10 +173,12 @@ pub async fn goals(args: GoalArgs) -> ClientResult<()> {
             id,
             review,
             expected_round,
+            expected_context_revision,
         } => Command::GoalsAccept {
             id,
             review,
             expected_round,
+            expected_context_revision,
         },
         Rework { id, file, key } => Command::GoalsRework {
             id,
@@ -320,6 +322,24 @@ pub async fn artifacts(args: ArtifactArgs) -> ClientResult<()> {
             limit,
         },
         ArtifactAction::Show { id } => Command::ArtifactsShow { id },
+    };
+    print(args.connection.client()?.execute(command).await?)
+}
+
+resource!(ContextArgs, ContextAction {
+    Show{id:String},
+    History{id:String,entry:String},
+    Publish{id:String,#[arg(long)] file:PathBuf,#[arg(long)] key:String},
+});
+pub async fn context(args: ContextArgs) -> ClientResult<()> {
+    let command = match args.action {
+        ContextAction::Show { id } => Command::ContextRead { id },
+        ContextAction::History { id, entry } => Command::ContextHistory { id, entry },
+        ContextAction::Publish { id, file, key } => Command::ContextPublish {
+            id,
+            input: read_json(file)?,
+            key,
+        },
     };
     print(args.connection.client()?.execute(command).await?)
 }

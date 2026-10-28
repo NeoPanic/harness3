@@ -1,0 +1,9 @@
+{
+  "key": "evidence.scope",
+  "expected_revision": 0,
+  "title": "资料范围",
+  "body": "本轮仅对用户提供的资料进行比较，尚未联网核实。",
+  "kind": "observation",
+  "status": "active",
+  "artifact_ids": []
+}

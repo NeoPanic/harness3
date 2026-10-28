@@ -63,6 +63,68 @@ impl Model for DemoModel {
                 reasoning: None,
             });
         }
+        if input
+            .tools
+            .iter()
+            .any(|s| s.name == "platform.context.read")
+        {
+            let previous = if let Some(Turn::Tools(observations)) = input.turns.last() {
+                observations.first()
+            } else {
+                None
+            };
+            let (text, calls) = match previous {
+                Some(o)
+                    if o.call.name == "platform.context.read"
+                        && o.call.id == "demo-context-refresh" =>
+                {
+                    (
+                        format!(
+                            "[确定性演示 / Demo] 已通过共享上下文工具发布独立记录，并再次读取目标共享区。当前版本 {}，共 {} 条记录。该演示验证多实例读写链路，不执行语义研究。",
+                            o.output.content["revision"],
+                            o.output.content["entries"].as_array().map_or(0, Vec::len)
+                        ),
+                        vec![],
+                    )
+                }
+                Some(o) if o.call.name == "platform.context.read" => {
+                    let run = o.output.content["source_run_id"]
+                        .as_str()
+                        .ok_or_else(|| Error::new("context_scope_unavailable"))?;
+                    (
+                        String::new(),
+                        vec![Call {
+                            id: "demo-context-publish".into(),
+                            name: "platform.context.publish".into(),
+                            arguments: json!({"key":format!("demo.{run}"),"expected_revision":0,"title":"确定性演示贡献","body":"此记录由当前任务的实际 Agent 发布，用于验证共享上下文；不代表语义研究或事实验证。","kind":"observation","command_key":"demo-publish"}),
+                        }],
+                    )
+                }
+                Some(o) if o.call.name == "platform.context.publish" => (
+                    String::new(),
+                    vec![Call {
+                        id: "demo-context-refresh".into(),
+                        name: "platform.context.read".into(),
+                        arguments: json!({}),
+                    }],
+                ),
+                _ => (
+                    String::new(),
+                    vec![Call {
+                        id: "demo-context-read".into(),
+                        name: "platform.context.read".into(),
+                        arguments: json!({}),
+                    }],
+                ),
+            };
+            return Ok(ModelReply {
+                text,
+                calls,
+                usage: None,
+                continuation: Value::Null,
+                reasoning: None,
+            });
+        }
         let (text, calls) = if let Some(Turn::Tools(observations)) = input.turns.last() {
             let evidence = observations
                 .first()
@@ -184,7 +246,10 @@ async fn execute(
                 }
             }
             if plugin["kind"] == "organization" {
-                worker_tools.push(json!({"name":"platform.messaging.send","description":"Send to a known existing Agent in the same fleet or shared active Goal."}));
+                for tool in plugin["tools"].as_array().unwrap() {
+                    worker_tools
+                        .push(json!({"name":tool["name"],"description":tool["description"]}));
+                }
             }
         }
         instructions = format!(
@@ -225,12 +290,10 @@ async fn execute(
         registry.tool(Arc::new(InspectText)).map_err(core_error)?;
         tools.push("text.inspect".to_owned());
         for snapshot in bound.iter().filter(|p| p["kind"] == "organization") {
-            if snapshot != &crate::messaging::package() {
-                return Err(fault(409, "organization_plugin_snapshot_unsupported"));
+            for tool in crate::organization::tools(snapshot, store.clone(), run)? {
+                tools.push(tool.spec().name);
+                registry.tool(tool).map_err(core_error)?;
             }
-            let tool = crate::messaging::tool(store.clone(), run);
-            tools.push(tool.spec().name);
-            registry.tool(tool).map_err(core_error)?;
         }
         for snapshot in bound.into_iter().filter(|p| p["kind"] == "process") {
             for tool in plugins.tools(serde_json::from_value(snapshot)?)? {

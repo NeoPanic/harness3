@@ -2,6 +2,7 @@
 pub mod api;
 pub mod artifacts;
 pub mod client;
+pub mod collaboration;
 pub mod coordination;
 pub mod domain;
 pub mod fleets;
@@ -9,6 +10,7 @@ pub mod lifecycle;
 pub mod mcp;
 pub mod messaging;
 pub mod models;
+pub mod organization;
 pub mod plugins;
 pub mod presets;
 pub mod research;

@@ -92,7 +92,7 @@ impl ProcessHost {
             tokio::task::spawn_blocking(move || package::prepare(&cache, &source))
                 .await
                 .map_err(|_| fault(500, "plugin_package_task_failed"))??;
-        if manifest.id == "platform.messaging" {
+        if crate::organization::package(&manifest.id).is_some() {
             return Err(fault(409, "plugin_kind_conflict"));
         }
         let snapshot = Snapshot {

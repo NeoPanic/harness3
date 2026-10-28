@@ -18,6 +18,18 @@ pub struct PlatformClient {
 #[serde(tag = "tool", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
     Snapshot,
+    ContextRead {
+        id: String,
+    },
+    ContextHistory {
+        id: String,
+        entry: String,
+    },
+    ContextPublish {
+        id: String,
+        input: crate::collaboration::ContextInput,
+        key: String,
+    },
     ArtifactsList {
         goal_id: Option<String>,
         #[serde(default)]
@@ -141,6 +153,8 @@ pub enum Command {
         review: String,
         #[serde(default = "first_round")]
         expected_round: i64,
+        #[serde(default)]
+        expected_context_revision: i64,
     },
     EventsList {
         #[serde(default)]
@@ -151,7 +165,9 @@ impl Command {
     pub fn read_only(&self) -> bool {
         matches!(
             self,
-            Self::ArtifactsList { .. }
+            Self::ContextRead { .. }
+                | Self::ContextHistory { .. }
+                | Self::ArtifactsList { .. }
                 | Self::ArtifactsShow { .. }
                 | Self::ResearchList
                 | Self::ResearchShow { .. }
@@ -236,6 +252,19 @@ impl PlatformClient {
     pub async fn execute(&self, command: Command) -> ClientResult<Value> {
         use Command::*;
         let (method, path, body, key) = match command {
+            ContextRead { id } => (Method::GET, object("goals", &id, "/context")?, None, None),
+            ContextHistory { id, entry } => (
+                Method::GET,
+                object("goals", &id, &format!("/context/{}", segment(&entry)?))?,
+                None,
+                None,
+            ),
+            ContextPublish { id, input, key } => (
+                Method::POST,
+                object("goals", &id, "/context")?,
+                Some(serde_json::to_value(input)?),
+                Some(key),
+            ),
             ArtifactsList {
                 goal_id,
                 after,
@@ -451,10 +480,13 @@ impl PlatformClient {
                 id,
                 review,
                 expected_round,
+                expected_context_revision,
             } => (
                 Method::POST,
                 object("goals", &id, "/accept")?,
-                Some(json!({"review":review,"expected_round":expected_round})),
+                Some(
+                    json!({"review":review,"expected_round":expected_round,"expected_context_revision":expected_context_revision}),
+                ),
                 None,
             ),
             EventsList { after } => (Method::GET, format!("/events?after={after}"), None, None),

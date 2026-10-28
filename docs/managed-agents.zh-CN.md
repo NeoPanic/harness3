@@ -1,6 +1,6 @@
 # Harness³ Managed Agents：目标架构与落地方案
 
-状态：目标设计提案，包含尚未实现的功能。原始分析基线为 `e46af25`；目前已落地本地内核平台预览、显式协作任务图、贡献传递、人工验收、实例组协调、通用 CLI、对外 MCP stdio、母体组合参数化、本地持久协作消息与有界自主调研团队，实际启动方式、API 和功能边界以[平台预览指南](kernel-preview.zh-CN.md)及 Web 实现进度为准。本文的完整架构、命令、目录和验收项仍描述目标形态，不代表全部已经实现。
+状态：目标设计提案，包含尚未实现的功能。原始分析基线为 `e46af25`；目前已落地本地内核平台预览、显式协作任务图、贡献传递、人工验收、实例组协调、通用 CLI、对外 MCP stdio、母体组合参数化、本地持久协作消息、有界自主调研团队与版本化共享上下文，实际启动方式、API 和功能边界以[平台预览指南](kernel-preview.zh-CN.md)及 Web 实现进度为准。本文的完整架构、命令、目录和验收项仍描述目标形态，不代表全部已经实现。
 
 ## 1. 产品目标与交付边界
 
@@ -33,7 +33,7 @@ Harness³ 的目标是让用户在本地启动一套可管理的 Agent 协作平
 | Worker 调度 | 本地持久队列、4 槽并发、单实例串行 | 多进程认领、续租、心跳、fencing、跨组公平性和背压 |
 | 私有工作区 | 尚无平台 workspace 实现 | 根目录授权、产物寻址、路径逃逸防护、OS/容器沙箱 |
 | Agent 间消息与频道 | 任务依赖证据传递、本地 Inbox/Outbox、确认/消费分离、幂等消息、受限发送工具和人工处置 | 频道、工作认领/Attempts、跨机器投递、按主体授权与子树作用域 |
-| 任务认领与组织上下文 | 持久 Goal/WorkItem、显式依赖、取消传播 | 通用动态委派、独立 Attempts/认领、共享黑板和结构化组织上下文；当前自主调研已支持有界拆解 |
+| 任务认领与组织上下文 | 持久 Goal/WorkItem、显式依赖、取消传播；Goal 内版本化共享区、来源/证据引用、派发与验收快照 | 通用动态委派、独立 Attempts/认领、频道与分组可见性、订阅唤醒和自动冲突裁决待补；共享区契约见[指南](shared-context.zh-CN.md) |
 | 贡献整合与验证 | 不可变文本 Artifact、内容摘要、格式检查、人工验收清单、最多 3 轮新团队返工 | 结构化 Contribution、文件产物、自动质量验证与局部/自主返工 |
 | 预算与配额 | 单 Run Limits、TokenUsage、上下文预算、64 实例配额 | 跨 Agent 原子预算预留、费用账本、速率限制与未知用量对账 |
 | 运行身份与审计 | loopback/token、持久平台事件、内核 Policy | Principal/Grant、委派链、凭证范围、审批、撤权与租户隔离 |
@@ -437,6 +437,8 @@ harness3/
 │   │       ├── operations/            # 批量创建、扩缩容、升级等异步操作
 │   │       ├── goals/                 # Goal、WorkItem、依赖、Attempt、验收状态
 │   │       ├── collaboration/         # 消息、频道、委派、贡献、Review
+│   │       │   ├── context.rs / revisions.rs # 共享黑板、CAS 与不可变修订
+│   │       │   └── provenance.rs / snapshots.rs # 来源与证据、派发/验收版本
 │   │       ├── artifacts/             # 产物版本、内容摘要、证据与可见性
 │   │       ├── plugins/               # 包版本、能力声明、绑定锁与 rollout 状态
 │   │       ├── identity/              # Principal、Grant、scope 与凭证引用
@@ -453,6 +455,7 @@ harness3/
 │   │       ├── collaboration/         # 分派、路由、委派、认领与整合用例
 │   │       │   ├── research.rs        # 单目标→规划→有界团队→并行→汇总
 │   │       │   ├── messaging.rs / inbox.rs / outbox.rs
+│   │       │   ├── context.rs / snapshots.rs # 共享发现、修订、派发与验收固定版本
 │   │       │   └── delegation.rs / claims.rs / contributions.rs
 │   │       ├── wakeups/               # Inbox、依赖、定时器、审批唤醒
 │   │       ├── recovery/              # 所有权确认、结果对账、显式续行

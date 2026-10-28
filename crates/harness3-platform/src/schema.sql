@@ -40,3 +40,8 @@ CREATE TABLE IF NOT EXISTS goal_rounds(goal_id TEXT NOT NULL REFERENCES goals(id
 CREATE TABLE IF NOT EXISTS artifacts(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,goal_id TEXT NOT NULL REFERENCES goals(id),task_key TEXT NOT NULL,version INTEGER NOT NULL,run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),instance_id TEXT NOT NULL REFERENCES instances(id),media_type TEXT NOT NULL,content TEXT NOT NULL,digest TEXT NOT NULL,bytes INTEGER NOT NULL,checks TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(goal_id,task_key,version));
 CREATE INDEX IF NOT EXISTS artifacts_goal ON artifacts(goal_id,version,task_key);
 CREATE TABLE IF NOT EXISTS goal_rework_allocations(goal_id TEXT NOT NULL REFERENCES goals(id),round INTEGER NOT NULL,task_key TEXT NOT NULL,fleet_id TEXT NOT NULL UNIQUE REFERENCES fleets(id),PRIMARY KEY(goal_id,round,task_key));
+
+CREATE TABLE IF NOT EXISTS goal_context(goal_id TEXT NOT NULL REFERENCES goals(id),key TEXT NOT NULL,revision INTEGER NOT NULL,board_revision INTEGER NOT NULL,round INTEGER NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,kind TEXT NOT NULL,status TEXT NOT NULL,artifact_ids TEXT NOT NULL,author_kind TEXT NOT NULL,source_run_id TEXT REFERENCES runs(id),created_at INTEGER NOT NULL,PRIMARY KEY(goal_id,key,revision),UNIQUE(goal_id,board_revision));
+CREATE INDEX IF NOT EXISTS goal_context_run ON goal_context(source_run_id);
+CREATE TABLE IF NOT EXISTS goal_context_snapshots(run_id TEXT PRIMARY KEY REFERENCES runs(id),goal_id TEXT NOT NULL REFERENCES goals(id),revision INTEGER NOT NULL,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS goal_context_reviews(goal_id TEXT NOT NULL REFERENCES goals(id),round INTEGER NOT NULL,revision INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(goal_id,round));
