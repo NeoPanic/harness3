@@ -43,7 +43,7 @@
 | 发布 / 修订 / 撤回 | `POST /api/v1/goals/{id}/context` | `context publish ID --file context.json --key KEY` | `context_publish` |
 | 验收 | `POST /api/v1/goals/{id}/accept` | `goals accept ID --review TEXT --expected-round N --expected-context-revision N` | `goals_accept` |
 
-HTTP 写入共享区需要 `Idempotency-Key`。Agent 工具为 `platform.context.read` 和 `platform.context.publish`；后者使用 `command_key`。超时重试保持同一 key 和相同内容，冲突合并后使用新 key。外部 MCP 仍默认只读，写入需 `--allow-write`；当前共 40 个工具，其中 21 个只读。
+HTTP 写入共享区需要 `Idempotency-Key`。Agent 工具为 `platform.context.read` 和 `platform.context.publish`；后者使用 `command_key`。超时重试保持同一 key 和相同内容，冲突合并后使用新 key。外部 MCP 仍默认只读，写入需 `--allow-write`；当前共 43 个工具，其中 22 个只读。
 
 示例文件见 [context.json](../examples/clients/context.json)。
 
@@ -61,7 +61,7 @@ HTTP 写入共享区需要 `Idempotency-Key`。Agent 工具为 `platform.context
 
 ## 当前缺口
 
-尚无频道/分组可见性、任务认领/Attempts、订阅唤醒、自动冲突裁决、语义验证、外部检索记忆库或跨目标共享协议。当前版本解决有界团队的共享发现与可追溯修订，不宣称支持任意动态协作图或完整组织记忆。
+任务认领与 Attempt 台账见[独立指南](task-claims.zh-CN.md)。尚无频道/分组可见性、订阅唤醒、自动冲突裁决、语义验证、外部检索记忆库或跨目标共享协议。当前版本解决有界团队的共享发现与可追溯修订，不宣称支持任意动态协作图或完整组织记忆。
 
 ## 本轮验证
 

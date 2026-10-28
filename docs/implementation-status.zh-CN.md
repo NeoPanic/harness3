@@ -19,13 +19,14 @@
 | P1 | 内置工具与提示词包 | 已实现 | 既有测试；见预览指南边界 | text.inspect 只读工具；提示词包在线安装、摘要固定，新母体绑定后生效。 |
 | P2 | 可执行插件契约与 SDK | 部分实现 | 原生测试 + Web 联调 | 已实现版本化 manifest/RPC、严格 schema 子集、握手/健康/进度/取消、错误分类、Rust 同步 SDK 和 Python 示例；配置/权限/依赖锁、多种能力与对账协议待补。 |
 | P2 | 外部插件与热加载 | 部分实现 | 原生测试 + Web 联调 | 进程包在线安装、内容寻址、逐调用摘要检查、版本并存、母体快照、健康检查、禁用/取消和旧版本重新绑定已实现；显式 opt-in、清空继承环境，仍以 OS 用户权限运行。MCP loader、watch、进程池/rollout、沙箱与作用域授权待补。 |
-| P2 | 显式目标与任务依赖 | 已实现 | 既有测试；见预览指南边界 | 最多 16 项任务；持久依赖图、上游输出和 Run ID 传递、取消与人工验收。 |
+| P2 | 显式目标与任务依赖 | 已实现 | 既有测试；见预览指南边界 | 最多 16 项任务；持久依赖图、上游输出和 Run ID 传递、取消与人工验收。 支持任务候选实例池，自动选择就绪成员或等待人工认领。 |
 | P2 | 自主规划与动态委派 | 部分实现 | 原生测试 + Web 联调 | 自主调研入口已实现：一个目标接纳有界团队，规划 Agent 提交分工，2–6 位独立研究者并行，独立汇总等待贡献后运行；持久恢复、取消、15 分钟期限与回收。已支持人工评审驱动的最多 3 轮返工，新研究者/汇总实例接续原 Goal 与历史。任意动态任务图、递归委派、自主评审返工和费用预算待补。 |
-| P2 | 可靠协作消息 | 部分实现 | 原生测试 + Web 联调 | 本地持久 Outbox/Inbox、稳定消息 ID/幂等去重、投递/派发确认/消费分离、暂停积压、未知结果人工处置和内置 platform.messaging 发送工具已落地；四入口共用。频道、工作认领/Attempts、远程投递与 Grant 待补。 |
-| P2 | 共享上下文与版本化黑板 | 部分实现 | 原生测试 + Web 联调 | Goal 内发现/决策/疑问、宿主发布身份、CAS 修订/撤回、来源与产物引用、派发快照和验收版本绑定已实现，四入口可查改。默认提供共享协作母体；频道/可见性分组、订阅唤醒、认领/Attempts 与自动冲突裁决待补。 |
+| P2 | 候选池认领与执行尝试 | 部分实现 | 原生测试 + Web 联调 | 任务显式批准最多 16 位候选，自动分配或人工认领；认领/Run/Attempt 同事务，单任务 generation、幂等回执、仅未开始尝试可释放、每轮最多 8 次、跨轮历史和重启保留已实现。四入口可检查与操作；分布式租约/Worker fencing、Agent 自主认领工具、执行后对账重试和预算预留待补。 |
+| P2 | 可靠协作消息 | 部分实现 | 原生测试 + Web 联调 | 本地持久 Outbox/Inbox、稳定消息 ID/幂等去重、投递/派发确认/消费分离、暂停积压、未知结果人工处置和内置 platform.messaging 发送工具已落地；四入口共用。频道、远程投递与 Grant 待补；WorkItem 候选认领与 Attempt 台账见独立能力。 |
+| P2 | 共享上下文与版本化黑板 | 部分实现 | 原生测试 + Web 联调 | Goal 内发现/决策/疑问、宿主发布身份、CAS 修订/撤回、来源与产物引用、派发快照和验收版本绑定已实现，四入口可查改。默认提供共享协作母体；频道/可见性分组、订阅唤醒与自动冲突裁决待补；认领台账见独立能力。 |
 | P2 | 产物、验证与返工 | 部分实现 | 原生测试 + Web 联调 | 任务文本贡献按轮次保存不可变产物、SHA-256、Run/实例来源和非空/大小检查；人工验收固定清单。有界返工（最多 3 轮）默认新团队，保留旧贡献与评审，四入口可查。结构化证据、文件产物、专用验证 Agent、自动/局部返工待补。 |
-| P1 | Web 执行证据检查 | 已实现 | 既有测试；见预览指南边界 | 实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。 新增协作产物、原文下载、版本/评审历史和新团队返工。 共享区支持结构化修订、历史、来源检查和并发冲突草稿保留。 |
-| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 40 个工具，默认开放 21 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
+| P1 | Web 执行证据检查 | 已实现 | 既有测试；见预览指南边界 | 实例、请求快照、回执、会话、事件、协作目标和消息来自同一后端；消息详情区分投递、消费与未知结果处置。 新增协作产物、原文下载、版本/评审历史和新团队返工。 共享区支持结构化修订、历史、来源检查和并发冲突草稿保留。 任务卡片增加候选池、人工认领/排队释放和完整执行尝试台账。 |
+| P2 | API / CLI / MCP 入口 | 部分实现 | 原生测试 + Web 联调 | HTTP/Web、共享 loopback client、通用 CLI 与对外 MCP stdio 已落地；共 43 个工具，默认开放 22 个查询工具。进程插件执行还需 daemon 显式启用。尚无 MCP resources/Streamable HTTP、细粒度授权、并发取消和 CLI --wait。 |
 | P2 | 实时事件与查询 | 部分实现 | 既有测试；见预览指南边界 | 持久事件游标、Web 轮询；待实现 SSE、列表游标和统一查询契约。 |
 | P2 | 预算预留与账本 | 规划中 | 待实现 | 当前只有单 Run 轮次/工具数/超时上限；待实现团队预算、原子预留、结算与费用归属。 |
 | P3 | 身份、授权与审批 | 部分实现 | 既有测试；见预览指南边界 | 当前为 loopback + 本地 token；Principal/Grant、审批等待、租户隔离与插件权限未实现。 |
@@ -52,10 +53,11 @@
 | 外部插件与热加载 | `crates/harness3-platform/src/plugins/mod.rs`<br>`crates/harness3-platform/src/plugins/package.rs`<br>`crates/harness3-platform/src/plugins/process.rs`<br>`crates/harness3-platform/web/plugins.js`<br>`crates/harness3-platform/tests/process_plugins.rs` | `crates/harness3-plugins/src/loaders/`<br>`crates/harness3-plugins/src/reload/` |
 | 显式目标与任务依赖 | `crates/harness3-platform/src/coordination.rs` | `crates/harness3-platform/src/collaboration/` |
 | 自主规划与动态委派 | `crates/harness3-platform/src/research/mod.rs`<br>`crates/harness3-platform/src/research/tools.rs`<br>`crates/harness3-platform/web/research.js`<br>`crates/harness3-platform/tests/research.rs` | `plugins/organization/`<br>`crates/harness3-platform/src/collaboration/` |
+| 候选池认领与执行尝试 | `crates/harness3-platform/src/claims.rs`<br>`crates/harness3-platform/src/coordination.rs`<br>`crates/harness3-platform/web/tasks.js`<br>`crates/harness3-platform/tests/claims.rs` | `crates/harness3-domain/src/goals/`<br>`crates/harness3-platform/src/collaboration/` |
 | 可靠协作消息 | `crates/harness3-platform/src/messaging/mod.rs`<br>`crates/harness3-platform/src/messaging/tools.rs`<br>`crates/harness3-platform/web/messages.js`<br>`crates/harness3-platform/tests/messaging.rs` | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
 | 共享上下文与版本化黑板 | `crates/harness3-platform/src/collaboration/mod.rs`<br>`crates/harness3-platform/src/collaboration/tools.rs`<br>`crates/harness3-platform/src/organization.rs`<br>`crates/harness3-platform/web/collaboration.js`<br>`crates/harness3-platform/tests/collaboration.rs` | `crates/harness3-domain/src/collaboration/`<br>`crates/harness3-platform/src/collaboration/` |
 | 产物、验证与返工 | `crates/harness3-platform/src/artifacts.rs`<br>`crates/harness3-platform/src/coordination.rs`<br>`crates/harness3-platform/web/artifacts.js`<br>`crates/harness3-platform/tests/artifacts.rs` | `crates/harness3-domain/src/artifacts/`<br>`plugins/verification/` |
-| Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/goals.js`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/web/messages.js`<br>`crates/harness3-platform/web/artifacts.js`<br>`crates/harness3-platform/web/collaboration.js` | `web/src/features/` |
+| Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/goals.js`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/web/messages.js`<br>`crates/harness3-platform/web/artifacts.js`<br>`crates/harness3-platform/web/collaboration.js`<br>`crates/harness3-platform/web/tasks.js` | `web/src/features/` |
 | API / CLI / MCP 入口 | `crates/harness3-platform/src/api.rs`<br>`crates/harness3-platform/src/client.rs`<br>`crates/harness3-platform/src/main.rs`<br>`crates/harness3-platform/src/cli.rs`<br>`crates/harness3-platform/src/mcp.rs`<br>`crates/harness3-platform/tests/entrances.rs`<br>`examples/clients/mcp.json` | `crates/harness3-client/src/`<br>`crates/harness3-cli/src/`<br>`crates/harness3-mcp/src/` |
 | 实时事件与查询 | `crates/harness3-platform/src/api.rs` | `crates/harness3-server/src/events/` |
 | 预算预留与账本 | 尚无实现模块 | `crates/harness3-platform/src/accounting/`<br>`crates/harness3-domain/src/budgets/` |
@@ -102,6 +104,7 @@ crates/harness3-platform/
 │   │   └── tools.rs
 │   ├── api.rs
 │   ├── artifacts.rs
+│   ├── claims.rs
 │   ├── cli.rs
 │   ├── client.rs
 │   ├── coordination.rs
@@ -120,6 +123,7 @@ crates/harness3-platform/
 │   ├── fixtures/
 │   │   └── process-plugin.py
 │   ├── artifacts.rs
+│   ├── claims.rs
 │   ├── collaboration.rs
 │   ├── coordination.rs
 │   ├── entrances.rs
@@ -140,7 +144,8 @@ crates/harness3-platform/
 │   ├── messages.js
 │   ├── plugins.js
 │   ├── presets.js
-│   └── research.js
+│   ├── research.js
+│   └── tasks.js
 └── Cargo.toml
 crates/harness3-plugin-protocol/
 ├── src/
@@ -156,13 +161,16 @@ crates/harness3-plugin-sdk/
 └── Cargo.toml
 examples/clients/
 ├── README.md
+├── claim.json
 ├── composed-preset.json
 ├── context.json
 ├── fleet.json
 ├── mcp.json
 ├── parameterized-fleet.json
+├── pool-goal.json
 ├── process-fleet.json
 ├── process-preset.json
+├── release.json
 └── research.json
 examples/plugins/
 └── text-inspector/

@@ -38,6 +38,7 @@ fn setup() -> (Store, String) {
                         } else {
                             vec![]
                         },
+                        ..Default::default()
                     })
                     .collect(),
             },
@@ -261,6 +262,7 @@ fn rework_survives_reopen_and_keeps_one_round_one_team_and_original_artifacts() 
             instance_id: fleet["instance_ids"][i].as_str().unwrap().into(),
             instructions: t["instructions"].as_str().unwrap().into(),
             depends_on: serde_json::from_value(t["depends_on"].clone()).unwrap(),
+            ..Default::default()
         })
         .collect();
     let goal = s

@@ -343,3 +343,37 @@ pub async fn context(args: ContextArgs) -> ClientResult<()> {
     };
     print(args.connection.client()?.execute(command).await?)
 }
+
+resource!(TaskArgs, TaskAction {
+    Show { id:String, task:String },
+    Claim { id:String, task:String, #[arg(long)] file:PathBuf, #[arg(long)] key:String },
+    Release { id:String, task:String, #[arg(long)] file:PathBuf, #[arg(long)] key:String },
+});
+pub async fn tasks(args: TaskArgs) -> ClientResult<()> {
+    let command = match args.action {
+        TaskAction::Show { id, task } => Command::TasksShow { id, task },
+        TaskAction::Claim {
+            id,
+            task,
+            file,
+            key,
+        } => Command::TasksClaim {
+            id,
+            task,
+            input: read_json(file)?,
+            key,
+        },
+        TaskAction::Release {
+            id,
+            task,
+            file,
+            key,
+        } => Command::TasksRelease {
+            id,
+            task,
+            input: read_json(file)?,
+            key,
+        },
+    };
+    print(args.connection.client()?.execute(command).await?)
+}

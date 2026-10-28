@@ -1,6 +1,6 @@
 # 本地持久协作消息 v1
 
-消息链路与普通运行、显式 Goal 任务共用实例串行约束和四个 Worker 槽位。当前支持单机 SQLite 中的点对点任务消息；频道、工作认领/Attempts、远程投递与 Principal/Grant 尚未实现。
+消息链路与普通运行、显式 Goal 任务共用实例串行约束和四个 Worker 槽位。当前支持单机 SQLite 中的点对点任务消息；频道、远程投递与 Principal/Grant 尚未实现；WorkItem 的候选认领与 Attempt 台账见[独立指南](task-claims.zh-CN.md)。
 
 ## 状态与事务
 

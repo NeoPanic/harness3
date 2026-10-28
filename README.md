@@ -110,6 +110,7 @@ Each harness supplies an execution boundary. The host defines how agents share w
 - [Implementation status and module mapping (中文)](docs/implementation-status.zh-CN.md): shared with the Web console; records shipped behavior, gaps, verification, and planned source paths.
 - [中文首页](README.zh-CN.md): positioning, setup, and naming in Chinese.
 - [中文技术导读](GUIDE.zh-CN.md): sequence diagrams, source walkthrough, and design reasoning.
+- [Task claims and attempts (中文)](docs/task-claims.zh-CN.md): approved candidate pools, automatic/manual assignment, ownership generations, queued-only release, and durable attempt history.
 - [Shared Goal context (中文)](docs/shared-context.zh-CN.md): versioned findings, host-owned Agent identities, revision conflicts, and dispatch/review snapshots; try the offline `demo-collaborator` research Preset.
 - [Runtime contracts](docs/runtime.md): recovery, authorization, compaction, delivery, and trace semantics.
 - [Runnable example](examples/quickstart.rs): an offline integration from registration to receipt.

@@ -1,0 +1,13 @@
+{
+  "title": "候选实例协作示例",
+  "objective": "基于提供的材料进行分析",
+  "acceptance": "核对输出与实际执行者",
+  "tasks": [{
+    "key": "research",
+    "instance_id": "agent_primary",
+    "candidates": ["agent_backup"],
+    "manual_claim": true,
+    "instructions": "分析输入材料，区分证据、推理和未知",
+    "depends_on": []
+  }]
+}

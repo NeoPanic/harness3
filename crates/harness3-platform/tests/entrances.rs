@@ -746,6 +746,7 @@ async fn artifact_versions_and_rework_share_http_cli_mcp_and_stale_review_guards
                     instance_id: fleet["instance_ids"][0].as_str().unwrap().into(),
                     instructions: "analyze".into(),
                     depends_on: vec![],
+                    ..Default::default()
                 }],
             },
             "artifact-goal",
@@ -888,6 +889,7 @@ async fn shared_context_uses_one_version_contract_across_http_cli_and_mcp() {
                     instance_id: fleet["instance_ids"][0].as_str().unwrap().into(),
                     instructions: "report".into(),
                     depends_on: vec![],
+                    ..Default::default()
                 }],
             },
             "context-goal",
@@ -1014,5 +1016,187 @@ async fn shared_context_uses_one_version_contract_across_http_cli_and_mcp() {
     assert_eq!(
         f.store.goal(id).unwrap()["rounds"][0]["shared_context"]["revision"],
         2
+    );
+}
+
+#[tokio::test]
+async fn task_claims_and_attempts_share_cli_http_mcp_receipts_and_ownership_conflicts() {
+    use harness3_platform::{
+        claims::{ClaimInput, ReleaseInput},
+        domain::Spawn,
+    };
+    let f = Fixture::new().await;
+    let fleet = f
+        .store
+        .spawn(
+            &Spawn {
+                preset_name: "worker".into(),
+                preset_version: "1".into(),
+                count: 2,
+            },
+            "candidates",
+        )
+        .unwrap();
+    let a = fleet["instance_ids"][0].as_str().unwrap();
+    let b = fleet["instance_ids"][1].as_str().unwrap();
+    let plan = json!({"title":"shared candidate task","objective":"inspect","acceptance":"review","tasks":[{"key":"report","instance_id":a,"candidates":[b],"manual_claim":true,"instructions":"inspect","depends_on":[]}]});
+    let file = f.root.join("goal.json");
+    std::fs::write(&file, plan.to_string()).unwrap();
+    let cli = f
+        .cli(&[
+            "goals",
+            "create",
+            "--file",
+            file.to_str().unwrap(),
+            "--key",
+            "pool-goal",
+        ])
+        .await;
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let created: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    let id = created["id"].as_str().unwrap();
+    let shared = f
+        .client()
+        .execute(
+            serde_json::from_value(json!({"tool":"goals_create","plan":plan,"key":"pool-goal"}))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(created, shared);
+    let mut readonly = McpServer::new(f.client(), false);
+    initialize(&mut readonly).await;
+    assert_eq!(harness3_platform::mcp::tools(true).len(), 43);
+    assert_eq!(harness3_platform::mcp::tools(false).len(), 22);
+    let t = call(
+        &mut readonly,
+        "tasks_show",
+        json!({"id":id,"task":"report"}),
+    )
+    .await;
+    assert_eq!(t["result"]["structuredContent"]["claim"]["mode"], "manual");
+    let input = ClaimInput {
+        expected_round: 1,
+        expected_generation: 0,
+        instance_id: b.into(),
+    };
+    assert!(
+        call(
+            &mut readonly,
+            "tasks_claim",
+            json!({"id":id,"task":"report","input":input,"key":"claim"})
+        )
+        .await
+        .get("error")
+        .is_some()
+    );
+    let mut mcp = McpServer::new(f.client(), true);
+    initialize(&mut mcp).await;
+    let claimed = call(
+        &mut mcp,
+        "tasks_claim",
+        json!({"id":id,"task":"report","input":input,"key":"claim"}),
+    )
+    .await;
+    assert_eq!(claimed["result"]["isError"], false);
+    let receipt = f
+        .client()
+        .execute(Command::TasksClaim {
+            id: id.into(),
+            task: "report".into(),
+            input: input.clone(),
+            key: "claim".into(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(receipt, claimed["result"]["structuredContent"]);
+    let file = f.root.join("release.json");
+    std::fs::write(
+        &file,
+        serde_json::to_vec(&ReleaseInput {
+            expected_round: 1,
+            expected_generation: 1,
+            note: "Choose primary instead".into(),
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    let cli = f
+        .cli(&[
+            "tasks",
+            "release",
+            id,
+            "report",
+            "--file",
+            file.to_str().unwrap(),
+            "--key",
+            "release",
+        ])
+        .await;
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let stale = call(
+        &mut mcp,
+        "tasks_claim",
+        json!({"id":id,"task":"report","input":input,"key":"stale"}),
+    )
+    .await;
+    assert!(stale.to_string().contains("task_generation_conflict"));
+    let file = f.root.join("claim.json");
+    std::fs::write(
+        &file,
+        serde_json::to_vec(&ClaimInput {
+            expected_round: 1,
+            expected_generation: 1,
+            instance_id: a.into(),
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    let cli = f
+        .cli(&[
+            "tasks",
+            "claim",
+            id,
+            "report",
+            "--file",
+            file.to_str().unwrap(),
+            "--key",
+            "second",
+        ])
+        .await;
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let cli = f.cli(&["tasks", "show", id, "report"]).await;
+    assert!(cli.status.success());
+    let t: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(t["attempts"].as_array().unwrap().len(), 2);
+    assert_eq!(t["attempts"][1]["state"], "released");
+    assert_eq!(t["attempts"][0]["instance_id"], a);
+    let run = f.store.claim().unwrap().unwrap();
+    let denied=call(&mut mcp,"tasks_release",json!({"id":id,"task":"report","input":{"expected_round":1,"expected_generation":2,"note":"too late"},"key":"too-late"})).await;
+    assert!(denied.to_string().contains("task_already_started"));
+    f.store
+        .finish(
+            run["id"].as_str().unwrap(),
+            a,
+            "completed",
+            json!({"output":"done"}),
+        )
+        .unwrap();
+    f.store.reconcile_goals().unwrap();
+    assert_eq!(
+        f.store.task(id, "report").unwrap()["attempts"][0]["state"],
+        "completed"
     );
 }

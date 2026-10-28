@@ -45,6 +45,7 @@ pub(crate) fn goal_json(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
         .map(|body| Ok(serde_json::from_str::<Value>(&body?)?))
         .collect::<PResult<Vec<_>>>()?;
     for task in &mut tasks {
+        crate::claims::decorate(tx, id, task)?;
         if let Some(run) = task["run_id"].as_str() {
             task["run"] = run_json(tx, run)?;
         }
@@ -165,14 +166,19 @@ impl Store {
             let goals = stmt.query_map([], |r| Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
             drop(stmt);
             for (id, state) in goals {
-                reconcile(tx, &id, state == "cancelling")?;
+                reconcile(tx, &id, state == "cancelling", None)?;
             }
             Ok(())
         })
     }
 }
 
-fn reconcile(tx: &Transaction<'_>, id: &str, cancelling: bool) -> PResult<()> {
+fn reconcile(
+    tx: &Transaction<'_>,
+    id: &str,
+    cancelling: bool,
+    requested: Option<(&str, &str)>,
+) -> PResult<()> {
     let goal = goal_json(tx, id)?;
     let mut tasks = goal["tasks"].as_array().unwrap().clone();
     // Plan order is topological, so failures can propagate to every descendant in one pass.
@@ -198,14 +204,16 @@ fn reconcile(tx: &Transaction<'_>, id: &str, cancelling: bool) -> PResult<()> {
         if task["state"] != "pending" || cancelling {
             continue;
         }
+        if requested.is_some_and(|(target, _)| target != key) {
+            continue;
+        }
         let replacement = crate::artifacts::resolve_assignment(tx, id, key)?;
         if replacement.as_deref() == Some("") {
             continue;
         }
-        let agent = replacement
+        let primary = replacement
             .as_deref()
             .unwrap_or_else(|| task["instance_id"].as_str().unwrap());
-        tasks[position]["instance_id"] = json!(agent);
         let dependencies: Vec<&Value> = task["depends_on"]
             .as_array()
             .unwrap()
@@ -228,29 +236,23 @@ fn reconcile(tx: &Transaction<'_>, id: &str, cancelling: bool) -> PResult<()> {
         if dependencies.iter().any(|t| t["state"] != "completed") {
             continue;
         }
-        let state: String =
-            tx.query_row("SELECT state FROM instances WHERE id=?", [agent], |r| {
-                r.get(0)
-            })?;
-        if state == "terminated" || state == "draining" {
-            task_state(tx, id, key, "blocked", Some("instance_terminated"))?;
-            tasks[position]["state"] = json!("blocked");
-            continue;
-        }
-        let expired: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM instance_deadlines WHERE instance_id=? AND expires_at<=?)",
-            params![agent, now()],
-            |r| r.get(0),
-        )?;
-        if expired {
-            task_state(tx, id, key, "blocked", Some("instance_expired"))?;
-            tasks[position]["state"] = json!("blocked");
-            continue;
-        }
-        if state != "ready" {
-            continue;
-        }
+        let agent = match crate::claims::select(
+            tx,
+            id,
+            key,
+            primary,
+            requested.map(|(_, instance)| instance),
+        )? {
+            crate::claims::Selection::Ready(agent) => agent,
+            crate::claims::Selection::Waiting => continue,
+            crate::claims::Selection::Blocked(error) => {
+                task_state(tx, id, key, "blocked", Some(error))?;
+                tasks[position]["state"] = json!("blocked");
+                continue;
+            }
+        };
         let evidence: Vec<Value> = dependencies.iter().map(|t| json!({"task_key":t["key"],"run_id":t["run_id"],"instance_id":t["instance_id"],"artifact":t["artifact"],"output":t["run"]["report"]["output"]})).collect();
+        tasks[position]["instance_id"] = json!(agent);
         let rework_note: Option<String> = tx
             .query_row(
                 "SELECT note FROM goal_rounds WHERE goal_id=? AND number=?",
@@ -291,10 +293,11 @@ fn reconcile(tx: &Transaction<'_>, id: &str, cancelling: bool) -> PResult<()> {
             params![run, agent, input, now()],
         )?;
         crate::collaboration::snapshot_run(tx, id, &run, &board)?;
-        tx.execute("UPDATE instances SET state='busy' WHERE id=?", [agent])?;
+        crate::claims::record(tx, id, key, &agent, &run, requested.is_some())?;
+        tx.execute("UPDATE instances SET state='busy' WHERE id=?", [&agent])?;
         tx.execute(
-            "UPDATE work_items SET state='queued',run_id=? WHERE goal_id=? AND key=?",
-            params![run, id, key],
+            "UPDATE work_items SET state='queued',run_id=?,instance_id=? WHERE goal_id=? AND key=?",
+            params![run, agent, id, key],
         )?;
         event(
             tx,
@@ -355,16 +358,16 @@ pub(crate) fn create_in(tx: &Transaction<'_>, plan: &GoalPlan, key: &str) -> PRe
         return Err(fault(409, "goal_quota_exceeded"));
     }
     for task in &plan.tasks {
-        let state: String = tx
-            .query_row(
-                "SELECT state FROM instances WHERE id=?",
-                [&task.instance_id],
-                |r| r.get(0),
-            )
-            .optional()?
-            .ok_or_else(|| fault(404, "instance_not_found"))?;
-        if state == "terminated" || state == "draining" {
-            return Err(fault(409, "goal_instance_terminated"));
+        for instance in std::iter::once(&task.instance_id).chain(task.candidates.iter()) {
+            let state: String = tx
+                .query_row("SELECT state FROM instances WHERE id=?", [instance], |r| {
+                    r.get(0)
+                })
+                .optional()?
+                .ok_or_else(|| fault(404, "instance_not_found"))?;
+            if state == "terminated" || state == "draining" {
+                return Err(fault(409, "goal_instance_terminated"));
+            }
         }
     }
     let goal = id("goal");
@@ -374,6 +377,7 @@ pub(crate) fn create_in(tx: &Transaction<'_>, plan: &GoalPlan, key: &str) -> PRe
         params![goal, now()],
     )?;
     for (position, task) in plan.tasks.iter().enumerate() {
+        crate::claims::create_policy(tx, &goal, task)?;
         tx.execute("INSERT INTO work_items(goal_id,key,position,instance_id,instructions,depends_on,state) VALUES(?,?,?,?,?,?,'pending')",params![goal,task.key,position,task.instance_id,task.instructions,serde_json::to_string(&task.depends_on)?])?;
     }
     event(
@@ -459,4 +463,20 @@ pub(crate) fn cancel_in(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
         goal_state(tx, id, state)?;
     }
     Ok(json!({"id":id,"state":state,"run_ids":runs}))
+}
+
+pub(crate) fn claim_in(
+    tx: &Transaction<'_>,
+    goal: &str,
+    key: &str,
+    instance: &str,
+) -> PResult<String> {
+    reconcile(tx, goal, false, Some((key, instance)))?;
+    tx.query_row(
+        "SELECT run_id FROM work_items WHERE goal_id=? AND key=? AND state='queued'",
+        params![goal, key],
+        |r| r.get(0),
+    )
+    .optional()?
+    .ok_or_else(|| fault(409, "task_not_ready"))
 }

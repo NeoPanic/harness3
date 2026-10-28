@@ -226,6 +226,21 @@ pub fn router(app: App) -> Router {
         .route("/api/v1/runs/{id}/cancel", post(cancel))
         .route("/api/v1/goals", get(goals).post(create_goal))
         .route("/api/v1/goals/{id}", get(goal))
+        .route(
+            "/tasks.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("../web/tasks.js"),
+                )
+            }),
+        )
+        .route("/api/v1/goals/{id}/tasks/{task}", get(task_show))
+        .route("/api/v1/goals/{id}/tasks/{task}/claim", post(task_claim))
+        .route(
+            "/api/v1/goals/{id}/tasks/{task}/release",
+            post(task_release),
+        )
         .route("/api/v1/goals/{id}/cancel", post(cancel_goal))
         .route("/api/v1/goals/{id}/accept", post(accept_goal))
         .route(
@@ -589,6 +604,37 @@ async fn context_publish(
     Ok(Json(app.store.publish_context(
         crate::collaboration::Author::Operator,
         Some(&id),
+        &input,
+        key(&headers)?,
+    )?))
+}
+
+async fn task_show(
+    State(app): State<App>,
+    Path((id, task)): Path<(String, String)>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.task(&id, &task)?))
+}
+async fn task_claim(
+    State(app): State<App>,
+    Path((id, task)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<crate::claims::ClaimInput>,
+) -> PResult<(StatusCode, Json<Value>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(app.store.claim_task(&id, &task, &input, key(&headers)?)?),
+    ))
+}
+async fn task_release(
+    State(app): State<App>,
+    Path((id, task)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(input): Json<crate::claims::ReleaseInput>,
+) -> PResult<Json<Value>> {
+    Ok(Json(app.store.release_task(
+        &id,
+        &task,
         &input,
         key(&headers)?,
     )?))

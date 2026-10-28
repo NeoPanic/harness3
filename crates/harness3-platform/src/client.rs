@@ -18,6 +18,22 @@ pub struct PlatformClient {
 #[serde(tag = "tool", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Command {
     Snapshot,
+    TasksShow {
+        id: String,
+        task: String,
+    },
+    TasksClaim {
+        id: String,
+        task: String,
+        input: crate::claims::ClaimInput,
+        key: String,
+    },
+    TasksRelease {
+        id: String,
+        task: String,
+        input: crate::claims::ReleaseInput,
+        key: String,
+    },
     ContextRead {
         id: String,
     },
@@ -165,7 +181,8 @@ impl Command {
     pub fn read_only(&self) -> bool {
         matches!(
             self,
-            Self::ContextRead { .. }
+            Self::TasksShow { .. }
+                | Self::ContextRead { .. }
                 | Self::ContextHistory { .. }
                 | Self::ArtifactsList { .. }
                 | Self::ArtifactsShow { .. }
@@ -252,6 +269,34 @@ impl PlatformClient {
     pub async fn execute(&self, command: Command) -> ClientResult<Value> {
         use Command::*;
         let (method, path, body, key) = match command {
+            TasksShow { id, task } => (
+                Method::GET,
+                object("goals", &id, &format!("/tasks/{}", segment(&task)?))?,
+                None,
+                None,
+            ),
+            TasksClaim {
+                id,
+                task,
+                input,
+                key,
+            } => (
+                Method::POST,
+                object("goals", &id, &format!("/tasks/{}/claim", segment(&task)?))?,
+                Some(serde_json::to_value(input)?),
+                Some(key),
+            ),
+            TasksRelease {
+                id,
+                task,
+                input,
+                key,
+            } => (
+                Method::POST,
+                object("goals", &id, &format!("/tasks/{}/release", segment(&task)?))?,
+                Some(serde_json::to_value(input)?),
+                Some(key),
+            ),
             ContextRead { id } => (Method::GET, object("goals", &id, "/context")?, None, None),
             ContextHistory { id, entry } => (
                 Method::GET,

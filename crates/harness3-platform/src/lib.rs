@@ -1,6 +1,7 @@
 //! Local control-plane preview around the independent Harness³ runtime.
 pub mod api;
 pub mod artifacts;
+pub mod claims;
 pub mod client;
 pub mod collaboration;
 pub mod coordination;

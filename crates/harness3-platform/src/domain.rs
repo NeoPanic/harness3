@@ -131,9 +131,13 @@ pub struct GoalPlan {
     pub acceptance: String,
     pub tasks: Vec<TaskPlan>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TaskPlan {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub candidates: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub manual_claim: bool,
     pub key: String,
     pub instance_id: String,
     pub instructions: String,
@@ -158,6 +162,17 @@ impl GoalPlan {
             let mut dependencies = std::collections::HashSet::new();
             if !valid_name(&task.key)
                 || !valid_name(&task.instance_id)
+                || task.candidates.len() > 15
+                || task
+                    .candidates
+                    .iter()
+                    .any(|c| !valid_name(c) || c == &task.instance_id)
+                || task
+                    .candidates
+                    .iter()
+                    .collect::<std::collections::HashSet<_>>()
+                    .len()
+                    != task.candidates.len()
                 || seen.contains(&task.key)
                 || task.instructions.trim().is_empty()
                 || task.instructions.len() > 8000

@@ -33,6 +33,7 @@ fn setup(bound: bool) -> (Store, String) {
                         } else {
                             vec![]
                         },
+                        ..Default::default()
                     })
                     .collect(),
             },
@@ -462,6 +463,7 @@ fn persisted_board_and_dispatch_snapshot_survive_reopen_and_crash_recovery() {
                     instance_id: fleet["instance_ids"][0].as_str().unwrap().into(),
                     instructions: "report".into(),
                     depends_on: vec![],
+                    ..Default::default()
                 }],
             },
             "goal",
@@ -548,6 +550,7 @@ fn foreign_artifacts_and_legacy_unknown_sources_cannot_pass_review() {
                     instance_id: fleet["instance_ids"][0].as_str().unwrap().into(),
                     instructions: "report".into(),
                     depends_on: vec![],
+                    ..Default::default()
                 }],
             },
             "other-goal",

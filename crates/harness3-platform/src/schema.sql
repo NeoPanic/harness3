@@ -45,3 +45,7 @@ CREATE TABLE IF NOT EXISTS goal_context(goal_id TEXT NOT NULL REFERENCES goals(i
 CREATE INDEX IF NOT EXISTS goal_context_run ON goal_context(source_run_id);
 CREATE TABLE IF NOT EXISTS goal_context_snapshots(run_id TEXT PRIMARY KEY REFERENCES runs(id),goal_id TEXT NOT NULL REFERENCES goals(id),revision INTEGER NOT NULL,body TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS goal_context_reviews(goal_id TEXT NOT NULL REFERENCES goals(id),round INTEGER NOT NULL,revision INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(goal_id,round));
+
+CREATE TABLE IF NOT EXISTS task_claim_policies(goal_id TEXT NOT NULL REFERENCES goals(id),task_key TEXT NOT NULL,round INTEGER NOT NULL,candidates TEXT NOT NULL,mode TEXT NOT NULL,PRIMARY KEY(goal_id,task_key,round));
+CREATE TABLE IF NOT EXISTS task_attempts(id TEXT PRIMARY KEY,goal_id TEXT NOT NULL REFERENCES goals(id),task_key TEXT NOT NULL,round INTEGER NOT NULL,generation INTEGER NOT NULL,instance_id TEXT NOT NULL REFERENCES instances(id),run_id TEXT NOT NULL UNIQUE REFERENCES runs(id),origin TEXT NOT NULL,created_at INTEGER NOT NULL,released_at INTEGER,release_note TEXT,UNIQUE(goal_id,task_key,generation));
+CREATE INDEX IF NOT EXISTS task_attempts_goal ON task_attempts(goal_id,task_key,round);

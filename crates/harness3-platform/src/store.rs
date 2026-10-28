@@ -18,7 +18,7 @@ impl Store {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 9 {
+        if version > 10 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
@@ -32,11 +32,13 @@ impl Store {
                 SELECT fleet_id,slot,generation,1,1,instance_id FROM instance_allocations;
                 COMMIT;")?;
         }
-        connection.execute_batch("PRAGMA user_version=9;")?;
         let store = Self(Arc::new(Mutex::new(connection)));
         store.transaction(|tx| {
             tx.execute("INSERT OR IGNORE INTO goal_rounds(goal_id,number,state,review,created_at,finished_at) SELECT id,1,state,review,created_at,finished_at FROM goals",[])?;
-            crate::artifacts::backfill(tx)
+            crate::artifacts::backfill(tx)?;
+            if version < 10 { crate::claims::backfill(tx)?; }
+            tx.execute_batch("PRAGMA user_version=10;")?;
+            Ok(())
         })?;
         Ok(store)
     }
@@ -249,8 +251,8 @@ impl Store {
         };
         self.transaction(|tx| {
             let changed = tx.execute(
-                "UPDATE runs SET state=?,report=?,finished_at=? WHERE id=? AND state='running'",
-                params![state, report.to_string(), now(), run],
+                "UPDATE runs SET state=?,report=?,finished_at=? WHERE id=? AND instance_id=? AND state='running'",
+                params![state, report.to_string(), now(), run, agent],
             )?;
             if changed != 1 {
                 return Err(fault(409, "run_not_owned"));

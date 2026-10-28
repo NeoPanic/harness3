@@ -24,6 +24,7 @@ enum Command {
     Goals(cli::GoalArgs),
     Artifacts(cli::ArtifactArgs),
     Context(cli::ContextArgs),
+    Tasks(cli::TaskArgs),
     Messages(cli::MessageArgs),
     Research(cli::ResearchArgs),
     /// Manage durable fleets and asynchronous operation receipts.
@@ -94,6 +95,7 @@ async fn main() -> harness3_platform::client::ClientResult<()> {
         Command::Goals(args) => cli::goals(args).await?,
         Command::Artifacts(args) => cli::artifacts(args).await?,
         Command::Context(args) => cli::context(args).await?,
+        Command::Tasks(args) => cli::tasks(args).await?,
         Command::Fleets(args) => cli::fleets(args).await?,
         Command::Instances(args) => cli::instances(args).await?,
         Command::Runs(args) => cli::runs(args).await?,
