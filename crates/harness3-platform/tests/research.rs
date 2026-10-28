@@ -364,6 +364,7 @@ fn research_rework_replaces_retired_team_and_keeps_the_goal_and_evidence_history
     s.rework_goal(
         &goal,
         &harness3_platform::artifacts::ReworkInput {
+            task_keys: vec![],
             expected_round: 1,
             note: "Compare conflicts and retain uncertainty".into(),
             assignments: vec![],

@@ -374,6 +374,7 @@ async fn real_workers_execute_recursive_delegation_and_rework_without_expanding_
     s.rework_goal(
         &g,
         &harness3_platform::artifacts::ReworkInput {
+            task_keys: vec![],
             expected_round: 1,
             note: "verify evidence again".into(),
             assignments: vec![],
@@ -530,4 +531,64 @@ async fn research_entry_can_authorize_runtime_delegation() {
     .unwrap();
     cancel.cancel();
     workers.await.unwrap();
+}
+
+#[test]
+fn partial_child_rework_reruns_its_parent_continuation_and_downstream_only() {
+    let s = Store::memory().unwrap();
+    let a = seed(&s);
+    let g = create(&s, &a, 1, 2);
+    tick(&s);
+    let root = claim(&s);
+    s.submit_delegation(runid(&root), &plan()).unwrap();
+    finish(&s, &root, "completed");
+    tick(&s);
+    let children = (0..2).map(|_| claim(&s)).collect::<Vec<_>>();
+    for child in &children {
+        finish(&s, child, "completed");
+    }
+    tick(&s);
+    let parent = claim(&s);
+    finish(&s, &parent, "completed");
+    tick(&s);
+    let downstream = claim(&s);
+    finish(&s, &downstream, "completed");
+    tick(&s);
+    let before = s.goal(&g).unwrap();
+    let child = before["tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["run_id"] == children[0]["id"])
+        .unwrap();
+    let receipt = s
+        .rework_goal(
+            &g,
+            &harness3_platform::artifacts::ReworkInput {
+                expected_round: 1,
+                note: "revise one child contribution".into(),
+                assignments: vec![],
+                task_keys: vec![child["key"].as_str().unwrap().into()],
+            },
+            "partial-child",
+        )
+        .unwrap();
+    let rerun = receipt["rework_scope"]["rerun"].as_array().unwrap();
+    assert_eq!(rerun.len(), 3);
+    assert!(rerun.contains(&json!("root")));
+    assert!(rerun.contains(&json!("downstream")));
+    assert_eq!(
+        receipt["rework_scope"]["reused"][0]["run_id"],
+        children[1]["id"]
+    );
+    for _ in 0..3 {
+        tick(&s);
+        let r = claim(&s);
+        finish(&s, &r, "completed");
+    }
+    tick(&s);
+    let after = s.goal(&g).unwrap();
+    assert_eq!(after["state"], "awaiting-review");
+    assert_eq!(after["tasks"].as_array().unwrap().len(), 4);
+    assert!(s.claim().unwrap().is_none());
 }

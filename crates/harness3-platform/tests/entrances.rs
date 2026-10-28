@@ -789,6 +789,7 @@ async fn artifact_versions_and_rework_share_http_cli_mcp_and_stale_review_guards
         aid
     );
     let input = ReworkInput {
+        task_keys: vec![],
         expected_round: 1,
         note: "add evidence".into(),
         assignments: vec![],

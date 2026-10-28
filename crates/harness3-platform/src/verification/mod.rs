@@ -532,6 +532,7 @@ pub(crate) fn advance(tx: &Transaction<'_>, goal: &str) -> PResult<()> {
             tx,
             goal,
             &crate::artifacts::ReworkInput {
+                task_keys: vec![],
                 expected_round: job["round"].as_i64().unwrap(),
                 note,
                 assignments: vec![],

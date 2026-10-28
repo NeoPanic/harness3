@@ -15,6 +15,8 @@ pub struct ReworkInput {
     pub note: String,
     #[serde(default)]
     pub assignments: Vec<Assignment>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub task_keys: Vec<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -93,10 +95,23 @@ pub(crate) fn decorate(tx: &Transaction<'_>, goal: &mut Value) -> PResult<()> {
     goal["artifacts"] = json!(artifacts);
     let mut stmt=tx.prepare("SELECT json_object('number',number,'note',note,'state',state,'review',review,'manifest',json(manifest),'tasks',json(tasks),'created_at',created_at,'finished_at',finished_at) FROM goal_rounds WHERE goal_id=? ORDER BY number")?;
     goal["rounds"] = json!(
-        stmt.query_map([id], |r| r.get::<_, String>(0))?
+        stmt.query_map([&id], |r| r.get::<_, String>(0))?
             .map(|v| Ok(serde_json::from_str::<Value>(&v?)?))
             .collect::<PResult<Vec<_>>>()?
     );
+    for r in goal["rounds"].as_array_mut().unwrap() {
+        let scope: Option<String> = tx
+            .query_row(
+                "SELECT body FROM goal_rework_scopes WHERE goal_id=? AND round=?",
+                params![&id, r["number"].as_i64().unwrap()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        r["rework_scope"] = scope
+            .map(|body| serde_json::from_str::<Value>(&body))
+            .transpose()?
+            .unwrap_or(Value::Null);
+    }
     Ok(())
 }
 pub(crate) fn backfill(tx: &Transaction<'_>) -> PResult<()> {
@@ -189,6 +204,7 @@ pub(crate) fn rework_in(
         || input.note.len() > 8000
         || !(1..3).contains(&input.expected_round)
         || input.assignments.len() > 16
+        || input.task_keys.len() > 16
     {
         return Err(fault(400, "invalid_goal_rework"));
     }
@@ -234,12 +250,63 @@ pub(crate) fn rework_in(
     if tasks.iter().any(|t| outcome_unknown(&t["run"]["report"])) {
         return Err(fault(409, "goal_unknown_outcome"));
     }
+    let mut selected = std::collections::HashSet::new();
+    for key in &input.task_keys {
+        if !selected.insert(key.clone()) || !tasks.iter().any(|t| t["key"] == *key) {
+            return Err(fault(400, "invalid_rework_task_selection"));
+        }
+    }
+    if selected.is_empty() {
+        selected.extend(tasks.iter().map(|t| t["key"].as_str().unwrap().to_owned()));
+    }
+    loop {
+        let before = selected.len();
+        for task in tasks {
+            if task["depends_on"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|d| selected.contains(d.as_str().unwrap()))
+            {
+                selected.insert(task["key"].as_str().unwrap().to_owned());
+            }
+        }
+        if selected.len() == before {
+            break;
+        }
+    }
+    let mut reused = Vec::new();
+    for task in tasks
+        .iter()
+        .filter(|t| !selected.contains(t["key"].as_str().unwrap()))
+    {
+        let artifact =
+            capture(tx, id, task)?.ok_or_else(|| fault(409, "rework_reused_artifact_invalid"))?;
+        if !verify_integrity(tx, artifact["id"].as_str().unwrap())?
+            || artifact["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["passed"] != true)
+        {
+            return Err(fault(409, "rework_reused_artifact_invalid"));
+        }
+        reused.push(artifact);
+    }
+    let selected_keys: Vec<_> = tasks
+        .iter()
+        .filter_map(|t| {
+            let k = t["key"].as_str().unwrap();
+            selected.contains(k).then_some(k)
+        })
+        .collect();
+    let scope = json!({"requested":input.task_keys,"rerun":selected_keys,"reused":reused});
     let mut assigned = std::collections::HashMap::new();
     for assignment in &input.assignments {
         if assigned
             .insert(&assignment.key, &assignment.instance_id)
             .is_some()
-            || !tasks.iter().any(|t| t["key"] == assignment.key)
+            || !selected.contains(&assignment.key)
         {
             return Err(fault(400, "invalid_goal_rework"));
         }
@@ -260,7 +327,7 @@ pub(crate) fn rework_in(
             return Err(fault(409, "instance_not_ready"));
         }
     }
-    if !input.assignments.is_empty() && assigned.len() != tasks.len() {
+    if !input.assignments.is_empty() && assigned.len() != selected.len() {
         return Err(fault(400, "invalid_goal_rework"));
     }
     tx.execute("UPDATE goal_rounds SET state='changes-requested',review=?,tasks=?,finished_at=? WHERE goal_id=? AND number=?",params![input.note,serde_json::to_string(tasks)?,now(),id,input.expected_round])?;
@@ -268,7 +335,14 @@ pub(crate) fn rework_in(
         "INSERT INTO goal_rounds(goal_id,number,note,state,created_at) VALUES(?,?,?,'running',?)",
         params![id, input.expected_round + 1, input.note, now()],
     )?;
-    for task in tasks {
+    tx.execute(
+        "INSERT INTO goal_rework_scopes(goal_id,round,body) VALUES(?,?,?)",
+        params![id, input.expected_round + 1, scope.to_string()],
+    )?;
+    for task in tasks
+        .iter()
+        .filter(|t| selected.contains(t["key"].as_str().unwrap()))
+    {
         let task_key = task["key"].as_str().unwrap();
         if input.assignments.is_empty() {
             let (name, version, snapshot): (String, String, String) = tx.query_row(
@@ -314,7 +388,8 @@ pub(crate) fn rework_in(
         "UPDATE goals SET state='running',review=NULL,finished_at=NULL WHERE id=?",
         [id],
     )?;
-    let response = json!({"id":id,"state":"running","round":input.expected_round+1});
+    let response =
+        json!({"id":id,"state":"running","round":input.expected_round+1,"rework_scope":scope});
     tx.execute(
         "INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",
         params![command, fingerprint, response.to_string()],
@@ -323,7 +398,7 @@ pub(crate) fn rework_in(
         tx,
         "goal.rework_requested",
         id,
-        json!({"round":input.expected_round+1,"note":input.note,"assignments":input.assignments}),
+        json!({"round":input.expected_round+1,"note":input.note,"assignments":input.assignments,"rework_scope":scope}),
     )?;
     Ok(response)
 }

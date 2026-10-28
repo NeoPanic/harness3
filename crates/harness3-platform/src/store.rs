@@ -18,7 +18,7 @@ impl Store {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        if version > 12 {
+        if version > 13 {
             return Err(fault(500, "database_version_unsupported"));
         }
         connection.execute_batch(include_str!("schema.sql"))?;
@@ -37,7 +37,7 @@ impl Store {
             tx.execute("INSERT OR IGNORE INTO goal_rounds(goal_id,number,state,review,created_at,finished_at) SELECT id,1,state,review,created_at,finished_at FROM goals",[])?;
             crate::artifacts::backfill(tx)?;
             if version < 10 { crate::claims::backfill(tx)?; }
-            tx.execute_batch("PRAGMA user_version=12;")?;
+            tx.execute_batch("PRAGMA user_version=13;")?;
             Ok(())
         })?;
         Ok(store)

@@ -514,6 +514,7 @@ fn rework_uses_new_generation_and_retains_all_round_attempts() {
     s.rework_goal(
         &g,
         &ReworkInput {
+            task_keys: vec![],
             expected_round: 1,
             note: "new round".into(),
             assignments: vec![Assignment {

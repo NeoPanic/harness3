@@ -384,7 +384,7 @@ document.addEventListener('submit',async event=>{
       if(new TextEncoder().encode(input.title).length>200||new TextEncoder().encode(input.body).length>4000)throw new Error('标题最多 200、内容最多 4,000 个 UTF-8 字节。');
       result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/context`,input,'POST',form.dataset.commandKey);
     }
-    if(form.dataset.form==='goal-rework'){if(new TextEncoder().encode(values.note).length>8000)throw new Error('修改要求最多 8,000 个 UTF-8 字节。');result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/rework`,{note:values.note,expected_round:Number(form.dataset.round)},'POST',form.dataset.commandKey);}
+    if(form.dataset.form==='goal-rework'){if(form.elements.rework_mode.value==='selected'&&!reworkSelection(form).length)throw new Error('请至少选择一项任务。');if(new TextEncoder().encode(values.note).length>8000)throw new Error('修改要求最多 8,000 个 UTF-8 字节。');result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/rework`,{note:values.note,expected_round:Number(form.dataset.round),task_keys:reworkSelection(form)},'POST',form.dataset.commandKey);}
     if(form.dataset.form==='goal-cancel') {result=await api(`/api/v1/goals/${encodeURIComponent(form.dataset.id)}/cancel`,{});}
     if(form.dataset.form==='drain') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/actions`,{action:'drain'});}
     if(form.dataset.form==='terminate') {result=await api(`/api/v1/agent-instances/${encodeURIComponent(form.dataset.id)}/actions`,{action:'terminate'});}

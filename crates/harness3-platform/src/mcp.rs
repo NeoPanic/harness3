@@ -106,7 +106,7 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
             "goals_rework",
             "Explicitly request another full task-graph round after reviewing results. Maximum 3 total rounds; defaults to fresh managed instances pinned to original Presets. This repeats tool effects and incurs model costs; requires user authorization.",
             false,
-            json!({"id":id,"key":key,"input":{"type":"object","additionalProperties":false,"properties":{"expected_round":{"type":"integer","minimum":1,"maximum":2},"note":text,"assignments":{"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"properties":{"key":id,"instance_id":id},"required":["key","instance_id"]}}},"required":["expected_round","note"]}}),
+            json!({"id":id,"key":key,"input":{"type":"object","additionalProperties":false,"properties":{"expected_round":{"type":"integer","minimum":1,"maximum":2},"note":text,"task_keys":{"type":"array","maxItems":16,"uniqueItems":true,"items":id},"assignments":{"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"properties":{"key":id,"instance_id":id},"required":["key","instance_id"]}}},"required":["expected_round","note"]}}),
             vec!["id", "input", "key"],
         ),
         (

@@ -68,6 +68,7 @@ fn work(s: &Store, output: &str) -> Vec<Value> {
 }
 fn rework(round: i64) -> ReworkInput {
     ReworkInput {
+        task_keys: vec![],
         expected_round: round,
         note: "补充证据，区分事实和假设".into(),
         assignments: vec![],
@@ -322,4 +323,133 @@ fn rework_survives_reopen_and_keeps_one_round_one_team_and_original_artifacts() 
     );
     drop(s);
     std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn partial_rework_closes_downstream_and_pins_reused_provenance_across_rounds() {
+    let (s, id) = setup();
+    work(&s, "original evidence");
+    let original = s.goal(&id).unwrap();
+    let mut input = rework(1);
+    input.task_keys = vec!["task-0".into()];
+    let receipt = s.rework_goal(&id, &input, "partial").unwrap();
+    assert_eq!(
+        receipt["rework_scope"]["rerun"],
+        json!(["task-0", "task-2"])
+    );
+    assert_eq!(
+        receipt["rework_scope"]["reused"][0]["run_id"],
+        original["tasks"][1]["run_id"]
+    );
+    assert_eq!(s.rework_goal(&id, &input, "partial").unwrap(), receipt);
+    s.recover_startup().unwrap();
+    for key in ["task-0", "task-2"] {
+        s.reconcile_fleets().unwrap();
+        s.reconcile_goals().unwrap();
+        let run = s.claim().unwrap().unwrap();
+        assert!(run["input"].as_str().unwrap().contains(key));
+        if key == "task-2" {
+            assert!(
+                run["input"]
+                    .as_str()
+                    .unwrap()
+                    .contains(original["tasks"][1]["run_id"].as_str().unwrap())
+            );
+        }
+        assert!(
+            !original["tasks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|t| t["instance_id"] == run["instance_id"])
+        );
+        s.finish(
+            run["id"].as_str().unwrap(),
+            run["instance_id"].as_str().unwrap(),
+            "completed",
+            json!({"output":"revised evidence"}),
+        )
+        .unwrap();
+    }
+    s.reconcile_goals().unwrap();
+    assert!(s.claim().unwrap().is_none());
+    let second = s.goal(&id).unwrap();
+    assert_eq!(second["state"], "awaiting-review");
+    assert_eq!(second["artifacts"].as_array().unwrap().len(), 5);
+    assert_eq!(second["tasks"][1]["run_id"], original["tasks"][1]["run_id"]);
+    assert_eq!(
+        second["tasks"][1]["artifact"],
+        original["tasks"][1]["artifact"]
+    );
+    let mut third = rework(2);
+    third.task_keys = vec!["task-2".into()];
+    let next = s.rework_goal(&id, &third, "synthesis-only").unwrap();
+    assert_eq!(next["rework_scope"]["reused"].as_array().unwrap().len(), 2);
+    s.reconcile_fleets().unwrap();
+    s.reconcile_goals().unwrap();
+    let run = s.claim().unwrap().unwrap();
+    s.finish(
+        run["id"].as_str().unwrap(),
+        run["instance_id"].as_str().unwrap(),
+        "completed",
+        json!({"output":"final synthesis"}),
+    )
+    .unwrap();
+    s.reconcile_goals().unwrap();
+    s.accept_goal_round(&id, "checked mixed version evidence", 3)
+        .unwrap();
+    let final_goal = s.goal(&id).unwrap();
+    let manifest = final_goal["rounds"][2]["manifest"].as_array().unwrap();
+    assert!(
+        manifest
+            .iter()
+            .any(|a| a["artifact_id"] == original["tasks"][1]["artifact"]["id"])
+    );
+    assert_eq!(
+        final_goal["rounds"][1]["rework_scope"],
+        receipt["rework_scope"]
+    );
+}
+#[test]
+fn invalid_partial_selection_is_atomic_and_legacy_serialization_stays_unchanged() {
+    let (s, id) = setup();
+    work(&s, "evidence");
+    let original = s.goal(&id).unwrap();
+    assert!(
+        serde_json::to_value(rework(1))
+            .unwrap()
+            .get("task_keys")
+            .is_none()
+    );
+    for keys in [
+        vec!["missing".into()],
+        vec!["task-0".into(), "task-0".into()],
+    ] {
+        let mut input = rework(1);
+        input.task_keys = keys;
+        assert_eq!(
+            s.rework_goal(&id, &input, "bad").unwrap_err().1,
+            "invalid_rework_task_selection"
+        );
+        assert_eq!(s.goal(&id).unwrap(), original);
+    }
+}
+
+#[test]
+fn partial_rework_refuses_invalid_carried_evidence_without_allocating_a_round() {
+    let (s, id) = setup();
+    work(&s, "");
+    let before = s.goal(&id).unwrap();
+    let mut input = rework(1);
+    input.task_keys = vec!["task-0".into()];
+    assert_eq!(
+        s.rework_goal(&id, &input, "invalid-carry").unwrap_err().1,
+        "rework_reused_artifact_invalid"
+    );
+    assert_eq!(s.goal(&id).unwrap(), before);
+    input.task_keys.clear();
+    assert_eq!(
+        s.rework_goal(&id, &input, "repair-all").unwrap()["round"],
+        2
+    );
 }
