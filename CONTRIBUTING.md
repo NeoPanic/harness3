@@ -12,7 +12,7 @@ cargo run --locked --example quickstart
 
 The Cargo package and import are `harness3`. The user-facing brand is Harness³. See [brand usage](docs/brand/README.md) when editing public-facing assets.
 
-The root manifest defines the workspace; the independent `harness3` package lives in `crates/harness3-core`. The platform groups control, collaboration, scheduling, storage, worker, and entry adapters under `crates/harness3-platform/src`. Existing public module paths remain available through re-exports. The console lives in `web/src/app` and `web/src/features`; it uses native JavaScript and is embedded by the HTTP adapter at compile time. Run the quickstart from the repository root as shown above.
+The root manifest defines the workspace; the independent `harness3` package lives in `crates/harness3-core`. Domain contracts, model providers, plugin hosting, worker execution, HTTP hosting, HTTP/MCP clients, and the CLI each have their own crate. The platform retains application services and SQLite persistence. See the [workspace boundaries](docs/workspace.zh-CN.md) before adding a cross-crate dependency. The console lives in `web/src/app` and `web/src/features`; it uses native JavaScript and is embedded by the HTTP adapter at compile time. Run the quickstart from the repository root as shown above; start the platform with `cargo run --locked -p harness3-cli -- up --demo`.
 
 Official plugin packages belong in [`plugins/`](plugins/README.md), one directory per plugin. Keep teaching examples in `examples/plugins` and protocol/SDK/host implementation in their respective crates.
 
@@ -25,6 +25,7 @@ Official plugin packages belong in [`plugins/`](plugins/README.md), one director
 
 ```sh
 python3 scripts/render-progress.py --check
+python3 scripts/check-boundaries.py
 node --test scripts/test-*.cjs
 cargo check --locked --workspace --all-targets
 cargo clippy --locked --workspace --all-targets -- -D warnings

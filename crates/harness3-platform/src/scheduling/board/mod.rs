@@ -7,35 +7,9 @@ use crate::{
     store::{Store, event},
 };
 use rusqlite::{OptionalExtension, Transaction, TransactionBehavior, params};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PublishInput {
-    pub title: String,
-    pub instructions: String,
-    pub acceptance: String,
-}
-impl PublishInput {
-    fn validate(&self) -> PResult<()> {
-        if self.title.trim().is_empty()
-            || self.title.len() > 200
-            || self.instructions.trim().is_empty()
-            || self.instructions.len() > 8000
-            || self.acceptance.trim().is_empty()
-            || self.acceptance.len() > 8000
-        {
-            return Err(fault(400, "invalid_board_task"));
-        }
-        Ok(())
-    }
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SplitInput {
-    pub tasks: Vec<PublishInput>,
-}
+pub use harness3_domain::board::{PublishInput, SplitInput};
 fn key_valid(key: &str) -> PResult<()> {
     if key.is_empty() || key.len() > 160 {
         Err(fault(400, "invalid_command_key"))

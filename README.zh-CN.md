@@ -23,7 +23,7 @@
 ```sh
 git clone https://github.com/NeoPanic/harness3.git
 cd harness3
-cargo run --locked -p harness3-platform -- up --demo
+cargo run --locked -p harness3-cli -- up --demo
 ```
 
 打开 [localhost:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 的内容登录。本地状态保存在 `.harness3/`。

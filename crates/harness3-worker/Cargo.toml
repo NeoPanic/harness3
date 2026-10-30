@@ -1,0 +1,17 @@
+[package]
+name = "harness3-worker"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+
+[dependencies]
+harness3-platform = { path = "../harness3-platform" }
+harness3-models = { path = "../harness3-models" }
+harness3-plugins = { path = "../harness3-plugins" }
+harness3 = { path = "../harness3-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }

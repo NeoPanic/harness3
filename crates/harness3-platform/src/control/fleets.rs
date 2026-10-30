@@ -4,34 +4,9 @@ use crate::{
     store::{Store, event},
 };
 use rusqlite::{OptionalExtension, Transaction, params};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FleetPlan {
-    pub preset_name: String,
-    pub preset_version: String,
-    pub count: usize,
-    #[serde(default = "finite")]
-    pub mode: String,
-    #[serde(default)]
-    pub ttl_seconds: Option<u64>,
-    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
-    pub parameters: serde_json::Map<String, Value>,
-}
-fn finite() -> String {
-    "finite".into()
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct FleetAction {
-    pub action: String,
-    pub expected_revision: i64,
-    #[serde(default)]
-    pub count: Option<usize>,
-}
-
+pub use harness3_domain::fleets::{FleetAction, FleetPlan};
 fn replay(tx: &Transaction<'_>, command: &str, fingerprint: &str) -> PResult<Option<Value>> {
     let row = tx
         .query_row(

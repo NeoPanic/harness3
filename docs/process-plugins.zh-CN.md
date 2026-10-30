@@ -5,7 +5,7 @@
 ## 启动与安装
 
 ```sh
-cargo run --locked -p harness3-platform -- up --demo --allow-process-plugins
+cargo run --locked -p harness3-cli -- up --demo --allow-process-plugins
 # 或在已有 Responses 配置启动参数后追加 --allow-process-plugins
 ./target/debug/harness3 plugins install-process --source-dir /absolute/path/to/harness3/examples/plugins/text-inspector
 ./target/debug/harness3 plugins list

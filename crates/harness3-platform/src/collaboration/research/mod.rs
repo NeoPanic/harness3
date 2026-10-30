@@ -5,38 +5,10 @@ use crate::{
     fleets::FleetPlan,
     store::{Store, event},
 };
+pub use harness3_domain::research::{Plan, ResearchInput, ResearchTask};
 use rusqlite::{OptionalExtension, Transaction, params};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 pub use tools::tool;
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ResearchInput {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification: Option<crate::verification::Policy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delegation: Option<crate::delegation::Policy>,
-    pub title: String,
-    pub objective: String,
-    pub acceptance: String,
-    pub preset_name: String,
-    pub preset_version: String,
-    pub researchers: usize,
-    #[serde(default)]
-    pub parameters: serde_json::Map<String, Value>,
-}
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Plan {
-    pub tasks: Vec<ResearchTask>,
-    pub synthesis: String,
-}
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ResearchTask {
-    pub title: String,
-    pub instructions: String,
-}
 const SELECT: &str = "SELECT json_object('id',id,'state',state,'title',title,'objective',objective,'acceptance',acceptance,'researchers',researchers,'fleet_id',fleet_id,'planner_run_id',planner_run_id,'goal_id',goal_id,'plan',json(plan),'error',error,'created_at',created_at,'expires_at',expires_at) FROM research_jobs";
 fn detail(tx: &Transaction<'_>, id: &str) -> PResult<Value> {
     let body: String = tx
@@ -156,12 +128,12 @@ impl Store {
    let job=id("research");
    tx.execute("INSERT INTO research_jobs(id,title,objective,acceptance,researchers,fleet_id,state,created_at,expires_at) VALUES(?,?,?,?,?,?,'provisioning',?,?)",params![job,input.title,input.objective,input.acceptance,input.researchers,fleet["fleet_id"].as_str().unwrap(),now(),now()+900_000])?;
    if let Some(policy)=&input.delegation {
-       policy.validate(tx)?;
+       crate::delegation::validate(policy, tx)?;
        let snapshot:String=tx.query_row("SELECT snapshot FROM fleets WHERE id=?",[fleet["fleet_id"].as_str().unwrap()],|r|r.get(0))?;
        if !crate::presets::bindings(&serde_json::from_str(&snapshot)?).iter().any(|p|p==&crate::delegation::package()){return Err(fault(400,"delegation_capability_required"));}
        tx.execute("INSERT INTO research_delegation_policies(research_id,policy) VALUES(?,?)",params![job,serde_json::to_string(policy)?])?;
    }
-   if let Some(p)=&input.verification {p.validate(tx)?;tx.execute("INSERT INTO research_verification_policies(research_id,body) VALUES(?,?)",params![job,serde_json::to_string(p)?])?;}
+   if let Some(p)=&input.verification {crate::verification::validate(p, tx)?;tx.execute("INSERT INTO research_verification_policies(research_id,body) VALUES(?,?)",params![job,serde_json::to_string(p)?])?;}
    let response=json!({"id":job,"state":"provisioning","fleet_id":fleet["fleet_id"],"researchers":input.researchers,"instance_count":input.researchers+2});
    tx.execute("INSERT INTO commands(key,fingerprint,response) VALUES(?,?,?)",params![command,fingerprint,response.to_string()])?;
    event(tx,"research.created",&job,json!({"fleet_id":fleet["fleet_id"],"researchers":input.researchers}))?;Ok(response)

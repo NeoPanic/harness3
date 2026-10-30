@@ -23,7 +23,7 @@ Requires **Rust 1.89+**. The deterministic Demo needs no model account or API ke
 ```sh
 git clone https://github.com/NeoPanic/harness3.git
 cd harness3
-cargo run --locked -p harness3-platform -- up --demo
+cargo run --locked -p harness3-cli -- up --demo
 ```
 
 Open [localhost:7333](http://127.0.0.1:7333) and sign in with the contents of `.harness3/token`. Local state is stored in `.harness3/`.

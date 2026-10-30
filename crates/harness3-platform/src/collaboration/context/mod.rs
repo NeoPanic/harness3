@@ -5,26 +5,10 @@ use crate::{
     store::{Store, event},
 };
 use rusqlite::{OptionalExtension, Transaction, params};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 pub use tools::{package, tools};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ContextInput {
-    pub key: String,
-    pub expected_revision: i64,
-    pub title: String,
-    pub body: String,
-    pub kind: String,
-    #[serde(default = "active")]
-    pub status: String,
-    #[serde(default)]
-    pub artifact_ids: Vec<String>,
-}
-fn active() -> String {
-    "active".into()
-}
+pub use harness3_domain::collaboration::ContextInput;
 #[derive(Clone, Copy)]
 pub enum Author<'a> {
     Operator,

@@ -4,27 +4,10 @@ use crate::{
     store::{Store, event},
 };
 use rusqlite::{OptionalExtension, Transaction, params};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ReworkInput {
-    pub expected_round: i64,
-    pub note: String,
-    #[serde(default)]
-    pub assignments: Vec<Assignment>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub task_keys: Vec<String>,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Assignment {
-    pub key: String,
-    pub instance_id: String,
-}
-
+pub use harness3_domain::artifacts::{Assignment, ReworkInput};
 const META: &str = "json_object('id',id,'goal_id',goal_id,'task_key',task_key,'version',version,'run_id',run_id,'instance_id',instance_id,'media_type',media_type,'digest',digest,'bytes',bytes,'checks',json(checks),'created_at',created_at)";
 pub(crate) fn round(tx: &Transaction<'_>, goal: &str) -> PResult<i64> {
     Ok(tx.query_row(

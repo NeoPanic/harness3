@@ -1,4 +1,16 @@
 [workspace]
-members = ["crates/harness3-core", "crates/harness3-platform", "crates/harness3-plugin-protocol", "crates/harness3-plugin-sdk"]
+members = [
+    "crates/harness3-core",
+    "crates/harness3-domain",
+    "crates/harness3-platform",
+    "crates/harness3-plugin-protocol",
+    "crates/harness3-plugin-sdk",
+    "crates/harness3-plugins",
+    "crates/harness3-models",
+    "crates/harness3-worker",
+    "crates/harness3-server",
+    "crates/harness3-client",
+    "crates/harness3-cli",
+]
 default-members = ["crates/harness3-core"]
 resolver = "2"

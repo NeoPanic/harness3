@@ -451,25 +451,77 @@ dependencies = [
 ]
 
 [[package]]
+name = "harness3-cli"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "clap",
+ "harness3-client",
+ "harness3-domain",
+ "harness3-models",
+ "harness3-platform",
+ "harness3-plugins",
+ "harness3-server",
+ "harness3-worker",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "uuid",
+]
+
+[[package]]
+name = "harness3-client"
+version = "0.1.0"
+dependencies = [
+ "harness3-domain",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "harness3-domain"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "harness3-models"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "harness3",
+ "harness3-domain",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "harness3-platform"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "axum",
- "clap",
- "fs2",
  "harness3",
+ "harness3-domain",
+ "harness3-models",
  "harness3-plugin-protocol",
- "libc",
+ "harness3-plugins",
  "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
- "serde_yaml_ng",
  "sha2",
  "tokio",
- "toml",
- "tower",
  "uuid",
 ]
 
@@ -487,6 +539,61 @@ version = "0.1.0"
 dependencies = [
  "harness3-plugin-protocol",
  "serde_json",
+]
+
+[[package]]
+name = "harness3-plugins"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "harness3",
+ "harness3-domain",
+ "harness3-plugin-protocol",
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "harness3-server"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "fs2",
+ "harness3",
+ "harness3-domain",
+ "harness3-models",
+ "harness3-platform",
+ "harness3-plugin-protocol",
+ "harness3-plugins",
+ "harness3-worker",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tower",
+ "uuid",
+]
+
+[[package]]
+name = "harness3-worker"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "harness3",
+ "harness3-models",
+ "harness3-platform",
+ "harness3-plugins",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

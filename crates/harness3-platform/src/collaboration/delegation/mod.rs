@@ -5,77 +5,46 @@ use crate::{
     store::{Store, event},
 };
 use rusqlite::{OptionalExtension, Transaction, params};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 pub use tools::{package, tools};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Policy {
-    pub max_depth: usize,
-    pub max_children: usize,
-    pub max_descendants: usize,
-    pub roles: Vec<Role>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Role {
-    pub name: String,
-    pub preset_name: String,
-    pub preset_version: String,
-    #[serde(default)]
-    pub parameters: serde_json::Map<String, Value>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Plan {
-    pub tasks: Vec<Child>,
-    pub continuation: String,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Child {
-    pub role: String,
-    pub title: String,
-    pub instructions: String,
-}
-impl Policy {
-    pub(crate) fn validate(&self, tx: &Transaction<'_>) -> PResult<()> {
-        if !(1..=crate::limits::DELEGATION_DEPTH).contains(&self.max_depth)
-            || !(1..=crate::limits::DELEGATION_CHILDREN).contains(&self.max_children)
-            || !(1..=crate::limits::DELEGATION_DESCENDANTS).contains(&self.max_descendants)
-            || self.roles.is_empty()
-            || self.roles.len() > 4
-            || self
-                .roles
-                .iter()
-                .map(|r| &r.name)
-                .collect::<std::collections::HashSet<_>>()
-                .len()
-                != self.roles.len()
-        {
-            return Err(fault(400, "invalid_delegation_policy"));
-        }
-        for role in &self.roles {
-            if !valid_name(&role.name) {
-                return Err(fault(400, "invalid_delegation_role"));
-            }
-            let body: String = tx
-                .query_row(
-                    "SELECT body FROM presets WHERE name=? AND version=?",
-                    params![role.preset_name, role.preset_version],
-                    |r| r.get(0),
-                )
-                .optional()?
-                .ok_or_else(|| fault(404, "preset_not_found"))?;
-            crate::presets::instantiate(serde_json::from_str(&body)?, &role.parameters)?;
-        }
-        Ok(())
+pub use harness3_domain::delegation::{Child, Plan, Policy, Role};
+pub(crate) fn validate(policy: &Policy, tx: &Transaction<'_>) -> PResult<()> {
+    if !(1..=crate::limits::DELEGATION_DEPTH).contains(&policy.max_depth)
+        || !(1..=crate::limits::DELEGATION_CHILDREN).contains(&policy.max_children)
+        || !(1..=crate::limits::DELEGATION_DESCENDANTS).contains(&policy.max_descendants)
+        || policy.roles.is_empty()
+        || policy.roles.len() > 4
+        || policy
+            .roles
+            .iter()
+            .map(|r| &r.name)
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            != policy.roles.len()
+    {
+        return Err(fault(400, "invalid_delegation_policy"));
     }
+    for role in &policy.roles {
+        if !valid_name(&role.name) {
+            return Err(fault(400, "invalid_delegation_role"));
+        }
+        let body: String = tx
+            .query_row(
+                "SELECT body FROM presets WHERE name=? AND version=?",
+                params![role.preset_name, role.preset_version],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| fault(404, "preset_not_found"))?;
+        crate::presets::instantiate(serde_json::from_str(&body)?, &role.parameters)?;
+    }
+    Ok(())
 }
+
 pub(crate) fn authorize(tx: &Transaction<'_>, goal: &str, task: &TaskPlan) -> PResult<()> {
     if let Some(policy) = &task.delegation {
-        policy.validate(tx)?;
+        validate(policy, tx)?;
         for agent in std::iter::once(&task.instance_id).chain(task.candidates.iter()) {
             let body: String =
                 tx.query_row("SELECT snapshot FROM instances WHERE id=?", [agent], |r| {

@@ -7,7 +7,7 @@ Harness³ 在本地管理 Preset、实例、任务和工具执行。默认流程
 要求 Rust 1.89+。在仓库根目录执行，无需 Node、外部数据库或前端开发服务器：
 
 ```sh
-cargo run --locked -p harness3-platform -- up --demo
+cargo run --locked -p harness3-cli -- up --demo
 ```
 
 打开 [http://127.0.0.1:7333](http://127.0.0.1:7333)，将 `.harness3/token` 的内容粘贴到登录框。平台 token 用于本地认证，与模型 API Key 分开。Web 使用 HttpOnly / SameSite=Strict 会话 cookie；API 支持 Bearer token。
@@ -23,7 +23,7 @@ Ctrl-C 停止派发新工作，并等待已开始运行协作取消、收尾。�
 ```sh
 export HARNESS3_OPENAI_RESPONSES_BASE_URL=https://api.openai.com/v1
 export HARNESS3_OPENAI_RESPONSES_MODEL=gpt-6-luna
-cargo run --locked -p harness3-platform -- up
+cargo run --locked -p harness3-cli -- up
 ```
 
 | 协议 | 环境变量前缀 | 追加 Endpoint | 默认 BASE_URL |
@@ -37,7 +37,7 @@ cargo run --locked -p harness3-platform -- up
 也可引用已有的 Responses 配置目录：
 
 ```sh
-cargo run --locked -p harness3-platform -- up \
+cargo run --locked -p harness3-cli -- up \
   --codex-config-dir /path/to/codex-config \
   --model gpt-6-luna
 ```

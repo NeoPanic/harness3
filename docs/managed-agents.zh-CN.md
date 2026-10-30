@@ -361,7 +361,7 @@ Web 面向桌面操作，按 **场景 → 协作 → 运行 → 配置** 分层�
 
 以下目录表达职责与依赖边界；可以先以 crate 内子模块实现，再按规模拆分，无需建立空包。实际代码落点及完整源码树见[模块映射](capabilities.zh-CN.md#当前模块--目标目录)。
 
-当前已完成第一轮目录迁移：根清单改为 workspace，独立内核位于 `crates/harness3-core`，包名仍为 `harness3`；控制台移至根目录 `web`，按 `src/app` 与 `src/features` 分组，继续使用原生静态资源，无需构建依赖。平台 crate 内按 `control`、`collaboration`、`scheduling`、`storage`、`worker`、`entrypoints` 分组，原公开模块路径通过重导出兼容。存储、Worker、入口和领域类型仍在同一 crate，事务与具体类型仍有耦合，尚未形成下方目标树中的独立依赖边界。
+当前 workspace 有 11 个 crate：core、domain、platform、plugin-protocol、plugin-sdk、plugins、models、worker、server、client、cli。独立内核包名仍为 `harness3`，命令行二进制也仍为 `harness3`；从源码启动改用 `cargo run --locked -p harness3-cli -- up --demo`。domain 保存共享类型与纯校验，client 不依赖平台或数据库，plugins 通过 Repository 接口访问平台存储，server 负责启动装配及 HTTP/Web。MCP stdio 暂放在 client crate；SQLite 和应用事务仍留在 platform。控制台位于根目录 `web/src/app` 与 `web/src/features`，无前端打包依赖。具体依赖约束和 Rust 导入迁移见 [workspace 边界](workspace.zh-CN.md)。
 
 ```text
 harness3/
@@ -489,12 +489,12 @@ harness3/
 │           └── transports/            # stdio / Streamable HTTP 传输
 ├── plugins/                           # 第一方插件包；当前约定见 plugins/README.md
 │   ├── organization/                  # 消息、任务认领、委派、受限 agents.spawn
-│   │   ├── plugin.yaml / schemas/
+│   │   ├── manifest.json / schemas/
 │   │   └── src/                       # 调用平台用例，不绕过组织服务事务
 │   ├── workspace/                     # 文件/产物访问，路径与权限受控
-│   │   └── plugin.yaml / schemas/ / src/
+│   │   └── manifest.json / schemas/ / src/
 │   └── verification/                  # 确定性检查器与 Review 能力
-│       └── plugin.yaml / schemas/ / src/
+│       └── manifest.json / schemas/ / src/
 ├── presets/                           # 开箱可用的母体，可在用户空间衍生
 │   ├── coordinator/                   # 每项含 preset.yaml、instructions.md、参数 schema
 │   ├── researcher/

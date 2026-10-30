@@ -14,6 +14,7 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
       - run: python3 scripts/render-progress.py --check
+      - run: python3 scripts/check-boundaries.py
       - run: cargo check --locked --workspace --all-targets
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace

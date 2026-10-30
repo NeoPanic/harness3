@@ -1,0 +1,28 @@
+[package]
+name = "harness3-server"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+
+[dependencies]
+harness3-platform = { path = "../harness3-platform" }
+harness3-domain = { path = "../harness3-domain" }
+harness3-models = { path = "../harness3-models" }
+harness3-worker = { path = "../harness3-worker" }
+harness3-plugins = { path = "../harness3-plugins" }
+harness3 = { path = "../harness3-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time", "io-std", "io-util", "process", "fs"] }
+axum = "0.8"
+fs2 = "0.4"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+async-trait = "0.1"
+rusqlite = { version = "0.37", features = ["bundled"] }
+sha2 = "0.10"
+harness3-plugin-protocol = { path = "../harness3-plugin-protocol" }

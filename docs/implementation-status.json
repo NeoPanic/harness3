@@ -22,7 +22,7 @@
     "status": "implemented",
     "detail": "用途、目标、指令、模型协议与插件按版本锁定；保存原始发布定义、单继承来源和能力摘要。",
     "source": [
-      "crates/harness3-platform/src/domain/mod.rs",
+      "crates/harness3-domain/src/lib.rs",
       "crates/harness3-platform/src/storage/sqlite.rs",
       "crates/harness3-platform/src/control/presets/mod.rs"
     ],
@@ -41,7 +41,7 @@
     "source": [
       "crates/harness3-platform/src/control/presets/mod.rs",
       "web/src/features/presets/presets.js",
-      "crates/harness3-platform/tests/presets.rs"
+      "crates/harness3-server/tests/presets.rs"
     ],
     "target": [
       "crates/harness3-domain/src/presets/"
@@ -91,7 +91,7 @@
     "source": [
       "crates/harness3-platform/src/control/fleets.rs",
       "web/src/features/agents/fleets.js",
-      "crates/harness3-platform/tests/fleets.rs"
+      "crates/harness3-server/tests/fleets.rs"
     ],
     "target": [
       "crates/harness3-domain/src/operations/",
@@ -125,7 +125,7 @@
     "detail": "持久 Run 队列提供 8 个本地并发槽、单实例串行、幂等提交与协作取消。",
     "source": [
       "crates/harness3-platform/src/storage/sqlite.rs",
-      "crates/harness3-platform/src/worker/runner.rs"
+      "crates/harness3-worker/src/lib.rs"
     ],
     "target": [
       "crates/harness3-platform/src/scheduling/"
@@ -156,7 +156,7 @@
     "status": "partial",
     "detail": "提供 Chat Completions、Responses、Anthropic 三类非流式工具循环；Responses 经过真实服务验证。没有流式输出或分片中断契约。",
     "source": [
-      "crates/harness3-platform/src/models/mod.rs"
+      "crates/harness3-models/src/lib.rs"
     ],
     "target": [
       "crates/harness3-models/src/"
@@ -171,7 +171,7 @@
     "status": "implemented",
     "detail": "提供 text.inspect 只读工具与在线提示词包安装；摘要固定，新母体显式绑定版本后生效。",
     "source": [
-      "crates/harness3-platform/src/worker/runner.rs",
+      "crates/harness3-worker/src/lib.rs",
       "crates/harness3-platform/src/storage/sqlite.rs"
     ],
     "target": [
@@ -209,11 +209,11 @@
     "status": "partial",
     "detail": "本地进程包在线安装、内容寻址、调用前摘要检查、版本并存、母体快照、健康检查及禁用/取消。需显式启用，以系统用户运行；没有 MCP loader、watch、进程池、rollout、沙箱或作用域授权。",
     "source": [
-      "crates/harness3-platform/src/plugins/mod.rs",
-      "crates/harness3-platform/src/plugins/package.rs",
-      "crates/harness3-platform/src/plugins/process.rs",
+      "crates/harness3-plugins/src/lib.rs",
+      "crates/harness3-plugins/src/package.rs",
+      "crates/harness3-plugins/src/process.rs",
       "web/src/features/plugins/plugins.js",
-      "crates/harness3-platform/tests/process_plugins.rs"
+      "crates/harness3-server/tests/process_plugins.rs"
     ],
     "target": [
       "crates/harness3-plugins/src/loaders/",
@@ -235,9 +235,9 @@
       "crates/harness3-platform/src/scheduling/routing.rs",
       "crates/harness3-platform/src/scheduling/decision.rs",
       "web/src/features/board/board.js",
-      "crates/harness3-platform/tests/board.rs",
-      "crates/harness3-platform/tests/routing.rs",
-      "crates/harness3-platform/tests/decision.rs"
+      "crates/harness3-server/tests/board.rs",
+      "crates/harness3-server/tests/routing.rs",
+      "crates/harness3-server/tests/decision.rs"
     ],
     "target": [
       "crates/harness3-platform/src/collaboration/",
@@ -271,14 +271,14 @@
       "crates/harness3-platform/src/collaboration/research/mod.rs",
       "crates/harness3-platform/src/collaboration/research/tools.rs",
       "web/src/features/research/research.js",
-      "crates/harness3-platform/tests/research.rs",
+      "crates/harness3-server/tests/research.rs",
       "crates/harness3-platform/src/collaboration/delegation/mod.rs",
       "crates/harness3-platform/src/collaboration/delegation/tools.rs",
-      "crates/harness3-platform/tests/delegation.rs",
+      "crates/harness3-server/tests/delegation.rs",
       "crates/harness3-platform/src/collaboration/autonomy/mod.rs",
       "crates/harness3-platform/src/collaboration/autonomy/tools.rs",
       "web/src/features/autonomy/autonomy.js",
-      "crates/harness3-platform/tests/autonomy.rs"
+      "crates/harness3-server/tests/autonomy.rs"
     ],
     "target": [
       "plugins/organization/",
@@ -297,7 +297,7 @@
       "crates/harness3-platform/src/collaboration/claims.rs",
       "crates/harness3-platform/src/collaboration/coordination.rs",
       "web/src/features/goals/tasks.js",
-      "crates/harness3-platform/tests/claims.rs",
+      "crates/harness3-server/tests/claims.rs",
       "crates/harness3-platform/src/collaboration/autonomy/mod.rs"
     ],
     "target": [
@@ -317,7 +317,7 @@
       "crates/harness3-platform/src/collaboration/messaging/mod.rs",
       "crates/harness3-platform/src/collaboration/messaging/tools.rs",
       "web/src/features/messages/messages.js",
-      "crates/harness3-platform/tests/messaging.rs"
+      "crates/harness3-server/tests/messaging.rs"
     ],
     "target": [
       "crates/harness3-storage/src/inbox_outbox/",
@@ -337,7 +337,7 @@
       "crates/harness3-platform/src/collaboration/channels/mod.rs",
       "crates/harness3-platform/src/collaboration/channels/tools.rs",
       "web/src/features/channels/channels.js",
-      "crates/harness3-platform/tests/channels.rs"
+      "crates/harness3-server/tests/channels.rs"
     ],
     "target": [
       "crates/harness3-platform/src/collaboration/channels/",
@@ -356,7 +356,7 @@
       "crates/harness3-platform/src/collaboration/context/tools.rs",
       "crates/harness3-platform/src/control/organization.rs",
       "web/src/features/collaboration/context.js",
-      "crates/harness3-platform/tests/collaboration.rs"
+      "crates/harness3-server/tests/collaboration.rs"
     ],
     "target": [
       "crates/harness3-domain/src/collaboration/",
@@ -376,7 +376,7 @@
       "crates/harness3-platform/src/workspaces/mod.rs",
       "crates/harness3-platform/src/workspaces/tools.rs",
       "web/src/features/workspaces/workspaces.js",
-      "crates/harness3-platform/tests/workspaces.rs"
+      "crates/harness3-server/tests/workspaces.rs"
     ],
     "target": [
       "crates/harness3-platform/src/workspaces/",
@@ -394,15 +394,15 @@
       "crates/harness3-platform/src/workspaces/artifacts.rs",
       "crates/harness3-platform/src/collaboration/coordination.rs",
       "web/src/features/artifacts/artifacts.js",
-      "crates/harness3-platform/tests/artifacts.rs",
+      "crates/harness3-server/tests/artifacts.rs",
       "crates/harness3-platform/src/collaboration/verification/mod.rs",
       "crates/harness3-platform/src/collaboration/verification/tools.rs",
       "web/src/features/goals/verification.js",
-      "crates/harness3-platform/tests/verification.rs",
+      "crates/harness3-server/tests/verification.rs",
       "crates/harness3-platform/src/workspaces/mod.rs",
       "crates/harness3-platform/src/workspaces/tools.rs",
       "web/src/features/workspaces/workspaces.js",
-      "crates/harness3-platform/tests/workspaces.rs"
+      "crates/harness3-server/tests/workspaces.rs"
     ],
     "target": [
       "crates/harness3-domain/src/artifacts/",
@@ -444,12 +444,12 @@
     "status": "partial",
     "detail": "HTTP/Web、共享本地客户端、CLI 与 MCP stdio 共用状态；44 个 MCP 工具，默认开放 22 个查询工具。没有 MCP resources、Streamable HTTP、细粒度授权、并发取消或 CLI --wait。",
     "source": [
-      "crates/harness3-platform/src/entrypoints/server/api.rs",
-      "crates/harness3-platform/src/entrypoints/client.rs",
-      "crates/harness3-platform/src/entrypoints/cli/main.rs",
-      "crates/harness3-platform/src/entrypoints/cli/cli.rs",
-      "crates/harness3-platform/src/entrypoints/mcp.rs",
-      "crates/harness3-platform/tests/entrances.rs",
+      "crates/harness3-server/src/api.rs",
+      "crates/harness3-client/src/lib.rs",
+      "crates/harness3-cli/src/main.rs",
+      "crates/harness3-cli/src/commands.rs",
+      "crates/harness3-client/src/mcp.rs",
+      "crates/harness3-cli/tests/entrances.rs",
       "examples/clients/mcp.json"
     ],
     "target": [
@@ -467,7 +467,7 @@
     "status": "partial",
     "detail": "持久事件游标与 Web 轮询；没有 SSE、通用列表游标或统一事件订阅契约。",
     "source": [
-      "crates/harness3-platform/src/entrypoints/server/api.rs"
+      "crates/harness3-server/src/api.rs"
     ],
     "target": [
       "crates/harness3-server/src/events/"
@@ -496,7 +496,7 @@
     "status": "partial",
     "detail": "loopback、本地 token 与浏览器会话认证；没有 Principal/Grant、持久审批、租户隔离或插件作用域授权。",
     "source": [
-      "crates/harness3-platform/src/entrypoints/server/api.rs"
+      "crates/harness3-server/src/api.rs"
     ],
     "target": [
       "crates/harness3-platform/src/authorization/",

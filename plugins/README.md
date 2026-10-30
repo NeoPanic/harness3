@@ -19,7 +19,8 @@ plugins/
 | `examples/plugins/` | 演示协议和开发方式的教学示例 |
 | `crates/harness3-plugin-protocol/` | 插件协议与包校验类型 |
 | `crates/harness3-plugin-sdk/` | Rust 插件作者 SDK |
-| `crates/harness3-platform/src/plugins/` | 当前插件宿主、安装和执行实现 |
+| `crates/harness3-plugins/` | 插件宿主、安装、进程监督和执行实现 |
+| `crates/harness3-platform/src/storage/plugins.rs` | 插件持久化和事务适配 |
 
 当前消息、工作区、验证等内置能力仍由平台模块提供；后续独立打包时再迁入本目录，不复制一份实现。
 

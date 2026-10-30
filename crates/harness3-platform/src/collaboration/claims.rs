@@ -4,23 +4,9 @@ use crate::{
     store::{Store, event},
 };
 use rusqlite::{OptionalExtension, Transaction, params};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ClaimInput {
-    pub expected_round: i64,
-    pub expected_generation: i64,
-    pub instance_id: String,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ReleaseInput {
-    pub expected_round: i64,
-    pub expected_generation: i64,
-    pub note: String,
-}
+pub use harness3_domain::claims::{ClaimInput, ReleaseInput};
 pub(crate) fn generation(tx: &Transaction<'_>, goal: &str, key: &str) -> PResult<i64> {
     Ok(tx.query_row(
         "SELECT coalesce(max(generation),0) FROM task_attempts WHERE goal_id=? AND task_key=?",

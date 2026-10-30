@@ -67,7 +67,7 @@ CLI 共用 `--port`、`--data-dir` 配置，输出 JSON：
 export HARNESS3_ROUTER_PROTOCOL=openai-compatible
 export HARNESS3_ROUTER_MODEL=your-routing-model
 export HARNESS3_ROUTER_BASE_URL=http://127.0.0.1:8000/v1
-cargo run --locked -p harness3-platform -- up
+cargo run --locked -p harness3-cli -- up
 ```
 
 未单独配置时，优先复用已配置的 Responses、OpenAI-compatible 或 Anthropic 服务。没有可用模型时采用确定性 Demo 路由，仅选择 Demo Preset。真实执行服务可用时，不把 Demo 输出作为真实任务的替代结果。显式传入 `--demo` 会强制使用本地确定性选型和执行，即使环境中已经配置真实模型或选型服务，也不调用这些服务。
@@ -89,7 +89,7 @@ export HARNESS3_ROUTER_PROTOCOL=bailian-decision
 export HARNESS3_ROUTER_BASE_URL='https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1'
 export HARNESS3_ROUTER_MODEL=decision-model-preview
 export HARNESS3_ROUTER_MIN_CONFIDENCE=0
-cargo run --locked -p harness3-platform -- up
+cargo run --locked -p harness3-cli -- up
 ```
 
 `BASE_URL` 也接受以 `/systemone` 结尾的完整地址。该配置只负责选型，执行 Agent 仍需自己的模型服务配置和对应 Preset；配置选型密钥不会自动提供业务工具。

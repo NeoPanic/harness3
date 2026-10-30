@@ -5,86 +5,46 @@ use crate::{
     store::{Store, event},
 };
 use rusqlite::{OptionalExtension, Transaction, params};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 pub use tools::tools;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Policy {
-    pub preset_name: String,
-    pub preset_version: String,
-    #[serde(default)]
-    pub parameters: serde_json::Map<String, Value>,
-    pub checks: Vec<Check>,
-    #[serde(default)]
-    pub max_auto_reworks: usize,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auto_rework_scope: Option<String>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Check {
-    pub key: String,
-    pub description: String,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Verdict {
-    pub summary: String,
-    pub checks: Vec<Finding>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Finding {
-    pub key: String,
-    pub status: String,
-    pub reason: String,
-    pub artifact_ids: Vec<String>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Retry {
-    pub expected_round: i64,
-    pub expected_verification_id: String,
-}
-impl Policy {
-    pub(crate) fn validate(&self, tx: &Transaction<'_>) -> PResult<()> {
-        if self.checks.is_empty()
-            || self.checks.len() > 8
-            || self.max_auto_reworks > 2
-            || self
-                .auto_rework_scope
-                .as_deref()
-                .is_some_and(|s| !["all", "failed-artifacts"].contains(&s))
-            || self.checks.iter().any(|c| {
-                !valid_name(&c.key) || c.description.trim().is_empty() || c.description.len() > 1000
-            })
-            || self
-                .checks
-                .iter()
-                .map(|c| &c.key)
-                .collect::<std::collections::HashSet<_>>()
-                .len()
-                != self.checks.len()
-        {
-            return Err(fault(400, "invalid_verification_policy"));
-        }
-        let body: String = tx
-            .query_row(
-                "SELECT body FROM presets WHERE name=? AND version=?",
-                params![self.preset_name, self.preset_version],
-                |r| r.get(0),
-            )
-            .optional()?
-            .ok_or_else(|| fault(404, "preset_not_found"))?;
-        crate::presets::instantiate(serde_json::from_str(&body)?, &self.parameters)?;
-        Ok(())
+pub use harness3_domain::verification::{Check, Finding, Policy, Retry, Verdict};
+pub(crate) fn validate(policy: &Policy, tx: &Transaction<'_>) -> PResult<()> {
+    if policy.checks.is_empty()
+        || policy.checks.len() > 8
+        || policy.max_auto_reworks > 2
+        || policy
+            .auto_rework_scope
+            .as_deref()
+            .is_some_and(|s| !["all", "failed-artifacts"].contains(&s))
+        || policy.checks.iter().any(|c| {
+            !valid_name(&c.key) || c.description.trim().is_empty() || c.description.len() > 1000
+        })
+        || policy
+            .checks
+            .iter()
+            .map(|c| &c.key)
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            != policy.checks.len()
+    {
+        return Err(fault(400, "invalid_verification_policy"));
     }
+    let body: String = tx
+        .query_row(
+            "SELECT body FROM presets WHERE name=? AND version=?",
+            params![policy.preset_name, policy.preset_version],
+            |r| r.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| fault(404, "preset_not_found"))?;
+    crate::presets::instantiate(serde_json::from_str(&body)?, &policy.parameters)?;
+    Ok(())
 }
+
 pub(crate) fn configure(tx: &Transaction<'_>, goal: &str, policy: &Option<Policy>) -> PResult<()> {
     if let Some(p) = policy {
-        p.validate(tx)?;
+        validate(p, tx)?;
         tx.execute(
             "INSERT INTO verification_policies(goal_id,body) VALUES(?,?)",
             params![goal, serde_json::to_string(p)?],

@@ -17,6 +17,7 @@
 ## 设计与内核
 
 - [Managed Agents 架构](managed-agents.zh-CN.md)：设计目标、理论基础、对象与状态约束、插件范式和完整目标目录树。
+- [Workspace 边界](workspace.zh-CN.md)：当前 crate 职责、依赖检查与源码导入迁移。
 - [持久工作流职责](durable-workflows.zh-CN.md)：运行恢复与 Agent 协作的职责边界。
 - [运行契约](runtime.md)：检查点、恢复、授权、压缩、投递与追踪。
 - [Rust 内核导读](runtime-guide.zh-CN.md)：从输入到执行结果的源码路径与设计推理。
