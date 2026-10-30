@@ -28,7 +28,9 @@ for name in ['harness3-domain', 'harness3-client', 'harness3-models', 'harness3-
 assert not closure('harness3-client') & {'harness3', 'harness3-plugins', 'harness3-models'}
 assert not closure('harness3-domain') & {'harness3', 'reqwest', 'tokio'}
 assert not closure('harness3-platform') & {'harness3-client', 'harness3-worker', 'harness3-server', 'harness3-cli'}
-assert not closure('harness3-server') & {'harness3-cli', 'harness3-client'}
+assert not closure('harness3-server') & {'harness3-cli'}
+assert not closure('harness3-storage') & {'harness3-platform', 'harness3-server', 'harness3-client', 'harness3-worker', 'harness3-plugins'}
+assert not closure('harness3-builtin-plugins') & {'harness3-platform', 'harness3-server', 'harness3-storage', 'rusqlite'}
 assert any(t['name'] == 'harness3' and 'bin' in t['kind']
            for t in packages['harness3-cli']['targets'])
 print('Workspace dependency boundaries PASS')

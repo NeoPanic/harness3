@@ -1,13 +1,12 @@
 //! Shared work is published before any Agent identity or Preset is selected.
 mod tools;
-pub use tools::tools;
-pub const SCHEMA: &str = include_str!("schema.sql");
 use crate::{
     domain::*,
     store::{Store, event},
 };
 use rusqlite::{OptionalExtension, Transaction, TransactionBehavior, params};
 use serde_json::{Value, json};
+pub use tools::tools;
 
 pub use harness3_domain::board::{PublishInput, SplitInput};
 fn key_valid(key: &str) -> PResult<()> {

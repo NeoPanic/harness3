@@ -6,6 +6,7 @@ rust-version = "1.89"
 license = "MIT"
 
 [dependencies]
+harness3-builtin-plugins = { path = "../../plugins" }
 harness3-platform = { path = "../harness3-platform" }
 harness3-models = { path = "../harness3-models" }
 harness3-plugins = { path = "../harness3-plugins" }

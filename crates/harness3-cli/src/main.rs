@@ -116,7 +116,7 @@ async fn main() -> harness3_client::ClientResult<()> {
                     ..
                 },
         } => {
-            harness3_client::mcp::McpServer::new(connection.client()?, allow_write)
+            harness3_server::mcp::McpServer::new(connection.client()?, allow_write)
                 .serve(
                     tokio::io::BufReader::new(tokio::io::stdin()),
                     tokio::io::stdout(),

@@ -7,6 +7,8 @@ license = "MIT"
 description = "Local Harness³ control plane and inspection console"
 
 [dependencies]
+harness3-builtin-plugins = { path = "../../plugins" }
+harness3-storage = { path = "../harness3-storage" }
 harness3-domain = { path = "../harness3-domain" }
 harness3-models = { path = "../harness3-models" }
 harness3-plugins = { path = "../harness3-plugins" }

@@ -60,15 +60,13 @@ test('总览优先显示忙碌实例，不将已终止实例列入未终止列�
   assert(html.includes('待验收目标'));
 });
 
-test('全局插件执行关闭时，版本启用不能显示为允许调用',()=>{
+test('插件目录只显示内置能力，不提供安装入口，并明确未配置状态',()=>{
   const context=consoleContext();
   vm.runInContext(readFileSync(resolve(__dirname,'../web/src/features/plugins/plugins.js'),'utf8'),context);
-  vm.runInContext(`data={process_plugin_execution:false,process_plugins:[{
-    id:'local.test',version:'1.0.0',state:'enabled',definition:{manifest:{tools:[]}}
-  }],plugins:[],builtin_plugins:[]}`,context);
+  vm.runInContext(`data={builtin_plugins:[{id:'web.search',version:'1.0.0',description:'搜索',tools:[]}],builtin_plugin_status:{'web.search':{configured:false}}}`,context);
   const html=vm.runInContext('pluginsPage()',context);
-  assert(html.includes('全局执行关闭'));
-  assert(!html.includes('允许调用'));
+  assert(html.includes('web.search'));assert(html.includes('未配置'));
+  assert(!html.includes('安装'));assert(!html.includes('process-form'));assert(!html.includes('plugin-form'));
 });
 
 test('详情中的插件授权也服从全局执行开关',()=>{

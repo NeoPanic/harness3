@@ -282,7 +282,7 @@ impl Store {
                 if !ids.insert(&reference.id) {return Err(fault(400,"duplicate_plugin_binding"));}
                 let lock=lock_plugin(tx,reference)?;
                 instruction_bytes+=lock["instructions"].as_str().or_else(||lock["manifest"]["instructions"].as_str()).unwrap_or_default().len();
-                if lock["kind"]=="organization" {for tool in lock["tools"].as_array().unwrap(){if !tool_names.insert(tool["name"].as_str().unwrap().to_owned()){return Err(fault(400,"plugin_tool_name_collision"));}}}
+                if lock["kind"]=="organization" {for tool in lock["tools"].as_array().unwrap(){if !(lock["id"] == "text" && tool["name"] == "text.inspect") && !tool_names.insert(tool["name"].as_str().unwrap().to_owned()){return Err(fault(400,"plugin_tool_name_collision"));}}}
                 if lock["kind"]=="process" {
                     let manifest:&Value=&lock["manifest"];
                     if let Some(tools)=manifest["tools"].as_array() {for tool in tools {

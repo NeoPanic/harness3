@@ -1,0 +1,13 @@
+[package]
+name = "harness3-storage"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+
+[dependencies]
+harness3 = { path = "../harness3-core" }
+harness3-domain = { path = "../harness3-domain" }
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde_json = "1"
+async-trait = "0.1"

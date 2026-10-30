@@ -188,11 +188,6 @@ impl GoalPlan {
     }
 }
 
-pub fn capabilities() -> Value {
-    serde_json::from_str(include_str!("../../../docs/implementation-status.json"))
-        .expect("embedded implementation status must be valid JSON")
-}
-
 pub fn outcome_unknown(value: &Value) -> bool {
     match value {
         Value::Object(map) => map.iter().any(|(key, value)| {

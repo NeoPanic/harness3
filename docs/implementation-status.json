@@ -125,7 +125,7 @@
     "detail": "持久 Run 队列提供 8 个本地并发槽、单实例串行、幂等提交与协作取消。",
     "source": [
       "crates/harness3-platform/src/storage/sqlite.rs",
-      "crates/harness3-worker/src/lib.rs"
+      "crates/harness3-worker/src/runner.rs"
     ],
     "target": [
       "crates/harness3-platform/src/scheduling/"
@@ -141,7 +141,9 @@
     "detail": "SQLite 事务、检查点、事件和 daemon 独占锁；恢复时保留已知回执，未知结果进入中断。没有完整备份运维、外部对账或事件分页。",
     "source": [
       "crates/harness3-platform/src/storage/sqlite.rs",
-      "crates/harness3-platform/src/storage/schema.sql"
+      "crates/harness3-storage/migrations/sqlite/schema.sql",
+      "crates/harness3-storage/src/lib.rs",
+      "crates/harness3-storage/tests/database.rs"
     ],
     "target": [
       "crates/harness3-storage/src/"
@@ -169,13 +171,16 @@
     "name": "内置工具与提示词包",
     "phase": "P1",
     "status": "implemented",
-    "detail": "提供 text.inspect 只读工具与在线提示词包安装；摘要固定，新母体显式绑定版本后生效。",
+    "detail": "内置 text.inspect、web.fetch、web.search；搜索需配置 Brave API 密钥。插件页仅展示内置能力，母体绑定固定版本与摘要。",
     "source": [
-      "crates/harness3-worker/src/lib.rs",
-      "crates/harness3-platform/src/storage/sqlite.rs"
+      "plugins/src/lib.rs",
+      "plugins/text/mod.rs",
+      "plugins/web-fetch/mod.rs",
+      "plugins/web-search/mod.rs",
+      "crates/harness3-server/tests/builtin_plugins.rs"
     ],
     "target": [
-      "crates/harness3-plugins/src/catalog/"
+      "plugins/"
     ],
     "verification": "existing-tests",
     "scope": "current"
@@ -207,7 +212,7 @@
     "name": "外部插件与热加载",
     "phase": "P2",
     "status": "partial",
-    "detail": "本地进程包在线安装、内容寻址、调用前摘要检查、版本并存、母体快照、健康检查及禁用/取消。需显式启用，以系统用户运行；没有 MCP loader、watch、进程池、rollout、沙箱或作用域授权。",
+    "detail": "底层兼容接口支持本地进程包安装、内容寻址、调用前摘要检查、版本并存、母体快照、健康检查及禁用/取消。需显式启用，以系统用户运行；没有 MCP loader、watch、进程池、rollout、沙箱或作用域授权。",
     "source": [
       "crates/harness3-plugins/src/lib.rs",
       "crates/harness3-plugins/src/package.rs",
@@ -231,7 +236,7 @@
     "source": [
       "crates/harness3-platform/src/scheduling/board/mod.rs",
       "crates/harness3-platform/src/scheduling/board/tools.rs",
-      "crates/harness3-platform/src/scheduling/board/schema.sql",
+      "crates/harness3-storage/migrations/sqlite/board.sql",
       "crates/harness3-platform/src/scheduling/routing.rs",
       "crates/harness3-platform/src/scheduling/decision.rs",
       "web/src/features/board/board.js",
@@ -444,18 +449,18 @@
     "status": "partial",
     "detail": "HTTP/Web、共享本地客户端、CLI 与 MCP stdio 共用状态；44 个 MCP 工具，默认开放 22 个查询工具。没有 MCP resources、Streamable HTTP、细粒度授权、并发取消或 CLI --wait。",
     "source": [
-      "crates/harness3-server/src/api.rs",
+      "crates/harness3-server/src/api/mod.rs",
       "crates/harness3-client/src/lib.rs",
       "crates/harness3-cli/src/main.rs",
       "crates/harness3-cli/src/commands.rs",
-      "crates/harness3-client/src/mcp.rs",
+      "crates/harness3-server/src/mcp.rs",
       "crates/harness3-cli/tests/entrances.rs",
       "examples/clients/mcp.json"
     ],
     "target": [
       "crates/harness3-client/src/",
       "crates/harness3-cli/src/",
-      "crates/harness3-mcp/src/"
+      "crates/harness3-server/src/mcp.rs"
     ],
     "verification": "native-tests-and-browser",
     "scope": "extension"
@@ -467,7 +472,7 @@
     "status": "partial",
     "detail": "持久事件游标与 Web 轮询；没有 SSE、通用列表游标或统一事件订阅契约。",
     "source": [
-      "crates/harness3-server/src/api.rs"
+      "crates/harness3-server/src/api/mod.rs"
     ],
     "target": [
       "crates/harness3-server/src/events/"
@@ -496,7 +501,7 @@
     "status": "partial",
     "detail": "loopback、本地 token 与浏览器会话认证；没有 Principal/Grant、持久审批、租户隔离或插件作用域授权。",
     "source": [
-      "crates/harness3-server/src/api.rs"
+      "crates/harness3-server/src/api/mod.rs"
     ],
     "target": [
       "crates/harness3-platform/src/authorization/",

@@ -10,11 +10,6 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{sync::Arc, time::Duration};
 
-pub const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS board_routing(
- task_id TEXT PRIMARY KEY REFERENCES board_tasks(id), attempts INTEGER NOT NULL,
- retry_at INTEGER NOT NULL, state TEXT NOT NULL, error TEXT, model TEXT
-);";
-
 #[derive(Clone)]
 pub struct Router {
     model: Option<Arc<dyn Model>>,

@@ -1,4 +1,3 @@
-use harness3_client::mcp::McpServer;
 use harness3_client::{Command, PlatformClient};
 use harness3_platform::{
     domain::{Preset, Protocol},
@@ -6,6 +5,7 @@ use harness3_platform::{
     store::Store,
 };
 use harness3_server::api::{App, router};
+use harness3_server::mcp::McpServer;
 use serde_json::{Value, json};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::{io::AsyncReadExt, sync::Mutex};
@@ -1073,8 +1073,8 @@ async fn task_claims_and_attempts_share_cli_http_mcp_receipts_and_ownership_conf
     assert_eq!(created, shared);
     let mut readonly = McpServer::new(f.client(), false);
     initialize(&mut readonly).await;
-    assert_eq!(harness3_client::mcp::tools(true).len(), 44);
-    assert_eq!(harness3_client::mcp::tools(false).len(), 22);
+    assert_eq!(harness3_server::mcp::tools(true).len(), 44);
+    assert_eq!(harness3_server::mcp::tools(false).len(), 22);
     let t = call(
         &mut readonly,
         "tasks_show",

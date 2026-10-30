@@ -1,5 +1,5 @@
 //! Outward MCP stdio adapter. No database or execution runtime is created here.
-use crate::{ClientResult, Command, PlatformClient};
+use harness3_client::{ClientResult, Command, PlatformClient};
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 

@@ -4,14 +4,16 @@ use harness3::Tool;
 use serde_json::Value;
 use std::sync::Arc;
 pub fn packages() -> Vec<Value> {
-    vec![
+    let mut packages = vec![
         crate::messaging::package(),
         crate::collaboration::package(),
         crate::delegation::package(),
         crate::channels::package(),
         crate::autonomy::package(),
         crate::workspaces::package(),
-    ]
+    ];
+    packages.extend(harness3_builtin_plugins::packages());
+    packages
 }
 pub fn package(id: &str) -> Option<Value> {
     match id {
@@ -21,7 +23,7 @@ pub fn package(id: &str) -> Option<Value> {
         "platform.messaging" => Some(crate::messaging::package()),
         "platform.delegation" => Some(crate::delegation::package()),
         "platform.context" => Some(crate::collaboration::package()),
-        _ => None,
+        _ => harness3_builtin_plugins::package(id),
     }
 }
 pub fn tools(snapshot: &Value, store: Store, run: &str) -> PResult<Vec<Arc<dyn Tool>>> {
@@ -36,6 +38,7 @@ pub fn tools(snapshot: &Value, store: Store, run: &str) -> PResult<Vec<Arc<dyn T
         "platform.messaging" => vec![crate::messaging::tool(store, run)],
         "platform.delegation" => crate::delegation::tools(store, run),
         "platform.context" => crate::collaboration::tools(store, run),
-        _ => unreachable!(),
+        _ => harness3_builtin_plugins::tools(id)
+            .ok_or_else(|| fault(404, "builtin_plugin_not_found"))?,
     })
 }

@@ -361,7 +361,7 @@ Web 面向桌面操作，按 **场景 → 协作 → 运行 → 配置** 分层�
 
 以下目录表达职责与依赖边界；可以先以 crate 内子模块实现，再按规模拆分，无需建立空包。实际代码落点及完整源码树见[模块映射](capabilities.zh-CN.md#当前模块--目标目录)。
 
-当前 workspace 有 11 个 crate：core、domain、platform、plugin-protocol、plugin-sdk、plugins、models、worker、server、client、cli。独立内核包名仍为 `harness3`，命令行二进制也仍为 `harness3`；从源码启动改用 `cargo run --locked -p harness3-cli -- up --demo`。domain 保存共享类型与纯校验，client 不依赖平台或数据库，plugins 通过 Repository 接口访问平台存储，server 负责启动装配及 HTTP/Web。MCP stdio 暂放在 client crate；SQLite 和应用事务仍留在 platform。控制台位于根目录 `web/src/app` 与 `web/src/features`，无前端打包依赖。具体依赖约束和 Rust 导入迁移见 [workspace 边界](workspace.zh-CN.md)。
+当前 workspace 有 13 个包：core、domain、platform、storage、plugin-protocol、plugin-sdk、plugins 宿主、models、worker、server、client、cli，以及根目录 plugins 内的 builtin-plugins。独立内核包名为 `harness3`，命令行二进制为 `harness3`；源码启动使用 `cargo run --locked -p harness3-cli -- up --demo`。domain 保存共享类型与纯校验；storage 保存连接、schema、事务和会话；platform 保留业务 SQL 与应用回填。client 只负责 HTTP 客户端，对外 MCP stdio Server 位于 server/src/mcp.rs。当前内置 text、web.fetch、web.search，插件页暂不提供安装；下文统一安装、热加载等为目标设计。控制台位于根目录 web/src/app 与 web/src/features，无前端打包依赖。依赖约束和导入迁移见 [workspace 边界](workspace.zh-CN.md)。
 
 ```text
 harness3/
@@ -465,6 +465,7 @@ harness3/
 │   │       └── common/                # HTTP、密钥引用、能力配置、用量/错误映射
 │   ├── harness3-server/               # HTTP + SSE + Web 静态资源宿主
 │   │   └── src/
+│   │       ├── mcp.rs                 # 对外 MCP Server，复用 HTTP client
 │   │       ├── bootstrap/             # 配置、存储、插件、Worker 与服务装配
 │   │       ├── api/v1/                # presets / fleets / instances / operations
 │   │       │                          # plugins / goals / messages / artifacts
@@ -481,20 +482,11 @@ harness3/
 │   │       ├── local/                 # up/down、doctor、数据目录、服务发现
 │   │       ├── commands/              # presets / agents / plugins / goals / artifacts
 │   │       └── output/                # 人类输出、JSON、watch 与退出码
-│   └── harness3-mcp/                  # 对外 MCP Server，使用同一平台客户端
-│       └── src/
-│           ├── server.rs / capabilities.rs
-│           ├── tools/                 # 控制面与任务操作，分别鉴权
-│           ├── resources/             # 目标状态、产物、平台文档
-│           └── transports/            # stdio / Streamable HTTP 传输
-├── plugins/                           # 第一方插件包；当前约定见 plugins/README.md
-│   ├── organization/                  # 消息、任务认领、委派、受限 agents.spawn
-│   │   ├── manifest.json / schemas/
-│   │   └── src/                       # 调用平台用例，不绕过组织服务事务
-│   ├── workspace/                     # 文件/产物访问，路径与权限受控
-│   │   └── manifest.json / schemas/ / src/
-│   └── verification/                  # 确定性检查器与 Review 能力
-│       └── manifest.json / schemas/ / src/
+├── plugins/                           # 编译内置的第一方插件集合
+│   ├── Cargo.toml / src/              # 注册表、配置与共享网络限制
+│   ├── text/                          # 文本统计
+│   ├── web-fetch/                     # 公开网页读取
+│   └── web-search/                    # Brave Search 接入
 ├── presets/                           # 开箱可用的母体，可在用户空间衍生
 │   ├── coordinator/                   # 每项含 preset.yaml、instructions.md、参数 schema
 │   ├── researcher/

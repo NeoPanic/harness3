@@ -451,6 +451,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "harness3-builtin-plugins"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "harness3",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
 name = "harness3-cli"
 version = "0.1.0"
 dependencies = [
@@ -512,10 +526,12 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "harness3",
+ "harness3-builtin-plugins",
  "harness3-domain",
  "harness3-models",
  "harness3-plugin-protocol",
  "harness3-plugins",
+ "harness3-storage",
  "reqwest",
  "rusqlite",
  "serde",
@@ -565,6 +581,8 @@ dependencies = [
  "axum",
  "fs2",
  "harness3",
+ "harness3-builtin-plugins",
+ "harness3-client",
  "harness3-domain",
  "harness3-models",
  "harness3-platform",
@@ -582,11 +600,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "harness3-storage"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "harness3",
+ "harness3-domain",
+ "rusqlite",
+ "serde_json",
+]
+
+[[package]]
 name = "harness3-worker"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "harness3",
+ "harness3-builtin-plugins",
  "harness3-models",
  "harness3-platform",
  "harness3-plugins",

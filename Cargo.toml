@@ -1,8 +1,10 @@
 [workspace]
 members = [
+    "plugins",
     "crates/harness3-core",
     "crates/harness3-domain",
     "crates/harness3-platform",
+    "crates/harness3-storage",
     "crates/harness3-plugin-protocol",
     "crates/harness3-plugin-sdk",
     "crates/harness3-plugins",
