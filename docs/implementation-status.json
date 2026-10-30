@@ -6,8 +6,8 @@
     "status": "implemented",
     "detail": "模型→工具→模型循环、独立会话、观察与持久回执；运行内核可脱离平台使用。",
     "source": [
-      "src/engine.rs",
-      "src/session.rs"
+      "crates/harness3-core/src/engine.rs",
+      "crates/harness3-core/src/session.rs"
     ],
     "target": [
       "crates/harness3-core/src/"
@@ -22,9 +22,9 @@
     "status": "implemented",
     "detail": "用途、目标、指令、模型协议与插件按版本锁定；保存原始发布定义、单继承来源和能力摘要。",
     "source": [
-      "crates/harness3-platform/src/domain.rs",
-      "crates/harness3-platform/src/store.rs",
-      "crates/harness3-platform/src/presets/mod.rs"
+      "crates/harness3-platform/src/domain/mod.rs",
+      "crates/harness3-platform/src/storage/sqlite.rs",
+      "crates/harness3-platform/src/control/presets/mod.rs"
     ],
     "target": [
       "crates/harness3-domain/src/presets/"
@@ -39,8 +39,8 @@
     "status": "partial",
     "detail": "固定版本单继承最多 16 层，参数 schema/默认值与创建时模板展开，最多 16 个插件的能力锁及冲突校验。没有主体权限收窄、预算/资源锁或在线升级。",
     "source": [
-      "crates/harness3-platform/src/presets/mod.rs",
-      "crates/harness3-platform/web/presets.js",
+      "crates/harness3-platform/src/control/presets/mod.rs",
+      "web/src/features/presets/presets.js",
       "crates/harness3-platform/tests/presets.rs"
     ],
     "target": [
@@ -56,8 +56,8 @@
     "status": "implemented",
     "detail": "HTTP 以 202 接纳创建 Operation，协调器分批创建，每批最多 8 个实例；256 容量含待创建预留，幂等重试复用原回执。",
     "source": [
-      "crates/harness3-platform/src/fleets.rs",
-      "crates/harness3-platform/src/store.rs"
+      "crates/harness3-platform/src/control/fleets.rs",
+      "crates/harness3-platform/src/storage/sqlite.rs"
     ],
     "target": [
       "crates/harness3-platform/src/control/"
@@ -72,8 +72,8 @@
     "status": "partial",
     "detail": "支持暂停、恢复、终止、排空和 TTL，Agent 池支持 finite/maintain 扩缩容。没有空闲策略、stop/start、配置升级或单实例 Operation。",
     "source": [
-      "crates/harness3-platform/src/lifecycle.rs",
-      "crates/harness3-platform/src/store.rs"
+      "crates/harness3-platform/src/control/lifecycle.rs",
+      "crates/harness3-platform/src/storage/sqlite.rs"
     ],
     "target": [
       "crates/harness3-platform/src/control/",
@@ -89,8 +89,8 @@
     "status": "partial",
     "detail": "Agent 池提供异步创建/扩缩容/终止、持久槽位与代际、容量预留和重启协调；没有排空期限、Operation 单独取消或远程执行配置。",
     "source": [
-      "crates/harness3-platform/src/fleets.rs",
-      "crates/harness3-platform/web/fleets.js",
+      "crates/harness3-platform/src/control/fleets.rs",
+      "web/src/features/agents/fleets.js",
       "crates/harness3-platform/tests/fleets.rs"
     ],
     "target": [
@@ -107,9 +107,9 @@
     "status": "partial",
     "detail": "Agent 按批准母体/参数派生子任务，宿主绑定父任务、Run 和实例；最多 6 层、单次 8 项、每根 48 个后代，Goal 共 64 项。没有任意子树授权、迁移或分布式租约。",
     "source": [
-      "crates/harness3-platform/src/research/mod.rs",
-      "crates/harness3-platform/web/research.js",
-      "crates/harness3-platform/src/delegation/mod.rs"
+      "crates/harness3-platform/src/collaboration/research/mod.rs",
+      "web/src/features/research/research.js",
+      "crates/harness3-platform/src/collaboration/delegation/mod.rs"
     ],
     "target": [
       "crates/harness3-domain/src/agents/"
@@ -124,8 +124,8 @@
     "status": "implemented",
     "detail": "持久 Run 队列提供 8 个本地并发槽、单实例串行、幂等提交与协作取消。",
     "source": [
-      "crates/harness3-platform/src/store.rs",
-      "crates/harness3-platform/src/runtime.rs"
+      "crates/harness3-platform/src/storage/sqlite.rs",
+      "crates/harness3-platform/src/worker/runner.rs"
     ],
     "target": [
       "crates/harness3-platform/src/scheduling/"
@@ -140,8 +140,8 @@
     "status": "partial",
     "detail": "SQLite 事务、检查点、事件和 daemon 独占锁；恢复时保留已知回执，未知结果进入中断。没有完整备份运维、外部对账或事件分页。",
     "source": [
-      "crates/harness3-platform/src/store.rs",
-      "crates/harness3-platform/src/schema.sql"
+      "crates/harness3-platform/src/storage/sqlite.rs",
+      "crates/harness3-platform/src/storage/schema.sql"
     ],
     "target": [
       "crates/harness3-storage/src/"
@@ -156,7 +156,7 @@
     "status": "partial",
     "detail": "提供 Chat Completions、Responses、Anthropic 三类非流式工具循环；Responses 经过真实服务验证。没有流式输出或分片中断契约。",
     "source": [
-      "crates/harness3-platform/src/models.rs"
+      "crates/harness3-platform/src/models/mod.rs"
     ],
     "target": [
       "crates/harness3-models/src/"
@@ -171,8 +171,8 @@
     "status": "implemented",
     "detail": "提供 text.inspect 只读工具与在线提示词包安装；摘要固定，新母体显式绑定版本后生效。",
     "source": [
-      "crates/harness3-platform/src/runtime.rs",
-      "crates/harness3-platform/src/store.rs"
+      "crates/harness3-platform/src/worker/runner.rs",
+      "crates/harness3-platform/src/storage/sqlite.rs"
     ],
     "target": [
       "crates/harness3-plugins/src/catalog/"
@@ -212,7 +212,7 @@
       "crates/harness3-platform/src/plugins/mod.rs",
       "crates/harness3-platform/src/plugins/package.rs",
       "crates/harness3-platform/src/plugins/process.rs",
-      "crates/harness3-platform/web/plugins.js",
+      "web/src/features/plugins/plugins.js",
       "crates/harness3-platform/tests/process_plugins.rs"
     ],
     "target": [
@@ -229,12 +229,12 @@
     "status": "partial",
     "detail": "任务发布无需绑定 Preset 或实例；控制面模型选型并创建实例，Agent 使用统一工具原子认领、拆分和读取同根结果。来源成功后激活子任务，全部完成后原任务重新选型与认领；支持取消、已知结果结算与回收。独立选型模型支持三类通用协议及百炼 decision-model-preview 的结构化选择、置信度校验和事件记录，失败退避。尚未接入 Goal 频道、文件产物与独立验证，没有分布式租约或费用硬预算。",
     "source": [
-      "crates/harness3-platform/src/board/mod.rs",
-      "crates/harness3-platform/src/board/tools.rs",
-      "crates/harness3-platform/src/board/schema.sql",
-      "crates/harness3-platform/src/routing.rs",
-      "crates/harness3-platform/src/decision.rs",
-      "crates/harness3-platform/web/board.js",
+      "crates/harness3-platform/src/scheduling/board/mod.rs",
+      "crates/harness3-platform/src/scheduling/board/tools.rs",
+      "crates/harness3-platform/src/scheduling/board/schema.sql",
+      "crates/harness3-platform/src/scheduling/routing.rs",
+      "crates/harness3-platform/src/scheduling/decision.rs",
+      "web/src/features/board/board.js",
       "crates/harness3-platform/tests/board.rs",
       "crates/harness3-platform/tests/routing.rs",
       "crates/harness3-platform/tests/decision.rs"
@@ -253,7 +253,7 @@
     "status": "implemented",
     "detail": "持久依赖图最多 64 项任务，传递上游输出与 Run ID，支持取消、候选池及人工验收；可自动选择就绪候选或等待人工认领。",
     "source": [
-      "crates/harness3-platform/src/coordination.rs"
+      "crates/harness3-platform/src/collaboration/coordination.rs"
     ],
     "target": [
       "crates/harness3-platform/src/collaboration/"
@@ -268,16 +268,16 @@
     "status": "partial",
     "detail": "兼容调研模板固定规划、研究和汇总分工，支持递归委派、原实例续作与独立验证；Goal 内 Agent 可读取任务、来源成功后追加或请求接续，验证器按证据选择局部返工。该模板与对等任务板独立。没有已运行节点重写、任意子树迁移或通用自主修复。",
     "source": [
-      "crates/harness3-platform/src/research/mod.rs",
-      "crates/harness3-platform/src/research/tools.rs",
-      "crates/harness3-platform/web/research.js",
+      "crates/harness3-platform/src/collaboration/research/mod.rs",
+      "crates/harness3-platform/src/collaboration/research/tools.rs",
+      "web/src/features/research/research.js",
       "crates/harness3-platform/tests/research.rs",
-      "crates/harness3-platform/src/delegation/mod.rs",
-      "crates/harness3-platform/src/delegation/tools.rs",
+      "crates/harness3-platform/src/collaboration/delegation/mod.rs",
+      "crates/harness3-platform/src/collaboration/delegation/tools.rs",
       "crates/harness3-platform/tests/delegation.rs",
-      "crates/harness3-platform/src/autonomy/mod.rs",
-      "crates/harness3-platform/src/autonomy/tools.rs",
-      "crates/harness3-platform/web/autonomy.js",
+      "crates/harness3-platform/src/collaboration/autonomy/mod.rs",
+      "crates/harness3-platform/src/collaboration/autonomy/tools.rs",
+      "web/src/features/autonomy/autonomy.js",
       "crates/harness3-platform/tests/autonomy.rs"
     ],
     "target": [
@@ -294,11 +294,11 @@
     "status": "partial",
     "detail": "任务最多 16 位候选；认领、Run 和 Attempt 同事务，记录 generation 与幂等回执，每轮最多 8 次尝试，仅未开始可释放。platform.tasks.board/claim 提供任务板及下一任务请求；没有分布式租约、执行后对账或预算预留。",
     "source": [
-      "crates/harness3-platform/src/claims.rs",
-      "crates/harness3-platform/src/coordination.rs",
-      "crates/harness3-platform/web/tasks.js",
+      "crates/harness3-platform/src/collaboration/claims.rs",
+      "crates/harness3-platform/src/collaboration/coordination.rs",
+      "web/src/features/goals/tasks.js",
       "crates/harness3-platform/tests/claims.rs",
-      "crates/harness3-platform/src/autonomy/mod.rs"
+      "crates/harness3-platform/src/collaboration/autonomy/mod.rs"
     ],
     "target": [
       "crates/harness3-domain/src/goals/",
@@ -314,9 +314,9 @@
     "status": "partial",
     "detail": "持久 Outbox/Inbox、稳定消息 ID、幂等去重、投递与消费分离、暂停积压和未知结果人工处置；Agent 使用 platform.messaging 交接，四入口共用。没有远程投递或 Grant 授权。",
     "source": [
-      "crates/harness3-platform/src/messaging/mod.rs",
-      "crates/harness3-platform/src/messaging/tools.rs",
-      "crates/harness3-platform/web/messages.js",
+      "crates/harness3-platform/src/collaboration/messaging/mod.rs",
+      "crates/harness3-platform/src/collaboration/messaging/tools.rs",
+      "web/src/features/messages/messages.js",
       "crates/harness3-platform/tests/messaging.rs"
     ],
     "target": [
@@ -334,9 +334,9 @@
     "scope": "current",
     "detail": "同 Goal 成员分组、持久发言、显式订阅与消息唤醒；参与者自动进入团队讨论，订阅默认关，显式移除不补回，通知回复不再广播。没有跨机器投递、全文分页或自动冲突裁决。",
     "source": [
-      "crates/harness3-platform/src/channels/mod.rs",
-      "crates/harness3-platform/src/channels/tools.rs",
-      "crates/harness3-platform/web/channels.js",
+      "crates/harness3-platform/src/collaboration/channels/mod.rs",
+      "crates/harness3-platform/src/collaboration/channels/tools.rs",
+      "web/src/features/channels/channels.js",
       "crates/harness3-platform/tests/channels.rs"
     ],
     "target": [
@@ -352,10 +352,10 @@
     "status": "partial",
     "detail": "Goal 内发现、决策和疑问支持宿主身份、CAS 修订/撤回、来源及产物引用、派发快照与验收版本绑定；四入口可读写。没有黑板自动冲突裁决。",
     "source": [
-      "crates/harness3-platform/src/collaboration/mod.rs",
-      "crates/harness3-platform/src/collaboration/tools.rs",
-      "crates/harness3-platform/src/organization.rs",
-      "crates/harness3-platform/web/collaboration.js",
+      "crates/harness3-platform/src/collaboration/context/mod.rs",
+      "crates/harness3-platform/src/collaboration/context/tools.rs",
+      "crates/harness3-platform/src/control/organization.rs",
+      "web/src/features/collaboration/context.js",
       "crates/harness3-platform/tests/collaboration.rs"
     ],
     "target": [
@@ -375,7 +375,7 @@
     "source": [
       "crates/harness3-platform/src/workspaces/mod.rs",
       "crates/harness3-platform/src/workspaces/tools.rs",
-      "crates/harness3-platform/web/workspaces.js",
+      "web/src/features/workspaces/workspaces.js",
       "crates/harness3-platform/tests/workspaces.rs"
     ],
     "target": [
@@ -391,17 +391,17 @@
     "status": "partial",
     "detail": "文本贡献、文件/JSON 快照保存版本、摘要与来源；当前成功任务证据进入冻结验证清单，支持有界自动返工、人工局部返工及按失败产物定位任务和下游。给定证据与抓取回执不构成外部事实认证。",
     "source": [
-      "crates/harness3-platform/src/artifacts.rs",
-      "crates/harness3-platform/src/coordination.rs",
-      "crates/harness3-platform/web/artifacts.js",
+      "crates/harness3-platform/src/workspaces/artifacts.rs",
+      "crates/harness3-platform/src/collaboration/coordination.rs",
+      "web/src/features/artifacts/artifacts.js",
       "crates/harness3-platform/tests/artifacts.rs",
-      "crates/harness3-platform/src/verification/mod.rs",
-      "crates/harness3-platform/src/verification/tools.rs",
-      "crates/harness3-platform/web/verification.js",
+      "crates/harness3-platform/src/collaboration/verification/mod.rs",
+      "crates/harness3-platform/src/collaboration/verification/tools.rs",
+      "web/src/features/goals/verification.js",
       "crates/harness3-platform/tests/verification.rs",
       "crates/harness3-platform/src/workspaces/mod.rs",
       "crates/harness3-platform/src/workspaces/tools.rs",
-      "crates/harness3-platform/web/workspaces.js",
+      "web/src/features/workspaces/workspaces.js",
       "crates/harness3-platform/tests/workspaces.rs"
     ],
     "target": [
@@ -418,18 +418,18 @@
     "status": "implemented",
     "detail": "桌面导航按场景、协作、运行、配置分层；独立赛博工作站以卡通队员姿态展示实例状态、消息光点、任务依赖与委派和系统设备岛，详情点击展开，支持全屏、暂停与轮询同步。展示团队任务、频道、共享区、文件产物、验证返工，以及实例、Run、请求快照、回执和事件。详情、下载、候选认领与自主操作共用后端状态。",
     "source": [
-      "crates/harness3-platform/web/app.js",
-      "crates/harness3-platform/web/studio.js",
-      "crates/harness3-platform/web/studio.css",
-      "crates/harness3-platform/web/goals.js",
-      "crates/harness3-platform/web/fleets.js",
-      "crates/harness3-platform/web/messages.js",
-      "crates/harness3-platform/web/artifacts.js",
-      "crates/harness3-platform/web/collaboration.js",
-      "crates/harness3-platform/web/tasks.js",
-      "crates/harness3-platform/web/channels.js",
-      "crates/harness3-platform/web/workspaces.js",
-      "crates/harness3-platform/web/autonomy.js"
+      "web/src/app/app.js",
+      "web/src/features/studio/studio.js",
+      "web/src/features/studio/studio.css",
+      "web/src/features/goals/goals.js",
+      "web/src/features/agents/fleets.js",
+      "web/src/features/messages/messages.js",
+      "web/src/features/artifacts/artifacts.js",
+      "web/src/features/collaboration/context.js",
+      "web/src/features/goals/tasks.js",
+      "web/src/features/channels/channels.js",
+      "web/src/features/workspaces/workspaces.js",
+      "web/src/features/autonomy/autonomy.js"
     ],
     "target": [
       "web/src/features/"
@@ -444,11 +444,11 @@
     "status": "partial",
     "detail": "HTTP/Web、共享本地客户端、CLI 与 MCP stdio 共用状态；44 个 MCP 工具，默认开放 22 个查询工具。没有 MCP resources、Streamable HTTP、细粒度授权、并发取消或 CLI --wait。",
     "source": [
-      "crates/harness3-platform/src/api.rs",
-      "crates/harness3-platform/src/client.rs",
-      "crates/harness3-platform/src/main.rs",
-      "crates/harness3-platform/src/cli.rs",
-      "crates/harness3-platform/src/mcp.rs",
+      "crates/harness3-platform/src/entrypoints/server/api.rs",
+      "crates/harness3-platform/src/entrypoints/client.rs",
+      "crates/harness3-platform/src/entrypoints/cli/main.rs",
+      "crates/harness3-platform/src/entrypoints/cli/cli.rs",
+      "crates/harness3-platform/src/entrypoints/mcp.rs",
       "crates/harness3-platform/tests/entrances.rs",
       "examples/clients/mcp.json"
     ],
@@ -467,7 +467,7 @@
     "status": "partial",
     "detail": "持久事件游标与 Web 轮询；没有 SSE、通用列表游标或统一事件订阅契约。",
     "source": [
-      "crates/harness3-platform/src/api.rs"
+      "crates/harness3-platform/src/entrypoints/server/api.rs"
     ],
     "target": [
       "crates/harness3-server/src/events/"
@@ -496,7 +496,7 @@
     "status": "partial",
     "detail": "loopback、本地 token 与浏览器会话认证；没有 Principal/Grant、持久审批、租户隔离或插件作用域授权。",
     "source": [
-      "crates/harness3-platform/src/api.rs"
+      "crates/harness3-platform/src/entrypoints/server/api.rs"
     ],
     "target": [
       "crates/harness3-platform/src/authorization/",

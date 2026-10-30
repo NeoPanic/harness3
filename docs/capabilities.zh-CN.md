@@ -39,168 +39,207 @@
 
 | 能力 | 当前落点 | 目标目录 |
 | --- | --- | --- |
-| Harness 执行循环 | `src/engine.rs`<br>`src/session.rs` | `crates/harness3-core/src/` |
-| 不可变母体发布 | `crates/harness3-platform/src/domain.rs`<br>`crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/presets/mod.rs` | `crates/harness3-domain/src/presets/` |
-| 母体继承与参数化 | `crates/harness3-platform/src/presets/mod.rs`<br>`crates/harness3-platform/web/presets.js`<br>`crates/harness3-platform/tests/presets.rs` | `crates/harness3-domain/src/presets/` |
-| 有限批量实例化 | `crates/harness3-platform/src/fleets.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/` |
-| 实例生命周期与 TTL | `crates/harness3-platform/src/lifecycle.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-platform/src/control/`<br>`crates/harness3-domain/src/agents/` |
-| Agent 池与异步 Operation | `crates/harness3-platform/src/fleets.rs`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/tests/fleets.rs` | `crates/harness3-domain/src/operations/`<br>`crates/harness3-platform/src/control/` |
-| 受限 Agent 派生 | `crates/harness3-platform/src/research/mod.rs`<br>`crates/harness3-platform/web/research.js`<br>`crates/harness3-platform/src/delegation/mod.rs` | `crates/harness3-domain/src/agents/` |
-| 持久队列与取消 | `crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/runtime.rs` | `crates/harness3-platform/src/scheduling/` |
-| SQLite 与恢复 | `crates/harness3-platform/src/store.rs`<br>`crates/harness3-platform/src/schema.sql` | `crates/harness3-storage/src/` |
-| 三类模型协议 | `crates/harness3-platform/src/models.rs` | `crates/harness3-models/src/` |
-| 内置工具与提示词包 | `crates/harness3-platform/src/runtime.rs`<br>`crates/harness3-platform/src/store.rs` | `crates/harness3-plugins/src/catalog/` |
+| Harness 执行循环 | `crates/harness3-core/src/engine.rs`<br>`crates/harness3-core/src/session.rs` | `crates/harness3-core/src/` |
+| 不可变母体发布 | `crates/harness3-platform/src/domain/mod.rs`<br>`crates/harness3-platform/src/storage/sqlite.rs`<br>`crates/harness3-platform/src/control/presets/mod.rs` | `crates/harness3-domain/src/presets/` |
+| 母体继承与参数化 | `crates/harness3-platform/src/control/presets/mod.rs`<br>`web/src/features/presets/presets.js`<br>`crates/harness3-platform/tests/presets.rs` | `crates/harness3-domain/src/presets/` |
+| 有限批量实例化 | `crates/harness3-platform/src/control/fleets.rs`<br>`crates/harness3-platform/src/storage/sqlite.rs` | `crates/harness3-platform/src/control/` |
+| 实例生命周期与 TTL | `crates/harness3-platform/src/control/lifecycle.rs`<br>`crates/harness3-platform/src/storage/sqlite.rs` | `crates/harness3-platform/src/control/`<br>`crates/harness3-domain/src/agents/` |
+| Agent 池与异步 Operation | `crates/harness3-platform/src/control/fleets.rs`<br>`web/src/features/agents/fleets.js`<br>`crates/harness3-platform/tests/fleets.rs` | `crates/harness3-domain/src/operations/`<br>`crates/harness3-platform/src/control/` |
+| 受限 Agent 派生 | `crates/harness3-platform/src/collaboration/research/mod.rs`<br>`web/src/features/research/research.js`<br>`crates/harness3-platform/src/collaboration/delegation/mod.rs` | `crates/harness3-domain/src/agents/` |
+| 持久队列与取消 | `crates/harness3-platform/src/storage/sqlite.rs`<br>`crates/harness3-platform/src/worker/runner.rs` | `crates/harness3-platform/src/scheduling/` |
+| SQLite 与恢复 | `crates/harness3-platform/src/storage/sqlite.rs`<br>`crates/harness3-platform/src/storage/schema.sql` | `crates/harness3-storage/src/` |
+| 三类模型协议 | `crates/harness3-platform/src/models/mod.rs` | `crates/harness3-models/src/` |
+| 内置工具与提示词包 | `crates/harness3-platform/src/worker/runner.rs`<br>`crates/harness3-platform/src/storage/sqlite.rs` | `crates/harness3-plugins/src/catalog/` |
 | 可执行插件契约与 SDK | `crates/harness3-plugin-protocol/src/lib.rs`<br>`crates/harness3-plugin-sdk/src/lib.rs`<br>`crates/harness3-plugin-sdk/tests/contract.rs`<br>`examples/plugins/text-inspector/manifest.json`<br>`examples/plugins/http-reader/manifest.json`<br>`examples/plugins/http-reader/test_worker.py`<br>`examples/plugins/workspace-preset/preset.json` | `crates/harness3-plugin-protocol/src/`<br>`crates/harness3-plugin-sdk/src/` |
-| 外部插件与热加载 | `crates/harness3-platform/src/plugins/mod.rs`<br>`crates/harness3-platform/src/plugins/package.rs`<br>`crates/harness3-platform/src/plugins/process.rs`<br>`crates/harness3-platform/web/plugins.js`<br>`crates/harness3-platform/tests/process_plugins.rs` | `crates/harness3-plugins/src/loaders/`<br>`crates/harness3-plugins/src/reload/` |
-| 对等 Agent 共享任务板 | `crates/harness3-platform/src/board/mod.rs`<br>`crates/harness3-platform/src/board/tools.rs`<br>`crates/harness3-platform/src/board/schema.sql`<br>`crates/harness3-platform/src/routing.rs`<br>`crates/harness3-platform/src/decision.rs`<br>`crates/harness3-platform/web/board.js`<br>`crates/harness3-platform/tests/board.rs`<br>`crates/harness3-platform/tests/routing.rs`<br>`crates/harness3-platform/tests/decision.rs` | `crates/harness3-platform/src/collaboration/`<br>`crates/harness3-platform/src/scheduling/` |
-| 显式目标与任务依赖 | `crates/harness3-platform/src/coordination.rs` | `crates/harness3-platform/src/collaboration/` |
-| 固定调研模板与动态委派 | `crates/harness3-platform/src/research/mod.rs`<br>`crates/harness3-platform/src/research/tools.rs`<br>`crates/harness3-platform/web/research.js`<br>`crates/harness3-platform/tests/research.rs`<br>`crates/harness3-platform/src/delegation/mod.rs`<br>`crates/harness3-platform/src/delegation/tools.rs`<br>`crates/harness3-platform/tests/delegation.rs`<br>`crates/harness3-platform/src/autonomy/mod.rs`<br>`crates/harness3-platform/src/autonomy/tools.rs`<br>`crates/harness3-platform/web/autonomy.js`<br>`crates/harness3-platform/tests/autonomy.rs` | `plugins/organization/`<br>`crates/harness3-platform/src/collaboration/` |
-| 候选池认领与执行尝试 | `crates/harness3-platform/src/claims.rs`<br>`crates/harness3-platform/src/coordination.rs`<br>`crates/harness3-platform/web/tasks.js`<br>`crates/harness3-platform/tests/claims.rs`<br>`crates/harness3-platform/src/autonomy/mod.rs` | `crates/harness3-domain/src/goals/`<br>`crates/harness3-platform/src/collaboration/` |
-| 可靠协作消息 | `crates/harness3-platform/src/messaging/mod.rs`<br>`crates/harness3-platform/src/messaging/tools.rs`<br>`crates/harness3-platform/web/messages.js`<br>`crates/harness3-platform/tests/messaging.rs` | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
-| 协作频道与订阅唤醒 | `crates/harness3-platform/src/channels/mod.rs`<br>`crates/harness3-platform/src/channels/tools.rs`<br>`crates/harness3-platform/web/channels.js`<br>`crates/harness3-platform/tests/channels.rs` | `crates/harness3-platform/src/collaboration/channels/`<br>`crates/harness3-storage/src/inbox_outbox/` |
-| 共享上下文与版本化黑板 | `crates/harness3-platform/src/collaboration/mod.rs`<br>`crates/harness3-platform/src/collaboration/tools.rs`<br>`crates/harness3-platform/src/organization.rs`<br>`crates/harness3-platform/web/collaboration.js`<br>`crates/harness3-platform/tests/collaboration.rs` | `crates/harness3-domain/src/collaboration/`<br>`crates/harness3-platform/src/collaboration/` |
-| 实例工作区与文件/JSON交接 | `crates/harness3-platform/src/workspaces/mod.rs`<br>`crates/harness3-platform/src/workspaces/tools.rs`<br>`crates/harness3-platform/web/workspaces.js`<br>`crates/harness3-platform/tests/workspaces.rs` | `crates/harness3-platform/src/workspaces/`<br>`crates/harness3-domain/src/artifacts/` |
-| 产物、验证与返工 | `crates/harness3-platform/src/artifacts.rs`<br>`crates/harness3-platform/src/coordination.rs`<br>`crates/harness3-platform/web/artifacts.js`<br>`crates/harness3-platform/tests/artifacts.rs`<br>`crates/harness3-platform/src/verification/mod.rs`<br>`crates/harness3-platform/src/verification/tools.rs`<br>`crates/harness3-platform/web/verification.js`<br>`crates/harness3-platform/tests/verification.rs`<br>`crates/harness3-platform/src/workspaces/mod.rs`<br>`crates/harness3-platform/src/workspaces/tools.rs`<br>`crates/harness3-platform/web/workspaces.js`<br>`crates/harness3-platform/tests/workspaces.rs` | `crates/harness3-domain/src/artifacts/`<br>`plugins/verification/` |
-| Web 执行证据检查 | `crates/harness3-platform/web/app.js`<br>`crates/harness3-platform/web/studio.js`<br>`crates/harness3-platform/web/studio.css`<br>`crates/harness3-platform/web/goals.js`<br>`crates/harness3-platform/web/fleets.js`<br>`crates/harness3-platform/web/messages.js`<br>`crates/harness3-platform/web/artifacts.js`<br>`crates/harness3-platform/web/collaboration.js`<br>`crates/harness3-platform/web/tasks.js`<br>`crates/harness3-platform/web/channels.js`<br>`crates/harness3-platform/web/workspaces.js`<br>`crates/harness3-platform/web/autonomy.js` | `web/src/features/` |
-| API / CLI / MCP 入口 | `crates/harness3-platform/src/api.rs`<br>`crates/harness3-platform/src/client.rs`<br>`crates/harness3-platform/src/main.rs`<br>`crates/harness3-platform/src/cli.rs`<br>`crates/harness3-platform/src/mcp.rs`<br>`crates/harness3-platform/tests/entrances.rs`<br>`examples/clients/mcp.json` | `crates/harness3-client/src/`<br>`crates/harness3-cli/src/`<br>`crates/harness3-mcp/src/` |
-| 实时事件与查询 | `crates/harness3-platform/src/api.rs` | `crates/harness3-server/src/events/` |
+| 外部插件与热加载 | `crates/harness3-platform/src/plugins/mod.rs`<br>`crates/harness3-platform/src/plugins/package.rs`<br>`crates/harness3-platform/src/plugins/process.rs`<br>`web/src/features/plugins/plugins.js`<br>`crates/harness3-platform/tests/process_plugins.rs` | `crates/harness3-plugins/src/loaders/`<br>`crates/harness3-plugins/src/reload/` |
+| 对等 Agent 共享任务板 | `crates/harness3-platform/src/scheduling/board/mod.rs`<br>`crates/harness3-platform/src/scheduling/board/tools.rs`<br>`crates/harness3-platform/src/scheduling/board/schema.sql`<br>`crates/harness3-platform/src/scheduling/routing.rs`<br>`crates/harness3-platform/src/scheduling/decision.rs`<br>`web/src/features/board/board.js`<br>`crates/harness3-platform/tests/board.rs`<br>`crates/harness3-platform/tests/routing.rs`<br>`crates/harness3-platform/tests/decision.rs` | `crates/harness3-platform/src/collaboration/`<br>`crates/harness3-platform/src/scheduling/` |
+| 显式目标与任务依赖 | `crates/harness3-platform/src/collaboration/coordination.rs` | `crates/harness3-platform/src/collaboration/` |
+| 固定调研模板与动态委派 | `crates/harness3-platform/src/collaboration/research/mod.rs`<br>`crates/harness3-platform/src/collaboration/research/tools.rs`<br>`web/src/features/research/research.js`<br>`crates/harness3-platform/tests/research.rs`<br>`crates/harness3-platform/src/collaboration/delegation/mod.rs`<br>`crates/harness3-platform/src/collaboration/delegation/tools.rs`<br>`crates/harness3-platform/tests/delegation.rs`<br>`crates/harness3-platform/src/collaboration/autonomy/mod.rs`<br>`crates/harness3-platform/src/collaboration/autonomy/tools.rs`<br>`web/src/features/autonomy/autonomy.js`<br>`crates/harness3-platform/tests/autonomy.rs` | `plugins/organization/`<br>`crates/harness3-platform/src/collaboration/` |
+| 候选池认领与执行尝试 | `crates/harness3-platform/src/collaboration/claims.rs`<br>`crates/harness3-platform/src/collaboration/coordination.rs`<br>`web/src/features/goals/tasks.js`<br>`crates/harness3-platform/tests/claims.rs`<br>`crates/harness3-platform/src/collaboration/autonomy/mod.rs` | `crates/harness3-domain/src/goals/`<br>`crates/harness3-platform/src/collaboration/` |
+| 可靠协作消息 | `crates/harness3-platform/src/collaboration/messaging/mod.rs`<br>`crates/harness3-platform/src/collaboration/messaging/tools.rs`<br>`web/src/features/messages/messages.js`<br>`crates/harness3-platform/tests/messaging.rs` | `crates/harness3-storage/src/inbox_outbox/`<br>`crates/harness3-domain/src/collaboration/` |
+| 协作频道与订阅唤醒 | `crates/harness3-platform/src/collaboration/channels/mod.rs`<br>`crates/harness3-platform/src/collaboration/channels/tools.rs`<br>`web/src/features/channels/channels.js`<br>`crates/harness3-platform/tests/channels.rs` | `crates/harness3-platform/src/collaboration/channels/`<br>`crates/harness3-storage/src/inbox_outbox/` |
+| 共享上下文与版本化黑板 | `crates/harness3-platform/src/collaboration/context/mod.rs`<br>`crates/harness3-platform/src/collaboration/context/tools.rs`<br>`crates/harness3-platform/src/control/organization.rs`<br>`web/src/features/collaboration/context.js`<br>`crates/harness3-platform/tests/collaboration.rs` | `crates/harness3-domain/src/collaboration/`<br>`crates/harness3-platform/src/collaboration/` |
+| 实例工作区与文件/JSON交接 | `crates/harness3-platform/src/workspaces/mod.rs`<br>`crates/harness3-platform/src/workspaces/tools.rs`<br>`web/src/features/workspaces/workspaces.js`<br>`crates/harness3-platform/tests/workspaces.rs` | `crates/harness3-platform/src/workspaces/`<br>`crates/harness3-domain/src/artifacts/` |
+| 产物、验证与返工 | `crates/harness3-platform/src/workspaces/artifacts.rs`<br>`crates/harness3-platform/src/collaboration/coordination.rs`<br>`web/src/features/artifacts/artifacts.js`<br>`crates/harness3-platform/tests/artifacts.rs`<br>`crates/harness3-platform/src/collaboration/verification/mod.rs`<br>`crates/harness3-platform/src/collaboration/verification/tools.rs`<br>`web/src/features/goals/verification.js`<br>`crates/harness3-platform/tests/verification.rs`<br>`crates/harness3-platform/src/workspaces/mod.rs`<br>`crates/harness3-platform/src/workspaces/tools.rs`<br>`web/src/features/workspaces/workspaces.js`<br>`crates/harness3-platform/tests/workspaces.rs` | `crates/harness3-domain/src/artifacts/`<br>`plugins/verification/` |
+| Web 执行证据检查 | `web/src/app/app.js`<br>`web/src/features/studio/studio.js`<br>`web/src/features/studio/studio.css`<br>`web/src/features/goals/goals.js`<br>`web/src/features/agents/fleets.js`<br>`web/src/features/messages/messages.js`<br>`web/src/features/artifacts/artifacts.js`<br>`web/src/features/collaboration/context.js`<br>`web/src/features/goals/tasks.js`<br>`web/src/features/channels/channels.js`<br>`web/src/features/workspaces/workspaces.js`<br>`web/src/features/autonomy/autonomy.js` | `web/src/features/` |
+| API / CLI / MCP 入口 | `crates/harness3-platform/src/entrypoints/server/api.rs`<br>`crates/harness3-platform/src/entrypoints/client.rs`<br>`crates/harness3-platform/src/entrypoints/cli/main.rs`<br>`crates/harness3-platform/src/entrypoints/cli/cli.rs`<br>`crates/harness3-platform/src/entrypoints/mcp.rs`<br>`crates/harness3-platform/tests/entrances.rs`<br>`examples/clients/mcp.json` | `crates/harness3-client/src/`<br>`crates/harness3-cli/src/`<br>`crates/harness3-mcp/src/` |
+| 实时事件与查询 | `crates/harness3-platform/src/entrypoints/server/api.rs` | `crates/harness3-server/src/events/` |
 | 预算预留与账本 | 尚无实现模块 | `crates/harness3-platform/src/accounting/`<br>`crates/harness3-domain/src/budgets/` |
-| 身份、授权与审批 | `crates/harness3-platform/src/api.rs` | `crates/harness3-platform/src/authorization/`<br>`crates/harness3-domain/src/identity/` |
+| 身份、授权与审批 | `crates/harness3-platform/src/entrypoints/server/api.rs` | `crates/harness3-platform/src/authorization/`<br>`crates/harness3-domain/src/identity/` |
 | 监督 Worker 与执行隔离 | 尚无实现模块 | `crates/harness3-worker/src/` |
 | 远程控制面与 PostgreSQL | 尚无实现模块 | `crates/harness3-storage/src/`<br>`crates/harness3-worker/src/backends/` |
 | 发行、生态与验收套件 | `.github/workflows/check.yml`<br>`docs/getting-started.zh-CN.md` | `deploy/`<br>`examples/`<br>`tests/`<br>`docs/` |
 
 ## 当前源码目录
 
-以下从实际文件生成，列出运行内核、平台、插件协议/SDK 与客户端/插件示例，不包含构建产物。架构设计中的目标树表达职责拆分，不要求预先创建空包。
+以下从实际文件生成，列出 workspace 各 crate、独立 Web 源码与客户端/插件示例，不包含构建产物。架构设计中的目标树表达职责拆分，不要求预先创建空包。
 
 ```text
-src/
-├── context.rs
-├── driver.rs
-├── engine.rs
-├── interaction.md
-├── lib.rs
-├── policy.rs
-├── prompt.rs
-├── registry.rs
-├── session.rs
-├── skills.rs
-├── trace.rs
-├── transport.rs
-└── work.rs
-crates/harness3-platform/
+crates/
+├── harness3-core/
+│   ├── src/
+│   │   ├── context.rs
+│   │   ├── driver.rs
+│   │   ├── engine.rs
+│   │   ├── interaction.md
+│   │   ├── lib.rs
+│   │   ├── policy.rs
+│   │   ├── prompt.rs
+│   │   ├── registry.rs
+│   │   ├── session.rs
+│   │   ├── skills.rs
+│   │   ├── trace.rs
+│   │   ├── transport.rs
+│   │   └── work.rs
+│   └── Cargo.toml
+├── harness3-platform/
+│   ├── src/
+│   │   ├── collaboration/
+│   │   │   ├── autonomy/
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── schema.sql
+│   │   │   │   └── tools.rs
+│   │   │   ├── channels/
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tools.rs
+│   │   │   ├── context/
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tools.rs
+│   │   │   ├── delegation/
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tools.rs
+│   │   │   ├── messaging/
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tools.rs
+│   │   │   ├── research/
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tools.rs
+│   │   │   ├── verification/
+│   │   │   │   ├── mod.rs
+│   │   │   │   └── tools.rs
+│   │   │   ├── claims.rs
+│   │   │   ├── coordination.rs
+│   │   │   └── mod.rs
+│   │   ├── control/
+│   │   │   ├── presets/
+│   │   │   │   └── mod.rs
+│   │   │   ├── fleets.rs
+│   │   │   ├── lifecycle.rs
+│   │   │   ├── mod.rs
+│   │   │   └── organization.rs
+│   │   ├── domain/
+│   │   │   └── mod.rs
+│   │   ├── entrypoints/
+│   │   │   ├── cli/
+│   │   │   │   ├── cli.rs
+│   │   │   │   └── main.rs
+│   │   │   ├── server/
+│   │   │   │   ├── api.rs
+│   │   │   │   └── mod.rs
+│   │   │   ├── client.rs
+│   │   │   ├── mcp.rs
+│   │   │   └── mod.rs
+│   │   ├── models/
+│   │   │   └── mod.rs
+│   │   ├── plugins/
+│   │   │   ├── mod.rs
+│   │   │   ├── package.rs
+│   │   │   └── process.rs
+│   │   ├── scheduling/
+│   │   │   ├── board/
+│   │   │   │   ├── mod.rs
+│   │   │   │   ├── schema.sql
+│   │   │   │   └── tools.rs
+│   │   │   ├── decision.rs
+│   │   │   ├── mod.rs
+│   │   │   └── routing.rs
+│   │   ├── storage/
+│   │   │   ├── mod.rs
+│   │   │   ├── schema.sql
+│   │   │   └── sqlite.rs
+│   │   ├── worker/
+│   │   │   ├── mod.rs
+│   │   │   └── runner.rs
+│   │   ├── workspaces/
+│   │   │   ├── artifacts.rs
+│   │   │   ├── mod.rs
+│   │   │   └── tools.rs
+│   │   ├── lib.rs
+│   │   └── limits.rs
+│   ├── tests/
+│   │   ├── fixtures/
+│   │   │   └── process-plugin.py
+│   │   ├── artifacts.rs
+│   │   ├── autonomy.rs
+│   │   ├── board.rs
+│   │   ├── channels.rs
+│   │   ├── claims.rs
+│   │   ├── collaboration.rs
+│   │   ├── coordination.rs
+│   │   ├── decision.rs
+│   │   ├── delegation.rs
+│   │   ├── entrances.rs
+│   │   ├── fleets.rs
+│   │   ├── messaging.rs
+│   │   ├── platform.rs
+│   │   ├── presets.rs
+│   │   ├── process_plugins.rs
+│   │   ├── research.rs
+│   │   ├── routing.rs
+│   │   ├── verification.rs
+│   │   └── workspaces.rs
+│   └── Cargo.toml
+├── harness3-plugin-protocol/
+│   ├── src/
+│   │   └── lib.rs
+│   └── Cargo.toml
+└── harness3-plugin-sdk/
+    ├── examples/
+    │   └── text.rs
+    ├── src/
+    │   └── lib.rs
+    ├── tests/
+    │   └── contract.rs
+    └── Cargo.toml
+plugins/
+└── README.md
+web/
 ├── src/
-│   ├── autonomy/
-│   │   ├── mod.rs
-│   │   ├── schema.sql
-│   │   └── tools.rs
-│   ├── board/
-│   │   ├── mod.rs
-│   │   ├── schema.sql
-│   │   └── tools.rs
-│   ├── channels/
-│   │   ├── mod.rs
-│   │   └── tools.rs
-│   ├── collaboration/
-│   │   ├── mod.rs
-│   │   └── tools.rs
-│   ├── delegation/
-│   │   ├── mod.rs
-│   │   └── tools.rs
-│   ├── messaging/
-│   │   ├── mod.rs
-│   │   └── tools.rs
-│   ├── plugins/
-│   │   ├── mod.rs
-│   │   ├── package.rs
-│   │   └── process.rs
-│   ├── presets/
-│   │   └── mod.rs
-│   ├── research/
-│   │   ├── mod.rs
-│   │   └── tools.rs
-│   ├── verification/
-│   │   ├── mod.rs
-│   │   └── tools.rs
-│   ├── workspaces/
-│   │   ├── mod.rs
-│   │   └── tools.rs
-│   ├── api.rs
-│   ├── artifacts.rs
-│   ├── claims.rs
-│   ├── cli.rs
-│   ├── client.rs
-│   ├── coordination.rs
-│   ├── decision.rs
-│   ├── domain.rs
-│   ├── fleets.rs
-│   ├── lib.rs
-│   ├── lifecycle.rs
-│   ├── limits.rs
-│   ├── main.rs
-│   ├── mcp.rs
-│   ├── models.rs
-│   ├── organization.rs
-│   ├── routing.rs
-│   ├── runtime.rs
-│   ├── schema.sql
-│   └── store.rs
-├── tests/
-│   ├── fixtures/
-│   │   └── process-plugin.py
-│   ├── artifacts.rs
-│   ├── autonomy.rs
-│   ├── board.rs
-│   ├── channels.rs
-│   ├── claims.rs
-│   ├── collaboration.rs
-│   ├── coordination.rs
-│   ├── decision.rs
-│   ├── delegation.rs
-│   ├── entrances.rs
-│   ├── fleets.rs
-│   ├── messaging.rs
-│   ├── platform.rs
-│   ├── presets.rs
-│   ├── process_plugins.rs
-│   ├── research.rs
-│   ├── routing.rs
-│   ├── verification.rs
-│   └── workspaces.rs
-├── web/
-│   ├── app.css
-│   ├── app.js
-│   ├── artifacts.js
-│   ├── autonomy.js
-│   ├── board.js
-│   ├── channels.js
-│   ├── collaboration.js
-│   ├── fleets.js
-│   ├── goals.js
-│   ├── index.html
-│   ├── messages.js
-│   ├── plugins.js
-│   ├── presets.js
-│   ├── research.js
-│   ├── studio.css
-│   ├── studio.js
-│   ├── tasks.js
-│   ├── verification.js
-│   └── workspaces.js
-└── Cargo.toml
-crates/harness3-plugin-protocol/
-├── src/
-│   └── lib.rs
-└── Cargo.toml
-crates/harness3-plugin-sdk/
-├── examples/
-│   └── text.rs
-├── src/
-│   └── lib.rs
-├── tests/
-│   └── contract.rs
-└── Cargo.toml
+│   ├── app/
+│   │   ├── app.css
+│   │   └── app.js
+│   └── features/
+│       ├── agents/
+│       │   └── fleets.js
+│       ├── artifacts/
+│       │   └── artifacts.js
+│       ├── autonomy/
+│       │   └── autonomy.js
+│       ├── board/
+│       │   └── board.js
+│       ├── channels/
+│       │   └── channels.js
+│       ├── collaboration/
+│       │   └── context.js
+│       ├── goals/
+│       │   ├── goals.js
+│       │   ├── tasks.js
+│       │   └── verification.js
+│       ├── messages/
+│       │   └── messages.js
+│       ├── plugins/
+│       │   └── plugins.js
+│       ├── presets/
+│       │   └── presets.js
+│       ├── research/
+│       │   └── research.js
+│       ├── studio/
+│       │   ├── studio.css
+│       │   └── studio.js
+│       └── workspaces/
+│           └── workspaces.js
+├── README.md
+└── index.html
 examples/clients/
 ├── README.md
 ├── board-task.json

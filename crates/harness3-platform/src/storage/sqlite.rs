@@ -23,7 +23,7 @@ impl Store {
         }
         connection.execute_batch(include_str!("schema.sql"))?;
         connection.execute_batch(crate::channels::CHANNEL_SCHEMA)?;
-        connection.execute_batch(include_str!("autonomy/schema.sql"))?;
+        connection.execute_batch(include_str!("../collaboration/autonomy/schema.sql"))?;
         connection.execute_batch(crate::board::SCHEMA)?;
         connection.execute_batch(crate::routing::SCHEMA)?;
         if version < 4 {

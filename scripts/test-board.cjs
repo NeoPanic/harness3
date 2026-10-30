@@ -13,7 +13,7 @@ Object.assign(context,{
   formEnd:label=>`<button type="submit">${label}</button>`,
   openModal:(title,html)=>{context.form=html;},dataView:value=>JSON.stringify(value),
 });
-vm.runInContext(readFileSync(resolve(__dirname,'../crates/harness3-platform/web/board.js'),'utf8'),context);
+vm.runInContext(readFileSync(resolve(__dirname,'../web/src/features/board/board.js'),'utf8'),context);
 
 test('发布表单只收集任务，不要求选择 preset 或实例',()=>{
   vm.runInContext('boardPublishForm()',context);

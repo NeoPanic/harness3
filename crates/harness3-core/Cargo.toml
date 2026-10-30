@@ -1,0 +1,29 @@
+[package]
+name = "harness3"
+version = "0.2.7"
+edition = "2024"
+rust-version = "1.89"
+description = "Harness³: a composable Rust runtime for agent collectives, with durable sessions and pluggable capabilities"
+license = "MIT"
+readme = "../../README.md"
+repository = "https://github.com/NeoPanic/harness3"
+homepage = "https://github.com/NeoPanic/harness3"
+keywords = ["agent", "harness", "multi-agent", "llm", "runtime"]
+categories = ["asynchronous"]
+
+
+[dependencies]
+serde_yaml_ng = "0.10"
+sha2 = "0.10"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["time", "macros", "rt", "sync"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+uuid = { version = "1", features = ["v4"] }
+
+
+[[example]]
+name = "quickstart"
+path = "../../examples/quickstart.rs"

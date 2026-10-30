@@ -9,7 +9,7 @@ Object.assign(context,{
   esc:(value='')=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
   labels:{},icon:()=>'',time:()=>'',short:value=>String(value??'').slice(0,15),
 });
-vm.runInContext(readFileSync(resolve(__dirname,'../crates/harness3-platform/web/studio.js'),'utf8'),context);
+vm.runInContext(readFileSync(resolve(__dirname,'../web/src/features/studio/studio.js'),'utf8'),context);
 function layout(tasks) {
   context.input=tasks;
   return vm.runInContext('studioTaskLayout(input)',context);

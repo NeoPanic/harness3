@@ -12,6 +12,10 @@ cargo run --locked --example quickstart
 
 The Cargo package and import are `harness3`. The user-facing brand is Harness³. See [brand usage](docs/brand/README.md) when editing public-facing assets.
 
+The root manifest defines the workspace; the independent `harness3` package lives in `crates/harness3-core`. The platform groups control, collaboration, scheduling, storage, worker, and entry adapters under `crates/harness3-platform/src`. Existing public module paths remain available through re-exports. The console lives in `web/src/app` and `web/src/features`; it uses native JavaScript and is embedded by the HTTP adapter at compile time. Run the quickstart from the repository root as shown above.
+
+Official plugin packages belong in [`plugins/`](plugins/README.md), one directory per plugin. Keep teaching examples in `examples/plugins` and protocol/SDK/host implementation in their respective crates.
+
 ## Before opening a pull request
 
 1. Open an issue first for changes to checkpoint formats, recovery, authorization, cancellation, or public trait contracts. Describe the failure mode and proposed compatibility behavior.
@@ -21,6 +25,7 @@ The Cargo package and import are `harness3`. The user-facing brand is Harness³.
 
 ```sh
 python3 scripts/render-progress.py --check
+node --test scripts/test-*.cjs
 cargo check --locked --workspace --all-targets
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace

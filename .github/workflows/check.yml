@@ -17,7 +17,8 @@ jobs:
       - run: cargo check --locked --workspace --all-targets
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
-      - run: for script in crates/harness3-platform/web/*.js; do node --check "$script" || exit; done
+      - run: find web/src -name '*.js' -print0 | xargs -0 -n1 node --check
+      - run: node --test scripts/test-*.cjs
       - run: python3 examples/plugins/http-reader/test_worker.py
       - run: cargo run --locked --example quickstart
       - run: cargo doc --locked --workspace --no-deps

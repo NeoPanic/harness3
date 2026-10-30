@@ -6,7 +6,7 @@ const vm=require('node:vm');
 
 function consoleContext(){
   const context=vm.createContext({});
-  const app=readFileSync(resolve(__dirname,'../crates/harness3-platform/web/app.js'),'utf8');
+  const app=readFileSync(resolve(__dirname,'../web/src/app/app.js'),'utf8');
   vm.runInContext(app.slice(0,app.indexOf("document.addEventListener('click'")),context);
   return context;
 }
@@ -20,19 +20,19 @@ test('历史记录包含日期，跨日运行不会只显示相同时刻',()=>{
 
 test('能力列表每项仅有一个状态标签，范围与验证信息完整保留',()=>{
   const context=consoleContext();
-  vm.runInContext(`data={capabilities:[{name:'能力 <A>',phase:'P1',status:'partial',scope:'extension',verification:'native-tests-and-browser',detail:'已知限制',source:['src/lib.rs'],target:['future/']}]}`,context);
+  vm.runInContext(`data={capabilities:[{name:'能力 <A>',phase:'P1',status:'partial',scope:'extension',verification:'native-tests-and-browser',detail:'已知限制',source:['crates/harness3-core/src/lib.rs'],target:['future/']}]}`,context);
   const html=vm.runInContext('progressPage()',context);
   assert.equal((html.match(/class="badge /g)||[]).length,1);
   assert(html.includes('后续扩展'));
   assert(html.includes('原生测试与 Web 联调'));
-  assert(html.includes('src/lib.rs'));
+  assert(html.includes('crates/harness3-core/src/lib.rs'));
   assert(html.includes('能力 &lt;A&gt;'));
 });
 
 test('调研工具列表按需展开，工具名称不会作为 HTML 执行',()=>{
   const context=consoleContext(),target={};
   context.document={querySelector:()=>target,addEventListener(){}};
-  vm.runInContext(readFileSync(resolve(__dirname,'../crates/harness3-platform/web/research.js'),'utf8'),context);
+  vm.runInContext(readFileSync(resolve(__dirname,'../web/src/features/research/research.js'),'utf8'),context);
   vm.runInContext(`data={presets:[{name:'test',version:'1',definition:{protocol:'demo'}}]};presetBindings=()=>[{kind:'process',id:'<img>',manifest:{tools:[{name:'<script>'}]}}];updateResearchCapabilities({elements:{preset:{value:'{"name":"test","version":"1"}'}}})`,context);
   assert(target.innerHTML.includes('<details>'));
   assert(target.innerHTML.includes('可用工具（2）'));
@@ -62,7 +62,7 @@ test('总览优先显示忙碌实例，不将已终止实例列入未终止列�
 
 test('全局插件执行关闭时，版本启用不能显示为允许调用',()=>{
   const context=consoleContext();
-  vm.runInContext(readFileSync(resolve(__dirname,'../crates/harness3-platform/web/plugins.js'),'utf8'),context);
+  vm.runInContext(readFileSync(resolve(__dirname,'../web/src/features/plugins/plugins.js'),'utf8'),context);
   vm.runInContext(`data={process_plugin_execution:false,process_plugins:[{
     id:'local.test',version:'1.0.0',state:'enabled',definition:{manifest:{tools:[]}}
   }],plugins:[],builtin_plugins:[]}`,context);
@@ -73,7 +73,7 @@ test('全局插件执行关闭时，版本启用不能显示为允许调用',()=
 
 test('详情中的插件授权也服从全局执行开关',()=>{
   const context=consoleContext();
-  vm.runInContext(readFileSync(resolve(__dirname,'../crates/harness3-platform/web/plugins.js'),'utf8'),context);
+  vm.runInContext(readFileSync(resolve(__dirname,'../web/src/features/plugins/plugins.js'),'utf8'),context);
   vm.runInContext(`data={process_plugin_execution:false,presets:[]};
     let detail='';openModal=(title,html)=>{detail=html};
     processDetail({id:'local.test',version:'1',state:'enabled',definition:{manifest:{runtime:{},tools:[]}}});`,context);
@@ -86,7 +86,10 @@ test('离开页面或关闭后，过期的产物与文件请求不再打开弹�
   for(const [file,call] of [['artifacts.js',"artifactDetail('id')"],['workspaces.js',"workspaceOpen('id')"],['workspaces.js',"workspaceFile('id','file.txt')"],['workspaces.js',"workspaceArtifactDetail('id')"]]){
     const context=consoleContext();
     context.document={addEventListener(){}};
-    vm.runInContext(readFileSync(resolve(__dirname,'../crates/harness3-platform/web/'+file),'utf8'),context);
+    vm.runInContext(readFileSync(resolve(__dirname,'../'+({
+      'artifacts.js':'web/src/features/artifacts/artifacts.js',
+      'workspaces.js':'web/src/features/workspaces/workspaces.js'
+    }[file])),'utf8'),context);
     vm.runInContext(`let finish;api=()=>new Promise(resolve=>{finish=resolve});
       openModal=()=>{throw new Error('stale dialog opened')};`,context);
     const pending=vm.runInContext(call,context);

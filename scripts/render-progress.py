@@ -20,7 +20,7 @@ for feature in features:
     sources = '<br>'.join(f'`{s}`' for s in feature['source']) or '尚无实现模块'
     targets = '<br>'.join(f'`{s}`' for s in feature['target'])
     lines.append(f"| {feature['name']} | {sources} | {targets} |")
-lines += ['', '## 当前源码目录', '', '以下从实际文件生成，列出运行内核、平台、插件协议/SDK 与客户端/插件示例，不包含构建产物。架构设计中的目标树表达职责拆分，不要求预先创建空包。', '', '```text']
+lines += ['', '## 当前源码目录', '', '以下从实际文件生成，列出 workspace 各 crate、独立 Web 源码与客户端/插件示例，不包含构建产物。架构设计中的目标树表达职责拆分，不要求预先创建空包。', '', '```text']
 def tree(path, prefix=''):
     children = sorted((p for p in path.iterdir() if p.name not in {'__pycache__', '.DS_Store'} and p.suffix != '.pyc'), key=lambda p: (not p.is_dir(), p.name))
     for index, child in enumerate(children):
@@ -28,7 +28,7 @@ def tree(path, prefix=''):
         lines.append(prefix + ('└── ' if last else '├── ') + child.name + ('/' if child.is_dir() else ''))
         if child.is_dir():
             tree(child, prefix + ('    ' if last else '│   '))
-for directory in ['src', 'crates/harness3-platform', 'crates/harness3-plugin-protocol', 'crates/harness3-plugin-sdk', 'examples/clients', 'examples/plugins']:
+for directory in ['crates', 'plugins', 'web', 'examples/clients', 'examples/plugins']:
     lines.append(directory + '/')
     tree(root / directory)
 lines += ['```', '', '维护方式：修改能力 JSON 或源码目录后运行 `python3 scripts/render-progress.py`；CI 使用 `--check` 检查文档同步与来源路径。', '']

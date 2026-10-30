@@ -1,4 +1,5 @@
 //! Per-instance local files and immutable, attributable shared file/JSON snapshots.
+pub mod artifacts;
 mod tools;
 use crate::{
     domain::*,

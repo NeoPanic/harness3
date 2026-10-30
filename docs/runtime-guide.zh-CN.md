@@ -112,7 +112,7 @@ sequenceDiagram
     E-->>H: Report
 ```
 
-对应入口：[engine.rs 的 `run_session`](../src/engine.rs)。上图展示放行的正常路径；权限拒绝会生成错误回执，不会进入实际工具执行。
+对应入口：[engine.rs 的 `run_session`](../crates/harness3-core/src/engine.rs)。上图展示放行的正常路径；权限拒绝会生成错误回执，不会进入实际工具执行。
 
 用一个具体例子理解：
 
@@ -198,7 +198,7 @@ sequenceDiagram
     E->>D: 保存工具回执
 ```
 
-对应代码：[engine.rs](../src/engine.rs) 的 `progressive-tools`、`skill_load`、`tool_load` 分支，以及 [skills.rs](../src/skills.rs)。
+对应代码：[engine.rs](../crates/harness3-core/src/engine.rs) 的 `progressive-tools`、`skill_load`、`tool_load` 分支，以及 [skills.rs](../crates/harness3-core/src/skills.rs)。
 
 这里有三层不同的含义：
 
@@ -245,7 +245,7 @@ sequenceDiagram
     end
 ```
 
-对应代码：[engine.rs](../src/engine.rs) 的输入准入，以及 [session.rs](../src/session.rs) 的 `SessionStore`、`checkpoint`、`seal`、`validate_append`。
+对应代码：[engine.rs](../crates/harness3-core/src/engine.rs) 的输入准入，以及 [session.rs](../crates/harness3-core/src/session.rs) 的 `SessionStore`、`checkpoint`、`seal`、`validate_append`。
 
 **防重复和防并发解决的是两个问题。**
 
@@ -300,7 +300,7 @@ sequenceDiagram
     end
 ```
 
-对应代码：[engine.rs](../src/engine.rs) 的工具取消与收尾，以及 [session.rs](../src/session.rs) 的 `settle_pending`、`recover_interrupted`。
+对应代码：[engine.rs](../crates/harness3-core/src/engine.rs) 的工具取消与收尾，以及 [session.rs](../crates/harness3-core/src/session.rs) 的 `settle_pending`、`recover_interrupted`。
 
 为什么不简单“失败就重试”？因为请求失败可能只是响应丢失，实际操作已经成功。如果是发消息或写资料，盲目重试就可能重复发送或重复创建。
 
@@ -347,7 +347,7 @@ sequenceDiagram
     E->>M: 正常请求：历史摘要 + 保留内容
 ```
 
-对应代码：[context.rs](../src/context.rs) 与 [session.rs](../src/session.rs) 的 `project`。
+对应代码：[context.rs](../crates/harness3-core/src/context.rs) 与 [session.rs](../crates/harness3-core/src/session.rs) 的 `project`。
 
 默认配置是 128,000 Token 窗口，80% 触发，尝试压到 60%，为输出预留 8,192 Token，摘要最多 8,192 Token，保留最近两个完整交换单元。模型适配器或宿主可以覆盖这些值。
 
@@ -367,7 +367,7 @@ sequenceDiagram
 
 ### `lib.rs`：公共词汇和接口
 
-[打开源码](../src/lib.rs)。先看它，可以知道其他文件传来传去的是什么。
+[打开源码](../crates/harness3-core/src/lib.rs)。先看它，可以知道其他文件传来传去的是什么。
 
 - 输入类：`InboundEvent`、`Request`、`Context`。`Context` 带运行 ID、来源、事件 ID、原始文字和宿主元数据，交给工具判断本次操作的上下文。
 - 模型类：`ModelInput`、`ModelReply`、`Model`、`LiveOutput`。`ModelReply.calls` 是模型希望执行的工具列表；`continuation` 留给供应商适配器保存专有续接状态。
@@ -381,7 +381,7 @@ sequenceDiagram
 
 ### `engine.rs`：主流程
 
-[打开源码](../src/engine.rs)。这是整套代码最重要的阅读入口。
+[打开源码](../crates/harness3-core/src/engine.rs)。这是整套代码最重要的阅读入口。
 
 `Harness` 持有注册表、运行限制、诊断缓冲和可选上下文预算。`run_session` 依次处理准入、提示词、模型循环、工具执行、收尾。`parallel_allowed` 判断并行资格；`execute_call` 统一执行工具并处理期限与取消；`run` 是一次性会话的便捷包装；`remaining` 计算剩余时间；`loaded_tool_names` 从回执恢复已加载工具。
 
@@ -393,7 +393,7 @@ sequenceDiagram
 
 ### `registry.rs`：组装能力
 
-[打开源码](../src/registry.rs)。保存名称到实现的映射，比如模型名到 `Model`、工具名到 `Tool`。名称重复时拒绝注册，避免无意替换原能力。
+[打开源码](../crates/harness3-core/src/registry.rs)。保存名称到实现的映射，比如模型名到 `Model`、工具名到 `Tool`。名称重复时拒绝注册，避免无意替换原能力。
 
 `provide<T>` / `service<T>` 提供带类型检查的共享能力；例如 `progressive-tools` 服务的值是入口工具名列表。
 
@@ -403,7 +403,7 @@ sequenceDiagram
 
 ### `session.rs`：会话档案与恢复
 
-[打开源码](../src/session.rs)。实现会话结构、内存存储、历史重建、分支、压缩投影和故障收尾。
+[打开源码](../crates/harness3-core/src/session.rs)。实现会话结构、内存存储、历史重建、分支、压缩投影和故障收尾。
 
 `checkpoint` 将新事实封成增量事件，再按期望版本保存。`seal` / `validate_append` 阻止改写已有历史；`request_input` 重建当时模型请求；`recover_interrupted` 处理已经失去执行者的运行。
 
@@ -411,25 +411,25 @@ sequenceDiagram
 
 ### `context.rs`：上下文预算与摘要方案
 
-[打开源码](../src/context.rs)。`ContextBudget` 存预算；`used_tokens` 算占用；`plan` 找可以摘要的完整历史前缀；`proposed` 验证摘要。它负责计算和规划，真正模型调用仍在 `engine.rs`。
+[打开源码](../crates/harness3-core/src/context.rs)。`ContextBudget` 存预算；`used_tokens` 算占用；`plan` 找可以摘要的完整历史前缀；`proposed` 验证摘要。它负责计算和规划，真正模型调用仍在 `engine.rs`。
 
 ### `skills.rs`：说明书与参考资源
 
-[打开源码](../src/skills.rs)。`Manifest` 是能力包清单，`SkillInfo` 是目录信息，`LoadedSkill` 是实际说明及内容哈希。`FileBundle` 支持磁盘文件和编译进程序的文本。
+[打开源码](../crates/harness3-core/src/skills.rs)。`Manifest` 是能力包清单，`SkillInfo` 是目录信息，`LoadedSkill` 是实际说明及内容哈希。`FileBundle` 支持磁盘文件和编译进程序的文本。
 
 磁盘技能实际加载时重新读取正文，计算 SHA-256 作为内容版本；这不是签名校验，也不表示文件可信。这里只读取说明和声明的资源，不运行脚本、不动态加载本地二进制插件。
 
 ### `prompt.rs` 与 `interaction.md`：组合模型工作要求
 
-[prompt.rs](../src/prompt.rs) 定义 `PromptSection`。引擎按 `(order, name)` 排序，将各段 `render` 的结果追加到任务指令里。
+[prompt.rs](../crates/harness3-core/src/prompt.rs) 定义 `PromptSection`。引擎按 `(order, name)` 排序，将各段 `render` 的结果追加到任务指令里。
 
-[interaction.md](../src/interaction.md) 是 `InteractionPrinciples` 引入的通用指导：跟随用户当前目标、按证据选择工具、错误后调整方法、保留已完成结果、区分成功和不确定性。宿主需显式注册这段提示词，它不是自动生效的全局规则。
+[interaction.md](../crates/harness3-core/src/interaction.md) 是 `InteractionPrinciples` 引入的通用指导：跟随用户当前目标、按证据选择工具、错误后调整方法、保留已完成结果、区分成功和不确定性。宿主需显式注册这段提示词，它不是自动生效的全局规则。
 
 提示词主要影响模型行为，不能替代工具端校验或执行权限检查。
 
 ### `policy.rs`：三个执行检查点
 
-[打开源码](../src/policy.rs)。按注册顺序调用。
+[打开源码](../crates/harness3-core/src/policy.rs)。按注册顺序调用。
 
 | 接口 | 发生时机 | 可以做什么 | 关键边界 |
 | --- | --- | --- | --- |
@@ -441,7 +441,7 @@ sequenceDiagram
 
 ### `trace.rs`：诊断记录
 
-[打开源码](../src/trace.rs)。`Trace` 在内存保留最近 10,000 条诊断事件；`Harness::trace_events()` 可以取出。宿主可注册 `TraceSink` 转存或转发，每次记录最多等待 2 秒，失败不使业务回执失效。
+[打开源码](../crates/harness3-core/src/trace.rs)。`Trace` 在内存保留最近 10,000 条诊断事件；`Harness::trace_events()` 可以取出。宿主可注册 `TraceSink` 转存或转发，每次记录最多等待 2 秒，失败不使业务回执失效。
 
 不要混淆三个“记录”机制：
 
@@ -455,17 +455,17 @@ sequenceDiagram
 
 ### `driver.rs`：给宿主的统一执行入口
 
-[打开源码](../src/driver.rs)。定义 `AgentDriver::run_turn`，`Harness` 的实现直接委托给 `run_session`。宿主可面向这个接口调用，未来更换执行循环时仍使用同一组入参和报告。
+[打开源码](../crates/harness3-core/src/driver.rs)。定义 `AgentDriver::run_turn`，`Harness` 的实现直接委托给 `run_session`。宿主可面向这个接口调用，未来更换执行循环时仍使用同一组入参和报告。
 
 ### `transport.rs`：显式发送消息
 
-[打开源码](../src/transport.rs)。`Outbound` 是待发消息，`Receipt` 是外部发送回执，`Transport::send` 是发送接口。`Registry::deliver` 验证基本字段并调用已登记适配器。
+[打开源码](../crates/harness3-core/src/transport.rs)。`Outbound` 是待发消息，`Receipt` 是外部发送回执，`Transport::send` 是发送接口。`Registry::deliver` 验证基本字段并调用已登记适配器。
 
 模型回复完成不会自动触发发送。宿主决定是否发送、给谁发送，并管理发送台账、凭据与不确定结果。生成答复和对外投递是两项独立操作。
 
 ### `work.rs`：后台工作领取接口
 
-[打开源码](../src/work.rs)。只有 `WorkLease`、`WorkStore::claim`、`settle`：领取任务租约，处理后结算。
+[打开源码](../crates/harness3-core/src/work.rs)。只有 `WorkLease`、`WorkStore::claim`、`settle`：领取任务租约，处理后结算。
 
 租约类似临时领取凭证，包含工作 ID、代次、令牌和载荷。这里没有定时器、后台轮询循环或实际存储实现；调度和执行由宿主负责，`engine.rs` 也不会自动调用它。
 

@@ -361,6 +361,8 @@ Web 面向桌面操作，按 **场景 → 协作 → 运行 → 配置** 分层�
 
 以下目录表达职责与依赖边界；可以先以 crate 内子模块实现，再按规模拆分，无需建立空包。实际代码落点及完整源码树见[模块映射](capabilities.zh-CN.md#当前模块--目标目录)。
 
+当前已完成第一轮目录迁移：根清单改为 workspace，独立内核位于 `crates/harness3-core`，包名仍为 `harness3`；控制台移至根目录 `web`，按 `src/app` 与 `src/features` 分组，继续使用原生静态资源，无需构建依赖。平台 crate 内按 `control`、`collaboration`、`scheduling`、`storage`、`worker`、`entrypoints` 分组，原公开模块路径通过重导出兼容。存储、Worker、入口和领域类型仍在同一 crate，事务与具体类型仍有耦合，尚未形成下方目标树中的独立依赖边界。
+
 ```text
 harness3/
 ├── Cargo.toml                         # workspace、统一依赖与 feature 管理
@@ -485,7 +487,7 @@ harness3/
 │           ├── tools/                 # 控制面与任务操作，分别鉴权
 │           ├── resources/             # 目标状态、产物、平台文档
 │           └── transports/            # stdio / Streamable HTTP 传输
-├── plugins/                           # 随平台发布的第一方插件包
+├── plugins/                           # 第一方插件包；当前约定见 plugins/README.md
 │   ├── organization/                  # 消息、任务认领、委派、受限 agents.spawn
 │   │   ├── plugin.yaml / schemas/
 │   │   └── src/                       # 调用平台用例，不绕过组织服务事务

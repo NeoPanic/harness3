@@ -8,11 +8,11 @@ description = "Local Harness³ control plane and inspection console"
 
 [[bin]]
 name = "harness3"
-path = "src/main.rs"
+path = "src/entrypoints/cli/main.rs"
 doc = false
 
 [dependencies]
-harness3 = { path = "../.." }
+harness3 = { path = "../harness3-core" }
 harness3-plugin-protocol = { path = "../harness3-plugin-protocol" }
 async-trait = "0.1"
 axum = "0.8"

@@ -102,7 +102,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/board.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/board/board.js"
+                    )),
                 )
             }),
         )
@@ -119,7 +122,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
-                    include_str!("../web/studio.css"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/studio/studio.css"
+                    )),
                 )
             }),
         )
@@ -128,20 +134,31 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/studio.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/studio/studio.js"
+                    )),
                 )
             }),
         )
         .route(
             "/",
-            get(|| async { Html(include_str!("../web/index.html")) }),
+            get(|| async {
+                Html(include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../../web/index.html"
+                )))
+            }),
         )
         .route(
             "/app.js",
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/app.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/app/app.js"
+                    )),
                 )
             }),
         )
@@ -150,7 +167,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
-                    include_str!("../web/app.css"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/app/app.css"
+                    )),
                 )
             }),
         )
@@ -159,7 +179,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/presets.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/presets/presets.js"
+                    )),
                 )
             }),
         )
@@ -168,7 +191,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/plugins.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/plugins/plugins.js"
+                    )),
                 )
             }),
         )
@@ -177,7 +203,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/fleets.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/agents/fleets.js"
+                    )),
                 )
             }),
         )
@@ -186,7 +215,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/goals.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/goals/goals.js"
+                    )),
                 )
             }),
         )
@@ -195,7 +227,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "image/svg+xml")],
-                    include_str!("../../../docs/brand/mark.svg"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../docs/brand/mark.svg"
+                    )),
                 )
             }),
         )
@@ -213,7 +248,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/research.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/research/research.js"
+                    )),
                 )
             }),
         )
@@ -228,7 +266,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/messages.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/messages/messages.js"
+                    )),
                 )
             }),
         )
@@ -266,7 +307,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/verification.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/goals/verification.js"
+                    )),
                 )
             }),
         )
@@ -275,7 +319,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/tasks.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/goals/tasks.js"
+                    )),
                 )
             }),
         )
@@ -301,7 +348,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/collaboration.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/collaboration/context.js"
+                    )),
                 )
             }),
         )
@@ -313,7 +363,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/artifacts.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/artifacts/artifacts.js"
+                    )),
                 )
             }),
         )
@@ -341,7 +394,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/autonomy.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/autonomy/autonomy.js"
+                    )),
                 )
             }),
         )
@@ -351,7 +407,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/workspaces.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/workspaces/workspaces.js"
+                    )),
                 )
             }),
         )
@@ -360,7 +419,10 @@ pub fn router(app: App) -> Router {
             get(|| async {
                 (
                     [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
-                    include_str!("../web/channels.js"),
+                    include_str!(concat!(
+                        env!("CARGO_MANIFEST_DIR"),
+                        "/../../web/src/features/channels/channels.js"
+                    )),
                 )
             }),
         )
