@@ -27,8 +27,28 @@ test('发布表单只收集任务，不要求选择 preset 或实例',()=>{
 test('空任务板提供发布入口，快照尚无 board 时可正常显示',()=>{
   context.data={};
   const html=vm.runInContext('boardPage()',context);
-  assert(html.includes('发布第一个任务'));
+  assert(html.includes('还没有发布任务'));
+  assert.equal((html.match(/data-action="board-publish"/g)||[]).length,1);
   assert(html.includes('0 项待完成'));
+});
+
+test('完成与取消归入历史，失败和结果未知任务仍在当前列表',()=>{
+  context.location.hash='#board';
+  context.data={board:{tasks:[
+    {id:'done',title:'已交付',state:'completed'},
+    {id:'cancel',title:'已撤回',state:'cancelled'},
+    {id:'failed',title:'需要排查',state:'failed',instructions:'<img src=x>检查失败原因'},
+    {id:'unknown',title:'需要核对',state:'interrupted'},
+    {id:'blocked',title:'需要解除阻断',state:'blocked'},
+    {id:'pending',title:'等待执行',state:'pending'},
+  ]}};
+  const html=vm.runInContext('boardPage()',context),[current,history]=html.split('<details id="board-history"');
+  for(const title of ['需要排查','需要核对','需要解除阻断','等待执行'])assert(current.includes(title));
+  assert(!current.includes('已交付'));
+  assert(history.includes('已交付'));
+  assert(history.includes('已撤回'));
+  assert(!html.includes('<img'));
+  assert(html.includes('&lt;img src=x&gt;'));
 });
 
 test('已选型未认领和执行中状态分开显示',()=>{

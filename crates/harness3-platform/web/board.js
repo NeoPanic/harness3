@@ -17,7 +17,7 @@ function boardPreset(task){return task.state==='pending'&&!boardProvisioned(task
 function boardStatus(task,route){return task.state==='pending'?(boardProvisioned(task)?'等待认领':route?.state==='routing'?'正在选型':route?.error?'选型待重试':'等待选型'):boardStates[task.state]||task.state;}
 function boardTaskRow(task){
   const route=boardRoute(task.id);
-  return `<a class="board-task-row" href="#board/${esc(task.id)}"><span class="board-task-copy"><strong>${esc(task.title)}</strong><span>${esc(boardPreset(task)?`${task.preset_name} @ ${task.preset_version}`:route?.error?boardRoutingMessage(route.error):'控制面按任务选择 Preset')}${task.parent_id?' · 子任务':''}</span></span>${badge(task.state,boardStatus(task,route))}<span aria-hidden="true">↗</span></a>`;
+  return `<a class="board-task-row" href="#board/${esc(task.id)}"><span class="board-task-copy"><strong>${esc(task.title)}</strong>${task.instructions?`<span class="board-task-preview">${esc(task.instructions)}</span>`:''}<span>${esc(boardPreset(task)?`${task.preset_name} @ ${task.preset_version}`:route?.error?boardRoutingMessage(route.error):'控制面按任务选择 Preset')}${task.parent_id?' 子任务':''}</span></span>${badge(task.state,boardStatus(task,route))}<span aria-hidden="true">→</span></a>`;
 }
 function boardPage(){
   const board=boardData(),tasks=board.tasks||[],id=boardId();
@@ -27,18 +27,18 @@ function boardPage(){
     return task?boardDetail(task,tasks):`<a class="back-link" href="#board">← 任务板</a>${empty('任务未出现在当前快照','请返回任务板或刷新后重试。',button('刷新','board-refresh'))}`;
   }
   const roots=tasks.filter(t=>!t.parent_id),active=tasks.filter(t=>!boardTerminal.has(t.state));
-  return head('','共享任务板','发布目标，控制面选择 Preset，Agent 入场认领。',button('发布任务','board-publish',true))+
-    `<div class="board-flow" aria-label="任务协作流程"><span>发布任务</span><span aria-hidden="true">→</span><span>选择 Preset</span><span aria-hidden="true">→</span><span>实例认领</span><span aria-hidden="true">→</span><span>执行 / 拆分回板</span></div>`+
+  const history=roots.filter(t=>['completed','cancelled'].includes(t.state)),current=roots.filter(t=>!['completed','cancelled'].includes(t.state));
+  return head('共享任务板', button('发布任务','board-publish',true))+
     (board.router?.error?`<div class="callout" role="status">选型暂不可用：${esc(board.router.error)}</div>`:'')+
-    panel('已发布任务',roots.length?`<div class="board-task-list">${roots.map(boardTaskRow).join('')}</div>`:empty('任务板空着','写下目标和验收标准，队员按需入场。',button('发布第一个任务','board-publish',true)),badge('neutral',`${active.length} 项待完成，含子任务`))+
-    (board.history_truncated?`<p class="hint">显示最近 ${esc(board.roots_included)} 项根任务及其子任务，共 ${esc(board.roots_total)} 项根任务。活动任务优先。</p>`:'')+
-    `<div class="board-footer"><a href="#studio">进入工作现场 ↗</a><a href="#research">固定调研模板 ↗</a></div>`;
+    panel('当前任务',current.length?`<div class="board-task-list">${current.map(boardTaskRow).join('')}</div>`:empty(roots.length?'当前没有待处理任务':'还没有发布任务',roots.length?'历史任务保留在下方。发布新任务后，在这里跟进选型、执行与结果。':'点击右上角“发布任务”，填写目标与验收标准。'),`<span class="board-count">${active.length} 项待完成，含子任务</span>`)+
+    (history.length?`<details id="board-history" class="board-history"><summary>历史任务 <span>${history.length} 项已完成或取消</span></summary><div class="board-task-list">${history.map(boardTaskRow).join('')}</div></details>`:'')+
+    (board.history_truncated?`<p class="hint">显示最近 ${esc(board.roots_included)} 项根任务及其子任务，共 ${esc(board.roots_total)} 项根任务。活动任务优先。</p>`:'');
 }
 function boardDetail(task,tasks){
   const children=tasks.filter(t=>t.parent_id===task.id),parent=tasks.find(t=>t.id===task.parent_id);
   const route=boardRoute(task.id),routingError=task.state==='pending'&&route?.error;
   const result=typeof task.result==='string'?task.result:task.result?.output||task.result;
-  return `<a class="back-link" href="#board">← 任务板</a>`+head('',esc(task.title),'',!boardTerminal.has(task.state)?button('取消任务','board-cancel',false,`data-id="${esc(task.id)}"`):'')+
+  return `<a class="back-link" href="#board">← 任务板</a>`+head(esc(task.title), !boardTerminal.has(task.state)?button('取消任务','board-cancel',false,`data-id="${esc(task.id)}"`):'')+
     `<div class="goal-summary"><div><span>进度</span>${badge(task.state,boardStatus(task,route))}</div><div><span>选中的 Preset</span><strong>${esc(boardPreset(task)?`${task.preset_name} @ ${task.preset_version}`:'待选型')}</strong></div><div><span>子任务</span><strong>${children.filter(t=>t.state==='completed').length} / ${children.length}</strong></div></div>`+
     (routingError?`<div class="callout" role="status" title="${esc(route.error)}">${esc(boardRoutingMessage(route.error))}${route.retry_at?`。下次尝试 ${esc(time(route.retry_at))}`:''}${route.attempts?`，已尝试 ${esc(route.attempts)} 次`:''}。</div>`:'')+
     (task.error?`<div class="callout" role="status">${esc(task.error)}</div>`:'')+
