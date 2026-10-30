@@ -95,3 +95,35 @@ test('离开页面或关闭后，过期的产物与文件请求不再打开弹�
     await pending;
   }
 });
+
+test('母体独立定义默认选择可用协议，继承切换恢复必填状态并清除过期错误',()=>{
+  const context=consoleContext();
+  context.document={addEventListener(){},querySelector(){return null}};
+  vm.runInContext(readFileSync(resolve(__dirname,'../web/src/features/presets/presets.js'),'utf8'),context);
+  vm.runInContext(`
+    data={presets:[{name:'parent',version:'1',definition:{purpose:'test',plugin_snapshots:[]}}]};
+    const summary={};document.querySelector=()=>summary;
+    const field=()=>({required:true,error:'old',setCustomValidity(v){this.error=v}});
+    const form={elements:{extends:{value:''},purpose:field(),objective:field(),instructions:field(),protocol:{...field(),value:'',options:[{value:''},{value:'demo'}]}}};
+    updatePresetParent(form);
+  `,context);
+  assert.equal(vm.runInContext('form.elements.protocol.value',context),'demo');
+  assert.equal(vm.runInContext('form.elements.protocol.required',context),true);
+  vm.runInContext(`form.elements.extends.value=JSON.stringify({name:'parent',version:'1'});updatePresetParent(form)`,context);
+  assert.equal(vm.runInContext('form.elements.protocol.value',context),'');
+  assert.equal(vm.runInContext('form.elements.purpose.required',context),false);
+  assert.equal(vm.runInContext('form.elements.purpose.error',context),'');
+  vm.runInContext(`form.elements.extends.value='';updatePresetParent(form)`,context);
+  assert.equal(vm.runInContext('form.elements.protocol.value',context),'demo');
+  assert.equal(vm.runInContext('form.elements.objective.required',context),true);
+});
+
+test('标识格式兼容浏览器 Unicode sets 正则，并拒绝中文和空格',()=>{
+  const context=consoleContext();context.document={addEventListener(){},querySelector(){return null}};
+  vm.runInContext(readFileSync(resolve(__dirname,'../web/src/features/presets/presets.js'),'utf8'),context);
+  vm.runInContext(`data={presets:[],plugins:[],models:[]};let markup='';openModal=(title,html)=>{markup=html};updatePresetParent=()=>{};presetForm()`,context);
+  const html=vm.runInContext('markup',context),pattern=html.match(/pattern="([^"]+)"/)[1];
+  const re=new RegExp(`^(?:${pattern})$`,'v');
+  assert(re.test('researcher-1.0_test'));
+  assert(!re.test('研究员'));assert(!re.test('research assistant'));
+});
