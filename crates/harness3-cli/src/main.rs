@@ -56,8 +56,6 @@ enum Command {
         codex_config_dir: Option<PathBuf>,
         #[arg(long, default_value = "gpt-6-luna")]
         model: String,
-        #[arg(long)]
-        demo: bool,
         /// Allow explicitly installed local process plugins to execute as this OS user.
         #[arg(long)]
         allow_process_plugins: bool,
@@ -132,7 +130,6 @@ async fn main() -> harness3_client::ClientResult<()> {
             data_dir,
             codex_config_dir,
             model,
-            demo,
             allow_process_plugins,
         } => {
             harness3_server::up(harness3_server::Options {
@@ -140,7 +137,6 @@ async fn main() -> harness3_client::ClientResult<()> {
                 data_dir,
                 codex_config_dir,
                 model,
-                demo,
                 allow_process_plugins,
             })
             .await?;

@@ -1,4 +1,4 @@
-//! Non-streaming protocol adapters. No provider/account is needed for demo mode.
+//! Non-streaming adapters for configured model providers.
 use harness3::{
     Call, CancellationToken, Error, LiveOutput, Model, ModelInput, ModelReply, Result, TokenUsage,
     Turn,
@@ -398,7 +398,6 @@ impl Model for Provider {
 
 #[derive(Clone, Default)]
 pub struct Models {
-    pub demo_only: bool,
     pub compatible: Option<std::sync::Arc<Provider>>,
     pub responses: Option<std::sync::Arc<Provider>>,
     pub anthropic: Option<std::sync::Arc<Provider>>,
@@ -406,7 +405,6 @@ pub struct Models {
 impl Models {
     pub fn from_env() -> Self {
         Self {
-            demo_only: false,
             compatible: Provider::from_env(Protocol::OpenaiCompatible)
                 .ok()
                 .map(std::sync::Arc::new),
@@ -470,6 +468,10 @@ impl Models {
     }
     pub fn describe(&self) -> Value {
         let info = |protocol: &str, provider: &Option<std::sync::Arc<Provider>>| json!({"protocol":protocol,"configured":provider.is_some(),"model":provider.as_ref().map(|p|p.model.clone())});
-        json!([{"protocol":"demo","configured":true,"model":"deterministic"},info("openai-compatible",&self.compatible),info("openai-responses",&self.responses),info("anthropic",&self.anthropic)])
+        json!([
+            info("openai-compatible", &self.compatible),
+            info("openai-responses", &self.responses),
+            info("anthropic", &self.anthropic)
+        ])
     }
 }

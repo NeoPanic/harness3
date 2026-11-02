@@ -44,7 +44,7 @@ pub(super) async fn publish(
     Json(preset): Json<Value>,
 ) -> PResult<Json<Value>> {
     Ok(Json(app.store.publish_checked(preset, |protocol| {
-        if *protocol != Protocol::Demo {
+        if *protocol != Protocol::Demo || !harness3_worker::test_model_enabled() {
             app.models.get(protocol)?;
         }
         Ok(())

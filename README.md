@@ -18,27 +18,27 @@ Crew animations follow real execution state: typing, waiting, or sleeping. Selec
 
 ## Start locally
 
-Requires **Rust 1.89+**. The deterministic Demo needs no model account or API key; Cargo downloads dependencies on the first build.
+Requires **Rust 1.89+**. The first start opens an empty workspace. Configure a model provider and publish your own Preset before running tasks; Cargo downloads dependencies on the first build.
 
 ```sh
 git clone https://github.com/NeoPanic/harness3.git
 cd harness3
-cargo run --locked -p harness3-cli -- up --demo
+cargo run --locked -p harness3-cli -- up
 ```
 
 Open [localhost:7333](http://127.0.0.1:7333) and sign in with the contents of `.harness3/token`. Local state is stored in `.harness3/`.
 
-1. Open **任务板** (Task Board) and publish the work and its acceptance criteria.
+1. Configure a model provider and publish a Preset in **母体 Presets**, then publish work and acceptance criteria in **任务板** (Task Board).
 2. Follow Preset selection, instance startup, and the Agent's claim and execution.
 3. Inspect any subtasks returned to the board and their results in **Agent 工作现场**.
 
-The Demo exercises the real control plane with deterministic responses; its outputs are explicitly labeled as demonstrations and do not constitute external research. The [task-board guide](docs/task-board.zh-CN.md) describes routing, claiming, splitting, and current limits. The existing **自主调研** screen remains available as an explicit planning/research/synthesis workflow template.
+Startup does not create sample Presets, instances or tasks. The [task-board guide](docs/task-board.zh-CN.md) describes routing, claiming, splitting, and current limits.
 
 For real models, configure one of **OpenAI-compatible Chat Completions**, **OpenAI Responses**, or **Anthropic Messages**. See the [getting-started guide](docs/getting-started.zh-CN.md) for configuration, CLI/API/MCP usage, and trusted local process plugins.
 
 ## Console example
 
-The local desktop console, shown with Demo data.
+The local desktop console, shown with historical sample data. New workspaces start empty.
 
 ![Harness³ desktop console overview](docs/images/console-overview.png)
 
@@ -59,7 +59,7 @@ The local desktop console, shown with Demo data.
 Agent pools manage resources from one Preset. Task-board work starts from a published task and provisions its own participants. Goal workflows provide separate channel, artifact, and review contracts; their capabilities are not automatically implied by a task-board result.
 
 <details>
-<summary>Explore the running Demo: team collaboration and workspace artifacts</summary>
+<summary>Historical console examples: team collaboration and workspace artifacts</summary>
 
 **Team collaboration.** Members, subscriptions, and discussion records remain inspectable after the team retires.
 

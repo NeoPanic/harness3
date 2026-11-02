@@ -6,6 +6,9 @@ rust-version = "1.89"
 license = "MIT"
 description = "Local Harness³ control plane and inspection console"
 
+[features]
+test-support = []
+
 [dependencies]
 harness3-builtin-plugins = { path = "../../plugins" }
 harness3-storage = { path = "../harness3-storage" }

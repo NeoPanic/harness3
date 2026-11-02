@@ -101,12 +101,16 @@ fn setup() -> (Store, Models) {
     (store, models)
 }
 #[test]
-fn explicit_demo_mode_uses_only_local_routing() {
-    let (_, mut models) = setup();
-    models.demo_only = true;
-    assert_eq!(
-        Router::from_env(&models).unwrap().describe()["mode"],
-        "deterministic-demo"
+fn unconfigured_models_have_no_demo_fallback() {
+    let router = Router::from_env(&Models::default()).unwrap();
+    assert_eq!(router.describe()["mode"], "unconfigured");
+    assert!(
+        Models::default()
+            .describe()
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|m| m["protocol"] != "demo")
     );
 }
 #[test]

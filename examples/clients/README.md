@@ -1,6 +1,6 @@
 # Local platform clients
 
-Start `harness3 up --demo` from the repository root. CLI and MCP connect to that daemon; neither starts a second daemon or accesses SQLite directly.
+Start `harness3 up` from the repository root. CLI and MCP connect to that daemon; neither starts a second daemon or accesses SQLite directly.
 
 ```sh
 ./target/debug/harness3 fleets create --file examples/clients/fleet.json --key local-demo-1

@@ -5,6 +5,9 @@ edition = "2024"
 rust-version = "1.89"
 license = "MIT"
 
+[features]
+test-support = []
+
 [dependencies]
 harness3-builtin-plugins = { path = "../../plugins" }
 harness3-platform = { path = "../harness3-platform" }

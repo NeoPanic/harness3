@@ -128,7 +128,14 @@ pub(super) async fn execute(
         );
     }
     let model: Arc<dyn Model> = if preset.protocol == Protocol::Demo {
-        Arc::new(DemoModel)
+        #[cfg(feature = "test-support")]
+        {
+            Arc::new(DemoModel)
+        }
+        #[cfg(not(feature = "test-support"))]
+        {
+            return Err(fault(400, "model_not_configured"));
+        }
     } else {
         models.get(&preset.protocol)?
     };

@@ -361,7 +361,7 @@ Web 面向桌面操作，按 **场景 → 协作 → 运行 → 配置** 分层�
 
 以下目录表达职责与依赖边界；可以先以 crate 内子模块实现，再按规模拆分，无需建立空包。实际代码落点及完整源码树见[模块映射](capabilities.zh-CN.md#当前模块--目标目录)。
 
-当前 workspace 有 13 个包：core、domain、platform、storage、plugin-protocol、plugin-sdk、plugins 宿主、models、worker、server、client、cli，以及根目录 plugins 内的 builtin-plugins。独立内核包名为 `harness3`，命令行二进制为 `harness3`；源码启动使用 `cargo run --locked -p harness3-cli -- up --demo`。domain 保存共享类型与纯校验；storage 保存连接、schema、事务和会话；platform 保留业务 SQL 与应用回填。client 只负责 HTTP 客户端，对外 MCP stdio Server 位于 server/src/mcp.rs。当前内置 text、web.fetch、web.search，插件页暂不提供安装；下文统一安装、热加载等为目标设计。控制台位于根目录 web/src/app 与 web/src/features，无前端打包依赖。依赖约束和导入迁移见 [workspace 边界](workspace.zh-CN.md)。
+当前 workspace 有 13 个包：core、domain、platform、storage、plugin-protocol、plugin-sdk、plugins 宿主、models、worker、server、client、cli，以及根目录 plugins 内的 builtin-plugins。独立内核包名为 `harness3`，命令行二进制为 `harness3`；源码启动使用 `cargo run --locked -p harness3-cli -- up`。domain 保存共享类型与纯校验；storage 保存连接、schema、事务和会话；platform 保留业务 SQL 与应用回填。client 只负责 HTTP 客户端，对外 MCP stdio Server 位于 server/src/mcp.rs。当前内置 text、web.fetch、web.search，插件页暂不提供安装；下文统一安装、热加载等为目标设计。控制台位于根目录 web/src/app 与 web/src/features，无前端打包依赖。依赖约束和导入迁移见 [workspace 边界](workspace.zh-CN.md)。
 
 ```text
 harness3/

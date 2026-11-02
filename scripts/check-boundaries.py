@@ -20,6 +20,12 @@ def closure(name, trail=()):
             result.update(closure(child, trail + (name,)))
     return result
 
+for name, package in packages.items():
+    assert 'test-support' not in package['features'].get('default', []), name
+    for dependency in package['dependencies']:
+        if dependency['kind'] != 'dev':
+            assert 'test-support' not in dependency['features'], (name, dependency['name'])
+
 for name in graph:
     closure(name)
 for name in ['harness3-domain', 'harness3-client', 'harness3-models', 'harness3-plugins']:

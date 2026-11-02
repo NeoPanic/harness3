@@ -18,27 +18,27 @@
 
 ## 本地启动
 
-需要 **Rust 1.89+**。确定性 Demo 无需模型账号或 API Key；首次编译由 Cargo 下载依赖。
+需要 **Rust 1.89+**。首次启动为空白工作区；执行任务前需配置模型并发布自己的母体。首次编译由 Cargo 下载依赖。
 
 ```sh
 git clone https://github.com/NeoPanic/harness3.git
 cd harness3
-cargo run --locked -p harness3-cli -- up --demo
+cargo run --locked -p harness3-cli -- up
 ```
 
 打开 [localhost:7333](http://127.0.0.1:7333)，使用 `.harness3/token` 的内容登录。本地状态保存在 `.harness3/`。
 
-1. 进入 **任务板**，发布工作要求与验收标准。
+1. 配置模型并在 **母体 Presets** 发布母体，再进入 **任务板** 发布工作要求与验收标准。
 2. 查看 Preset 选型、实例启动、Agent 认领与执行状态。
 3. 在 **Agent 工作现场** 检查回投的子任务、参与实例与结果。
 
-Demo 使用确定性响应运行真实控制面，输出明确标记为演示，不代表外部调研结果。[任务板指南](docs/task-board.zh-CN.md)说明选型、认领、拆分和当前边界。已有的 **自主调研** 页面保留为显式选择的规划 / 研究 / 汇总流程模板。
+启动不自动创建示例母体、实例或任务。[任务板指南](docs/task-board.zh-CN.md)说明选型、认领、拆分和当前边界。
 
 真实模型支持 **OpenAI-compatible Chat Completions、OpenAI Responses、Anthropic Messages** 三种协议。模型配置、CLI / API / MCP 用法与可信本地进程插件设置见[入门指南](docs/getting-started.zh-CN.md)。
 
 ## 控制台示例
 
-以下为本地桌面控制台的 Demo 数据示例。
+以下截图使用历史样例数据，新工作区初始为空。
 
 ![Harness³ 桌面控制台总览](docs/images/console-overview.png)
 
@@ -59,7 +59,7 @@ Demo 使用确定性响应运行真实控制面，输出明确标记为演示，
 Agent 池管理同一母体的实例资源；任务板从发布任务开始，按需创建参与实例。Goal 流程另有频道、产物与验收契约，任务板结果不自动继承这些能力。
 
 <details>
-<summary>展开查看当前 Demo：团队协作与文件产物</summary>
+<summary>展开查看历史界面示例：团队协作与文件产物</summary>
 
 **团队协作。** 团队回收后仍可检查成员、订阅关系和讨论记录。
 

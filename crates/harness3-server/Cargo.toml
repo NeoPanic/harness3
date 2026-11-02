@@ -22,6 +22,8 @@ fs2 = "0.4"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+harness3-worker = { path = "../harness3-worker", features = ["test-support"] }
+harness3-platform = { path = "../harness3-platform", features = ["test-support"] }
 tower = { version = "0.5", features = ["util"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 async-trait = "0.1"

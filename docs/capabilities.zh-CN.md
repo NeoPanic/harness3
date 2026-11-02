@@ -81,7 +81,8 @@ crates/
 │   │   ├── commands.rs
 │   │   └── main.rs
 │   ├── tests/
-│   │   └── entrances.rs
+│   │   ├── entrances.rs
+│   │   └── startup.rs
 │   └── Cargo.toml
 ├── harness3-client/
 │   ├── src/
@@ -174,6 +175,8 @@ crates/
 │   │   │   └── tools.rs
 │   │   └── lib.rs
 │   ├── tests/
+│   │   └── support/
+│   │       └── routing.rs
 │   └── Cargo.toml
 ├── harness3-plugin-protocol/
 │   ├── src/
@@ -243,11 +246,13 @@ crates/
 │   └── Cargo.toml
 └── harness3-worker/
     ├── src/
-    │   ├── demo.rs
     │   ├── lib.rs
     │   ├── recovery.rs
     │   ├── runner.rs
     │   └── scheduler.rs
+    ├── tests/
+    │   └── support/
+    │       └── model.rs
     └── Cargo.toml
 plugins/
 ├── src/

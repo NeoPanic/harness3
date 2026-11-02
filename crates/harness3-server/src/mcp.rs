@@ -20,7 +20,7 @@ pub fn tools(allow_write: bool) -> Vec<Value> {
     },"required":["preset_name","preset_version","count"]});
     let preset = json!({"type":"object","additionalProperties":false,"properties":{
         "name":id,"version":id,"purpose":text,"objective":text,"instructions":text,
-        "protocol":{"type":"string","enum":["demo","openai-compatible","openai-responses","anthropic"]},
+        "protocol":{"type":"string","enum":["openai-compatible","openai-responses","anthropic"]},
         "plugin":{"type":"object","additionalProperties":false,"properties":{"id":id,"version":id},"required":["id","version"]},
         "plugins":{"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"properties":{"id":id,"version":id},"required":["id","version"]}},
         "extends":{"type":"object","additionalProperties":false,"properties":{"name":id,"version":id},"required":["name","version"]},

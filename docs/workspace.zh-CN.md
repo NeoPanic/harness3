@@ -29,7 +29,7 @@ client 的常规依赖不包含 core、platform、Worker、插件宿主、Axum �
 ## 命令与导入迁移
 
 ```sh
-cargo run --locked -p harness3-cli -- up --demo
+cargo run --locked -p harness3-cli -- up
 cargo run --locked --example quickstart
 cargo test --locked --workspace
 ```
@@ -50,4 +50,4 @@ storage 负责连接、schema 初始化、事务和会话持久化；platform::s
 
 对外 MCP Server 位于 server/src/mcp.rs，通过 client 调用 HTTP；未来 MCP 客户端接入应放在 client 内。无需独立 MCP 包或目录。
 
-worker 按 demo、runner、recovery、scheduler 分文件；server/api 按 routes、auth、handlers、status 分文件。仅在模块具有独立职责时继续拆分，不为目标树预建空目录。
+worker 按 runner、recovery、scheduler 分文件；离线回归模型放在 tests/support，仅 test-support 特性启用时编译；server/api 按 routes、auth、handlers、status 分文件。仅在模块具有独立职责时继续拆分，不为目标树预建空目录。

@@ -39,6 +39,7 @@ pub fn valid_name(s: &str) -> bool {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Protocol {
+    // Legacy persisted snapshots and offline test fixtures; unavailable in the service.
     Demo,
     OpenaiCompatible,
     OpenaiResponses,

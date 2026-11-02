@@ -433,7 +433,7 @@ async fn worker_loop_completes_a_peer_board_split_and_continuation() {
         Default::default(),
         stop.clone(),
         ProcessHost::disabled(s.clone()),
-        Router::demo(),
+        Router::for_tests(),
     ));
     let outcome = tokio::time::timeout(std::time::Duration::from_secs(25), async {
         loop {
